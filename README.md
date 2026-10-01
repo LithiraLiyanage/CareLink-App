@@ -1,17 +1,17 @@
-# carelink_app
+# CareLink
 
-A new Flutter project.
+CareLink is a Flutter mobile application developed for the IT3060 Human Computer Interaction project.
 
-## Getting Started
+## Main Roles
 
-This project is a starting point for a Flutter application.
+- Older Adult
+- Student Companion
+- Family Caregiver
+- Community Coordinator
 
-A few resources to get you started if this is your first Flutter project:
+## Development
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Flutter
+- Dart
+- VS Code
+- Android
