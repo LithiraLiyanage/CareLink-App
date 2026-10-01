@@ -6,21 +6,36 @@ void main() {
   testWidgets('CareLink splash screen loads', (WidgetTester tester) async {
     await tester.pumpWidget(const CareLinkApp());
 
-    // Check the temporary CareLink logo icon.
+    // Check that the splash screen is rendered.
+    expect(find.byType(Scaffold), findsOneWidget);
+
+    // Check the CareLink logo image.
     expect(
-      find.byIcon(Icons.volunteer_activism_rounded),
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/images/carelink_logo.png',
+      ),
+      findsOneWidget,
+    );
+
+    // Check the bottom splash artwork.
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/images/splash_bottom.png',
+      ),
       findsOneWidget,
     );
 
     // Check the CareLink tagline.
     expect(
       find.text('CONNECT  •  CARE  •  COMFORT'),
-      findsOneWidget,
-    );
-
-    // Check the splash slogan.
-    expect(
-      find.text('Small Conversations,\nBrighter Days.'),
       findsOneWidget,
     );
   });
