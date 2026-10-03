@@ -4,6 +4,7 @@ import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import 'manage_connection_screen.dart';
 
 class CurrentConnectionScreen extends StatelessWidget {
   const CurrentConnectionScreen({
@@ -103,10 +104,13 @@ class CurrentConnectionScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       OutlinedButton(
-                        // TODO: Navigate to W08 Manage Connection.
-                        onPressed: () => _showPlaceholder(
-                          context,
-                          strings.manageConnectionComingSoon,
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => ManageConnectionScreen(
+                              profile: profile,
+                              selectedLanguage: selectedLanguage,
+                            ),
+                          ),
                         ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: _careLinkTeal,

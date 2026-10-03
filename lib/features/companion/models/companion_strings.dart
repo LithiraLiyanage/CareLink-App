@@ -493,6 +493,66 @@ class CompanionStrings {
     CompanionLanguage.tamil => 'இந்த செயல்கள் முடிந்த சந்திப்புகளை பாதிக்காது.',
   };
 
+  String get manageConnectionTitle => switch (language) {
+    CompanionLanguage.english => 'Manage Connection',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාව කළමනාකරණය කරන්න',
+    CompanionLanguage.tamil => 'இணைப்பை நிர்வகிக்கவும்',
+  };
+
+  String get confirmationProtects => switch (language) {
+    CompanionLanguage.english =>
+      'Confirmation protects against accidental ending.',
+    CompanionLanguage.sinhala =>
+      'තහවුරු කිරීම අහම්බෙන් සම්බන්ධතාව අවසන් වීමෙන් ආරක්ෂා කරයි.',
+    CompanionLanguage.tamil =>
+      'உறுதிப்படுத்தல் தவறுதலாக இணைப்பை முடிப்பதைத் தடுக்கிறது.',
+  };
+
+  String get companionSince => switch (language) {
+    CompanionLanguage.english => 'Companion since Aug 2026',
+    CompanionLanguage.sinhala => '2026 අගෝස්තු සිට සහචරයා',
+    CompanionLanguage.tamil => 'ஆகஸ்ட் 2026 முதல் துணையாளர்',
+  };
+
+  String get reviewEndConnection => switch (language) {
+    CompanionLanguage.english => 'Review End Connection',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාව අවසන් කිරීම පරීක්ෂා කරන්න',
+    CompanionLanguage.tamil => 'இணைப்பை முடிப்பதை சரிபார்க்கவும்',
+  };
+
+  String get endThisConnection => switch (language) {
+    CompanionLanguage.english => 'End this connection?',
+    CompanionLanguage.sinhala => 'මෙම සම්බන්ධතාව අවසන් කරන්නද?',
+    CompanionLanguage.tamil => 'இந்த இணைப்பை முடிக்கவா?',
+  };
+
+  String endConnectionDescription(String firstName) => switch (language) {
+    CompanionLanguage.english =>
+      'This will end your active connection with $firstName. You can still find another companion later.',
+    CompanionLanguage.sinhala =>
+      'මෙය $firstName සමඟ ඇති ඔබගේ සක්‍රිය සම්බන්ධතාව අවසන් කරයි. ඔබට පසුව වෙනත් සහචරයෙකු සොයාගත හැක.',
+    CompanionLanguage.tamil =>
+      'இது $firstName உடனான உங்கள் செயலில் உள்ள இணைப்பை முடிக்கும். பின்னர் நீங்கள் மற்றொரு துணையாளரை தேடலாம்.',
+  };
+
+  String get keepConnection => switch (language) {
+    CompanionLanguage.english => 'Keep Connection',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාව තබා ගන්න',
+    CompanionLanguage.tamil => 'இணைப்பை தொடரவும்',
+  };
+
+  String get endConnection => switch (language) {
+    CompanionLanguage.english => 'End Connection',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාව අවසන් කරන්න',
+    CompanionLanguage.tamil => 'இணைப்பை முடிக்கவும்',
+  };
+
+  String get connectionEnded => switch (language) {
+    CompanionLanguage.english => 'Connection ended.',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාව අවසන් කර ඇත.',
+    CompanionLanguage.tamil => 'இணைப்பு முடிக்கப்பட்டது.',
+  };
+
   String get manageConnectionComingSoon => switch (language) {
     CompanionLanguage.english => 'Manage Connection (W08) is coming soon.',
     CompanionLanguage.sinhala =>
