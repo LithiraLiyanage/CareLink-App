@@ -197,6 +197,94 @@ class CompanionStrings {
     CompanionLanguage.tamil => 'பாரம்பரிய உணவு',
   };
 
+  String get requestReviewSubtitle => switch (language) {
+    CompanionLanguage.english => 'Review the request before it is shared.',
+    CompanionLanguage.sinhala => 'ඉල්ලීම යැවීමට පෙර විස්තර පරීක්ෂා කරන්න.',
+    CompanionLanguage.tamil => 'கோரிக்கையை பகிர்வதற்கு முன் சரிபார்க்கவும்.',
+  };
+
+  String get verified => switch (language) {
+    CompanionLanguage.english => 'Verified',
+    CompanionLanguage.sinhala => 'තහවුරු කළ',
+    CompanionLanguage.tamil => 'சரிபார்க்கப்பட்டது',
+  };
+
+  String get connectionRequestMessage => switch (language) {
+    CompanionLanguage.english => 'You are about to send a connection request.',
+    CompanionLanguage.sinhala => 'ඔබ සම්බන්ධතා ඉල්ලීමක් යැවීමට සූදානම්.',
+    CompanionLanguage.tamil =>
+      'நீங்கள் ஒரு இணைப்பு கோரிக்கையை அனுப்ப உள்ளீர்கள்.',
+  };
+
+  String get informationShared => switch (language) {
+    CompanionLanguage.english => 'Information Shared',
+    CompanionLanguage.sinhala => 'බෙදාගන්නා තොරතුරු',
+    CompanionLanguage.tamil => 'பகிரப்படும் தகவல்கள்',
+  };
+
+  String get firstName => switch (language) {
+    CompanionLanguage.english => 'First name',
+    CompanionLanguage.sinhala => 'මුල් නම',
+    CompanionLanguage.tamil => 'முதல் பெயர்',
+  };
+
+  String get approvedInterests => switch (language) {
+    CompanionLanguage.english => 'Approved interests',
+    CompanionLanguage.sinhala => 'අනුමත රුචිකත්වයන්',
+    CompanionLanguage.tamil => 'அங்கீகரிக்கப்பட்ட விருப்பங்கள்',
+  };
+
+  String get preferredLanguage => switch (language) {
+    CompanionLanguage.english => 'Preferred language',
+    CompanionLanguage.sinhala => 'කැමති භාෂාව',
+    CompanionLanguage.tamil => 'விருப்ப மொழி',
+  };
+
+  String get notShared => switch (language) {
+    CompanionLanguage.english => 'Not Shared',
+    CompanionLanguage.sinhala => 'බෙදා නොගන්නා තොරතුරු',
+    CompanionLanguage.tamil => 'பகிரப்படாத தகவல்கள்',
+  };
+
+  String get phoneNumber => switch (language) {
+    CompanionLanguage.english => 'Phone number',
+    CompanionLanguage.sinhala => 'දුරකථන අංකය',
+    CompanionLanguage.tamil => 'தொலைபேசி எண்',
+  };
+
+  String get homeAddress => switch (language) {
+    CompanionLanguage.english => 'Home address',
+    CompanionLanguage.sinhala => 'නිවසේ ලිපිනය',
+    CompanionLanguage.tamil => 'வீட்டு முகவரி',
+  };
+
+  String get privateConversationContent => switch (language) {
+    CompanionLanguage.english => 'Private conversation content',
+    CompanionLanguage.sinhala => 'පෞද්ගලික සංවාද අන්තර්ගතය',
+    CompanionLanguage.tamil => 'தனிப்பட்ட உரையாடல் உள்ளடக்கம்',
+  };
+
+  String get cancel => switch (language) {
+    CompanionLanguage.english => 'Cancel',
+    CompanionLanguage.sinhala => 'අවලංගු කරන්න',
+    CompanionLanguage.tamil => 'ரத்து செய்',
+  };
+
+  String get reviewSendRequest => switch (language) {
+    CompanionLanguage.english => 'Send Request',
+    CompanionLanguage.sinhala => 'ඉල්ලීම යවන්න',
+    CompanionLanguage.tamil => 'கோரிக்கையை அனுப்பவும்',
+  };
+
+  String get requestPendingPlaceholder => switch (language) {
+    CompanionLanguage.english =>
+      'Request Pending is coming soon. No request was sent.',
+    CompanionLanguage.sinhala =>
+      'ඉල්ලීමේ තත්ත්ව තිරය ළඟදීම පැමිණේ. ඉල්ලීමක් යවා නැත.',
+    CompanionLanguage.tamil =>
+      'கோரிக்கை நிலைத் திரை விரைவில் வரும். கோரிக்கை அனுப்பப்படவில்லை.',
+  };
+
   String get requestComingSoon => switch (language) {
     CompanionLanguage.english => 'Requests will be available soon.',
     CompanionLanguage.sinhala => 'ඉල්ලීම් ළඟදීම ලබා ගත හැක.',

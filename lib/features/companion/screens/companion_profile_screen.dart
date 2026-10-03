@@ -4,6 +4,7 @@ import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import 'send_match_request_screen.dart';
 
 class CompanionProfileScreen extends StatelessWidget {
   const CompanionProfileScreen({
@@ -18,12 +19,6 @@ class CompanionProfileScreen extends StatelessWidget {
   static const Color _careLinkTeal = Color(0xFF087F83);
   static const Color _careLinkCoral = Color(0xFFFF625F);
   static const Color _chipBorderColor = Color(0xFFE7E0EC);
-
-  void _showRequestPlaceholder(BuildContext context, CompanionStrings strings) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(strings.requestComingSoon)));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +140,16 @@ class CompanionProfileScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ElevatedButton(
-                    onPressed: () => _showRequestPlaceholder(context, strings),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => SendMatchRequestScreen(
+                            profile: profile,
+                            selectedLanguage: selectedLanguage,
+                          ),
+                        ),
+                      );
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _careLinkTeal,
                       foregroundColor: Colors.white,
