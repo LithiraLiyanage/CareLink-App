@@ -102,7 +102,7 @@ class CompanionStrings {
   String get gardening => switch (language) {
     CompanionLanguage.english => 'Gardening',
     CompanionLanguage.sinhala => 'ගෙවතු වගාව',
-    CompanionLanguage.tamil => 'தோட்டக்கலை',
+    CompanionLanguage.tamil => 'தோட்டப்பணி',
   };
 
   String get music => switch (language) {
@@ -375,10 +375,77 @@ class CompanionStrings {
     CompanionLanguage.tamil => 'உருவாக்கச் சோதனைக்கு மட்டும்',
   };
 
-  String get acceptedScreenComingSoon => switch (language) {
-    CompanionLanguage.english => 'Accepted screen (W06) is coming soon.',
-    CompanionLanguage.sinhala => 'පිළිගැනීමේ තිරය (W06) ළඟදීම පැමිණේ.',
-    CompanionLanguage.tamil => 'ஏற்றுக்கொள்ளப்பட்ட திரை (W06) விரைவில் வரும்.',
+  String get connectionAccepted => switch (language) {
+    CompanionLanguage.english => 'Connection Accepted!',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාව පිළිගෙන ඇත!',
+    CompanionLanguage.tamil => 'இணைப்பு ஏற்கப்பட்டது!',
+  };
+
+  String get greatConnection => switch (language) {
+    CompanionLanguage.english => 'Great connection!',
+    CompanionLanguage.sinhala => 'සුභ සම්බන්ධතාවයක්!',
+    CompanionLanguage.tamil => 'சிறந்த இணைப்பு!',
+  };
+
+  String youAndCompanionConnected(String firstName) => switch (language) {
+    CompanionLanguage.english => 'You and $firstName are now connected.',
+    CompanionLanguage.sinhala => 'ඔබ සහ $firstName දැන් සම්බන්ධ වී ඇත.',
+    CompanionLanguage.tamil =>
+      'நீங்களும் $firstName-யும் இப்போது இணைந்துள்ளீர்கள்.',
+  };
+
+  String get verifiedCompanion => switch (language) {
+    CompanionLanguage.english => 'Verified Companion',
+    CompanionLanguage.sinhala => 'තහවුරු කළ සහචරයෙක්',
+    CompanionLanguage.tamil => 'சரிபார்க்கப்பட்ட துணையாளர்',
+  };
+
+  String get sharedInterests => switch (language) {
+    CompanionLanguage.english => 'Shared interests',
+    CompanionLanguage.sinhala => 'සමාන රුචිකත්වයන්',
+    CompanionLanguage.tamil => 'பொதுவான விருப்பங்கள்',
+  };
+
+  String get bothPeopleAgreed => switch (language) {
+    CompanionLanguage.english => 'Both people have agreed',
+    CompanionLanguage.sinhala => 'දෙදෙනාම එකඟ වී ඇත',
+    CompanionLanguage.tamil => 'இருவரும் ஒப்புக்கொண்டுள்ளனர்',
+  };
+
+  String get active => switch (language) {
+    CompanionLanguage.english => 'Active',
+    CompanionLanguage.sinhala => 'සක්‍රියයි',
+    CompanionLanguage.tamil => 'செயலில் உள்ளது',
+  };
+
+  String get connectionStatusActive => switch (language) {
+    CompanionLanguage.english => 'Your connection status is now Active.',
+    CompanionLanguage.sinhala => 'ඔබගේ සම්බන්ධතා තත්ත්වය දැන් සක්‍රියයි.',
+    CompanionLanguage.tamil => 'உங்கள் இணைப்பு நிலை இப்போது செயலில் உள்ளது.',
+  };
+
+  String get viewConnection => switch (language) {
+    CompanionLanguage.english => 'View Connection',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාව බලන්න',
+    CompanionLanguage.tamil => 'இணைப்பை பார்க்கவும்',
+  };
+
+  String get scheduleCheckIn => switch (language) {
+    CompanionLanguage.english => 'Schedule Check-in',
+    CompanionLanguage.sinhala => 'හමුවීමක් සැලසුම් කරන්න',
+    CompanionLanguage.tamil => 'சந்திப்பை திட்டமிடவும்',
+  };
+
+  String get connectionScreenComingSoon => switch (language) {
+    CompanionLanguage.english => 'Current Connection (W07) is coming soon.',
+    CompanionLanguage.sinhala => 'වත්මන් සම්බන්ධතා තිරය (W07) ළඟදීම පැමිණේ.',
+    CompanionLanguage.tamil => 'தற்போதைய இணைப்பு திரை (W07) விரைவில் வரும்.',
+  };
+
+  String get schedulingHandOffComingSoon => switch (language) {
+    CompanionLanguage.english => 'Scheduling hand-off (H01) is coming soon.',
+    CompanionLanguage.sinhala => 'හමුවීම් සැලසුම් කිරීම (H01) ළඟදීම පැමිණේ.',
+    CompanionLanguage.tamil => 'சந்திப்பு திட்டமிடல் (H01) விரைவில் வரும்.',
   };
 
   String get declinedScreenComingSoon => switch (language) {

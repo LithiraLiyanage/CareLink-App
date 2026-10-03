@@ -4,6 +4,7 @@ import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import 'connection_accepted_screen.dart';
 
 class RequestPendingScreen extends StatelessWidget {
   const RequestPendingScreen({
@@ -339,7 +340,7 @@ class RequestPendingScreen extends StatelessWidget {
     BuildContext context,
     CompanionStrings strings,
   ) {
-    // Development-only simulation controls until W06 and W06B are implemented.
+    // Development-only simulation controls; W06B is not implemented yet.
     return Card(
       margin: EdgeInsets.zero,
       child: SizedBox(
@@ -355,11 +356,16 @@ class RequestPendingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               OutlinedButton(
-                // TODO: Navigate to W06 Connection Accepted.
-                onPressed: () => _showSimulationPlaceholder(
-                  context,
-                  strings.acceptedScreenComingSoon,
-                ),
+                onPressed: () {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ConnectionAcceptedScreen(
+                        profile: profile,
+                        selectedLanguage: selectedLanguage,
+                      ),
+                    ),
+                  );
+                },
                 style: _developmentButtonStyle(),
                 child: Text(
                   strings.simulateAccept,
