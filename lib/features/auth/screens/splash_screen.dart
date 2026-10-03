@@ -1,6 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   static const Color careColor = Color(0xFF31D5D2);
@@ -8,6 +10,36 @@ class SplashScreen extends StatelessWidget {
 
   // Match this with the upper area of splash_bottom.png
   static const Color splashBackground = Color(0xFF132C32);
+
+  // Route opened once the splash has been shown.
+  static const String nextRoute = '/family-linking';
+  static const Duration displayDuration = Duration(seconds: 2);
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  static const Color careColor = SplashScreen.careColor;
+  static const Color linkColor = SplashScreen.linkColor;
+  static const Color splashBackground = SplashScreen.splashBackground;
+
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(SplashScreen.displayDuration, () {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed(SplashScreen.nextRoute);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

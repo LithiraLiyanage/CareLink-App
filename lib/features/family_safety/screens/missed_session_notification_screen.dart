@@ -107,7 +107,14 @@ class MissedSessionNotificationScreen extends StatelessWidget {
                       const SizedBox(height: 10),
                       const _ExplanationCard(),
                       const SizedBox(height: 16),
-                      _ActionButton(label: 'View Details', filled: true),
+                      _ActionButton(
+                        label: 'View Details',
+                        filled: true,
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          '/coordinator-case',
+                        ),
+                      ),
                       const SizedBox(height: 11),
                       _ActionButton(label: 'Dismiss', filled: false),
                     ],
@@ -259,10 +266,11 @@ class _ExplanationCard extends StatelessWidget {
 }
 
 class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.label, required this.filled});
+  const _ActionButton({required this.label, required this.filled, this.onPressed});
 
   final String label;
   final bool filled;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -271,7 +279,7 @@ class _ActionButton extends StatelessWidget {
           color: filled ? MissedSessionNotificationScreen._coral : Colors.white,
           borderRadius: BorderRadius.circular(13),
           child: InkWell(
-            onTap: () {},
+            onTap: onPressed,
             borderRadius: BorderRadius.circular(13),
             child: Container(
               alignment: Alignment.center,
