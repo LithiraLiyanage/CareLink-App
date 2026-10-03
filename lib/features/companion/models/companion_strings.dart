@@ -443,6 +443,65 @@ class CompanionStrings {
     CompanionLanguage.tamil => 'சந்திப்பு திட்டமிடல் (H01) விரைவில் வரும்.',
   };
 
+  String get schedulingHandoffSubtitle => switch (language) {
+    CompanionLanguage.english => 'Continue in the CareLink scheduling module.',
+    CompanionLanguage.sinhala =>
+      'CareLink සැලසුම් කිරීමේ මොඩියුලය වෙත ඉදිරියට යන්න.',
+    CompanionLanguage.tamil => 'CareLink திட்டமிடல் தொகுதியில் தொடரவும்.',
+  };
+
+  String get systemHandoff => switch (language) {
+    CompanionLanguage.english => 'System hand-off',
+    CompanionLanguage.sinhala => 'පද්ධති මාරු කිරීම',
+    CompanionLanguage.tamil => 'கணினி ஒப்படைப்பு',
+  };
+
+  String readyToSchedule(String firstName) => switch (language) {
+    CompanionLanguage.english => '$firstName is ready to schedule',
+    CompanionLanguage.sinhala => '$firstName හමුවීමක් සැලසුම් කිරීමට සූදානම්.',
+    CompanionLanguage.tamil => '$firstName சந்திப்பை திட்டமிட தயாராக உள்ளார்.',
+  };
+
+  String get acceptedConnectionHandoffDescription => switch (language) {
+    CompanionLanguage.english => 'The accepted connection is passed securely to the Scheduling & Check-in module.',
+    CompanionLanguage.sinhala => 'පිළිගත් සම්බන්ධතාව Scheduling & Check-in මොඩියුලය වෙත ආරක්ෂිතව යොමු කරයි.',
+    CompanionLanguage.tamil => 'ஏற்கப்பட்ட இணைப்பு Scheduling & Check-in தொகுதிக்கு பாதுகாப்பாக அனுப்பப்படுகிறது.',
+  };
+
+  String get nextModule => switch (language) {
+    CompanionLanguage.english => 'Next module',
+    CompanionLanguage.sinhala => 'ඊළඟ මොඩියුලය',
+    CompanionLanguage.tamil => 'அடுத்த தொகுதி',
+  };
+
+  String get schedulingNextSteps => switch (language) {
+    CompanionLanguage.english =>
+      'Select day and time, confirm a check-in, and receive reminders.',
+    CompanionLanguage.sinhala =>
+      'දිනය සහ වේලාව තෝරා, හමුවීම තහවුරු කර, මතක් කිරීම් ලබා ගන්න.',
+    CompanionLanguage.tamil => 'நாள் மற்றும் நேரத்தை தேர்ந்தெடுத்து, சந்திப்பை உறுதிப்படுத்தி, நினைவூட்டல்களை பெறவும்.',
+  };
+
+  String get continueToScheduling => switch (language) {
+    CompanionLanguage.english => 'Continue to Scheduling',
+    CompanionLanguage.sinhala => 'සැලසුම් කිරීම වෙත ඉදිරියට යන්න',
+    CompanionLanguage.tamil => 'திட்டமிடலுக்கு தொடரவும்',
+  };
+
+  String get backToConnection => switch (language) {
+    CompanionLanguage.english => 'Back to Connection',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාව වෙත ආපසු යන්න',
+    CompanionLanguage.tamil => 'இணைப்பிற்கு திரும்பவும்',
+  };
+
+  String get schedulingIntegrationPending => switch (language) {
+    CompanionLanguage.english => 'Scheduling module integration pending',
+    CompanionLanguage.sinhala =>
+      'සැලසුම් කිරීමේ මොඩියුලය සම්බන්ධ කිරීම තවම සිදු වී නැත.',
+    CompanionLanguage.tamil =>
+      'திட்டமிடல் தொகுதி இணைப்பு இன்னும் தயாராக இல்லை.',
+  };
+
   String get myConnection => switch (language) {
     CompanionLanguage.english => 'My Connection',
     CompanionLanguage.sinhala => 'මගේ සම්බන්ධතාව',

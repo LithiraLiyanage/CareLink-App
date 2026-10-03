@@ -5,6 +5,7 @@ import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
 import 'current_connection_screen.dart';
+import 'scheduling_handoff_screen.dart';
 
 class ConnectionAcceptedScreen extends StatelessWidget {
   const ConnectionAcceptedScreen({
@@ -19,12 +20,6 @@ class ConnectionAcceptedScreen extends StatelessWidget {
   static const Color _careLinkTeal = Color(0xFF087F83);
   static const Color _careLinkCoral = Color(0xFFFF625F);
   static const Color _borderColor = Color(0xFFE7E0EC);
-
-  void _showPlaceholder(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,10 +133,13 @@ class ConnectionAcceptedScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton(
-                    // TODO: Hand off to H01 once the shared scheduling route is agreed.
-                    onPressed: () => _showPlaceholder(
-                      context,
-                      strings.schedulingHandOffComingSoon,
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => SchedulingHandoffScreen(
+                          profile: profile,
+                          selectedLanguage: selectedLanguage,
+                        ),
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _careLinkTeal,

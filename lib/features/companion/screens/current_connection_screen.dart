@@ -5,6 +5,7 @@ import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
 import 'manage_connection_screen.dart';
+import 'scheduling_handoff_screen.dart';
 
 class CurrentConnectionScreen extends StatelessWidget {
   const CurrentConnectionScreen({
@@ -87,10 +88,14 @@ class CurrentConnectionScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       ElevatedButton(
-                        // TODO: Hand off to H01 once the shared scheduling route is agreed.
-                        onPressed: () => _showPlaceholder(
-                          context,
-                          strings.schedulingHandOffComingSoon,
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => SchedulingHandoffScreen(
+                              profile: profile,
+                              selectedLanguage: selectedLanguage,
+                              fromCurrentConnection: true,
+                            ),
+                          ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _careLinkTeal,
