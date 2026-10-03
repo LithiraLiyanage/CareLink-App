@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/theme.dart';
+import '../models/companion_language.dart';
+import 'recommended_companions_screen.dart';
 
 class MatchingPreferencesScreen extends StatefulWidget {
   const MatchingPreferencesScreen({super.key});
@@ -14,12 +16,6 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
   static const Color _careLinkTeal = Color(0xFF087F83);
   static const Color _careLinkCoral = Color(0xFFFF625F);
   static const Color _chipBorderColor = Color(0xFFE7E0EC);
-
-  static const Map<String, String> _languageOptions = {
-    'English': 'English',
-    'Sinhala': 'සිංහල',
-    'Tamil': 'தமிழ்',
-  };
 
   static const List<String> _interestOptions = [
     'Gardening',
@@ -41,7 +37,7 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
 
   static const List<String> _checkInTypeOptions = ['Voice', 'Video'];
 
-  String _selectedLanguage = 'English';
+  CompanionLanguage _selectedLanguage = CompanionLanguage.english;
   final Set<String> _selectedInterests = {};
   String? _selectedAvailability;
   String? _selectedPreferredTime;
@@ -64,7 +60,12 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
   }
 
   void _onFindCompanions() {
-    _showPlaceholderMessage('Companion matching will be available soon.');
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            RecommendedCompanionsScreen(selectedLanguage: _selectedLanguage),
+      ),
+    );
   }
 
   void _onNavigationSelected(int index) {
@@ -110,10 +111,9 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
                   _buildSection(
                     context,
                     title: 'Preferred Companion Language',
-                    children: _languageOptions.entries.map((option) {
-                      final storedValue = option.key;
-                      final displayLabel = option.value;
-                      final isSelected = _selectedLanguage == storedValue;
+                    children: CompanionLanguage.values.map((language) {
+                      final displayLabel = language.displayLabel;
+                      final isSelected = _selectedLanguage == language;
 
                       return _buildChoiceChip(
                         label: displayLabel,
@@ -122,7 +122,7 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
                         isSelected: isSelected,
                         onSelected: (_) {
                           setState(() {
-                            _selectedLanguage = storedValue;
+                            _selectedLanguage = language;
                           });
                         },
                       );
