@@ -1,4 +1,5 @@
 import 'companion_language.dart';
+import 'conversation_idea.dart';
 
 /// Text used only by the companion matching flow.
 class CompanionStrings {
@@ -572,6 +573,90 @@ class CompanionStrings {
     CompanionLanguage.sinhala => 'ඉල්ලීම් ළඟදීම ලබා ගත හැක.',
     CompanionLanguage.tamil => 'கோரிக்கைகள் விரைவில் கிடைக்கும்.',
   };
+
+  String get conversationIdeas => switch (language) {
+    CompanionLanguage.english => 'Conversation Ideas',
+    CompanionLanguage.sinhala => 'සංවාද අදහස්',
+    CompanionLanguage.tamil => 'உரையாடல் யோசனைகள்',
+  };
+
+  String get conversationIdeasHelper => switch (language) {
+    CompanionLanguage.english => 'Optional - choose only if helpful',
+    CompanionLanguage.sinhala => 'අවශ්‍ය නම් පමණක් භාවිතා කරන්න',
+    CompanionLanguage.tamil => 'உதவியாக இருந்தால் மட்டும் தேர்வு செய்யவும்',
+  };
+
+  String get useThisIdea => switch (language) {
+    CompanionLanguage.english => 'Use this idea',
+    CompanionLanguage.sinhala => 'මෙම අදහස භාවිතා කරන්න',
+    CompanionLanguage.tamil => 'இந்த யோசனையை பயன்படுத்தவும்',
+  };
+
+  String get ideaSelected => switch (language) {
+    CompanionLanguage.english => 'Selected',
+    CompanionLanguage.sinhala => 'තෝරා ඇත',
+    CompanionLanguage.tamil => 'தேர்ந்தெடுக்கப்பட்டது',
+  };
+
+  String get showAnotherIdea => switch (language) {
+    CompanionLanguage.english => 'Show Another Idea',
+    CompanionLanguage.sinhala => 'වෙනත් අදහසක් පෙන්වන්න',
+    CompanionLanguage.tamil => 'மற்றொரு யோசனையை காண்பிக்கவும்',
+  };
+
+  String get backToCheckIn => switch (language) {
+    CompanionLanguage.english => 'Back to Check-in',
+    CompanionLanguage.sinhala => 'හමුවීමට ආපසු යන්න',
+    CompanionLanguage.tamil => 'சந்திப்பிற்கு திரும்பவும்',
+  };
+
+  String get conversationIdeasReassurance => switch (language) {
+    CompanionLanguage.english =>
+      'These are conversation starters, not questions you must answer.',
+    CompanionLanguage.sinhala => 'මේවා සංවාදයක් ආරම්භ කිරීමට උපකාරී වන අදහස් පමණි. ඔබට ඒවාට පිළිතුරු දීම අනිවාර්ය නොවේ.',
+    CompanionLanguage.tamil => 'இவை உரையாடலை தொடங்க உதவும் யோசனைகள் மட்டுமே. நீங்கள் பதிலளிக்க வேண்டிய கட்டாயம் இல்லை.',
+  };
+
+  String get foodAndTraditions => switch (language) {
+    CompanionLanguage.english => 'Food & Traditions',
+    CompanionLanguage.sinhala => 'ආහාර සහ සම්ප්‍රදායන්',
+    CompanionLanguage.tamil => 'உணவு மற்றும் பாரம்பரியங்கள்',
+  };
+
+  String get memories => switch (language) {
+    CompanionLanguage.english => 'Memories',
+    CompanionLanguage.sinhala => 'මතකයන්',
+    CompanionLanguage.tamil => 'நினைவுகள்',
+  };
+
+  String conversationIdeaCategory(ConversationIdea idea) => switch (idea.id) {
+    'gardening' => gardening,
+    'music' => music,
+    'food-traditions' => foodAndTraditions,
+    'memories' => memories,
+    _ => idea.category,
+  };
+
+  String conversationIdeaPrompt(ConversationIdea idea) =>
+      switch ((language, idea.id)) {
+        (CompanionLanguage.sinhala, 'gardening') =>
+          'ඔබ වගා කිරීමට වඩාත් කැමති ශාකය කුමක්ද?',
+        (CompanionLanguage.tamil, 'gardening') =>
+          'எந்த செடியை வளர்ப்பதில் நீங்கள் அதிகம் மகிழ்கிறீர்கள்?',
+        (CompanionLanguage.sinhala, 'music') =>
+          'ඔබට සතුටු මතකයක් මතක් කරන ගීතය කුමක්ද?',
+        (CompanionLanguage.tamil, 'music') =>
+          'எந்த பாடல் உங்களுக்கு மகிழ்ச்சியான நினைவைக் கொண்டுவருகிறது?',
+        (CompanionLanguage.sinhala, 'food-traditions') =>
+          'ඔබට නිවස මතක් කරන ආහාරය කුමක්ද?',
+        (CompanionLanguage.tamil, 'food-traditions') =>
+          'எந்த உணவு உங்களுக்கு வீட்டை நினைவுபடுத்துகிறது?',
+        (CompanionLanguage.sinhala, 'memories') =>
+          'ඔබ කැමති ඡායාරූපයක් ගැන කතා කිරීමට කැමතිද?',
+        (CompanionLanguage.tamil, 'memories') =>
+          'உங்களுக்கு பிடித்த ஒரு புகைப்படத்தைப் பற்றி பேச விரும்புகிறீர்களா?',
+        _ => idea.prompt,
+      };
 
   String get navigationComingSoon => switch (language) {
     CompanionLanguage.english => 'Navigation will be connected soon.',
