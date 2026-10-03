@@ -4,10 +4,9 @@ import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
-import 'current_connection_screen.dart';
 
-class ConnectionAcceptedScreen extends StatelessWidget {
-  const ConnectionAcceptedScreen({
+class CurrentConnectionScreen extends StatelessWidget {
+  const CurrentConnectionScreen({
     super.key,
     required this.profile,
     required this.selectedLanguage,
@@ -30,7 +29,6 @@ class ConnectionAcceptedScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = Theme.of(context).textTheme;
-    final firstName = profile.name.split(' ').first;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -45,54 +43,22 @@ class ConnectionAcceptedScreen extends StatelessWidget {
                 children: [
                   _buildBrandHeader(),
                   const SizedBox(height: 24),
-                  Center(
-                    child: Column(
-                      children: [
-                        ExcludeSemantics(
-                          child: Container(
-                            width: 86,
-                            height: 86,
-                            decoration: BoxDecoration(
-                              color: _careLinkTeal.withValues(alpha: 0.12),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.check_circle_rounded,
-                              size: 58,
-                              color: _careLinkTeal,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Semantics(
-                          header: true,
-                          child: Text(
-                            strings.connectionAccepted,
-                            textAlign: TextAlign.center,
-                            style: textTheme.headlineMedium,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          strings.greatConnection,
-                          textAlign: TextAlign.center,
-                          style: textTheme.titleMedium?.copyWith(
-                            color: _careLinkTeal,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          strings.youAndCompanionConnected(firstName),
-                          textAlign: TextAlign.center,
-                          style: textTheme.bodyMedium,
-                        ),
-                      ],
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      strings.myConnection,
+                      style: textTheme.headlineMedium,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
+                  Text(
+                    strings.activeCompanionSubtitle,
+                    style: textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 20),
                   _buildCompanionCard(context, strings),
                   const SizedBox(height: 16),
-                  _buildAgreementCard(context, strings),
+                  _buildNextCheckInCard(context, strings),
                 ],
               ),
             ),
@@ -101,62 +67,97 @@ class ConnectionAcceptedScreen extends StatelessWidget {
       ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: const BoxDecoration(
-            color: CareLinkTheme.surfaceColor,
-            border: Border(top: BorderSide(color: _borderColor)),
-          ),
-          child: Center(
-            heightFactor: 1,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => CurrentConnectionScreen(
-                            profile: profile,
-                            selectedLanguage: selectedLanguage,
-                          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+              decoration: const BoxDecoration(
+                color: CareLinkTheme.surfaceColor,
+                border: Border(top: BorderSide(color: _borderColor)),
+              ),
+              child: Center(
+                heightFactor: 1,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton(
+                        // TODO: Hand off to H01 once the shared scheduling route is agreed.
+                        onPressed: () => _showPlaceholder(
+                          context,
+                          strings.schedulingHandOffComingSoon,
                         ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _careLinkTeal,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 52),
-                    ),
-                    child: Text(
-                      strings.viewConnection,
-                      textAlign: TextAlign.center,
-                    ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _careLinkTeal,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 52),
+                        ),
+                        child: Text(
+                          strings.viewOrScheduleCheckIn,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton(
+                        // TODO: Navigate to W08 Manage Connection.
+                        onPressed: () => _showPlaceholder(
+                          context,
+                          strings.manageConnectionComingSoon,
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _careLinkTeal,
+                          side: const BorderSide(color: _careLinkTeal),
+                          minimumSize: const Size(double.infinity, 52),
+                        ),
+                        child: Text(
+                          strings.manageConnection,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        strings.completedCheckInsUnaffected,
+                        textAlign: TextAlign.center,
+                        style: textTheme.bodySmall,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    // TODO: Hand off to H01 once the shared scheduling route is agreed.
-                    onPressed: () => _showPlaceholder(
-                      context,
-                      strings.schedulingHandOffComingSoon,
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _careLinkTeal,
-                      side: const BorderSide(color: _careLinkTeal),
-                      minimumSize: const Size(double.infinity, 52),
-                    ),
-                    child: Text(
-                      strings.scheduleCheckIn,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+            NavigationBar(
+              height: 72,
+              selectedIndex: 1,
+              backgroundColor: CareLinkTheme.surfaceColor,
+              indicatorColor: _careLinkCoral.withValues(alpha: 0.16),
+              onDestinationSelected: (index) {
+                if (index != 1) {
+                  _showPlaceholder(context, strings.navigationComingSoon);
+                }
+              },
+              destinations: [
+                NavigationDestination(
+                  icon: const Icon(Icons.home_outlined),
+                  selectedIcon: const Icon(Icons.home),
+                  label: strings.home,
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.people_outline),
+                  selectedIcon: const Icon(Icons.people, color: _careLinkTeal),
+                  label: strings.matches,
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.event_outlined),
+                  selectedIcon: const Icon(Icons.event, color: _careLinkTeal),
+                  label: strings.checkIns,
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -265,6 +266,35 @@ class ConnectionAcceptedScreen extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: CareLinkTheme.successColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.check_circle,
+                      size: 18,
+                      color: CareLinkTheme.successColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      strings.currentConnectionActive,
+                      style: const TextStyle(
+                        color: CareLinkTheme.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 18),
               Semantics(
                 header: true,
@@ -305,7 +335,7 @@ class ConnectionAcceptedScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAgreementCard(BuildContext context, CompanionStrings strings) {
+  Widget _buildNextCheckInCard(BuildContext context, CompanionStrings strings) {
     final textTheme = Theme.of(context).textTheme;
 
     return Card(
@@ -317,54 +347,30 @@ class ConnectionAcceptedScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Semantics(
+                header: true,
+                child: Text(strings.nextCheckIn, style: textTheme.titleMedium),
+              ),
+              const SizedBox(height: 12),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Icon(
-                    Icons.check_circle_outline,
-                    color: CareLinkTheme.successColor,
+                    Icons.event_available_outlined,
                     size: 24,
+                    color: _careLinkTeal,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      strings.bothPeopleAgreed,
-                      style: textTheme.titleMedium,
+                      strings.nextCheckInTime,
+                      style: textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: CareLinkTheme.successColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.check_circle,
-                      size: 17,
-                      color: CareLinkTheme.successColor,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      strings.active,
-                      style: const TextStyle(
-                        color: CareLinkTheme.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(strings.connectionStatusActive, style: textTheme.bodyMedium),
             ],
           ),
         ),

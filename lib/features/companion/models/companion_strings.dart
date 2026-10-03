@@ -436,16 +436,69 @@ class CompanionStrings {
     CompanionLanguage.tamil => 'சந்திப்பை திட்டமிடவும்',
   };
 
-  String get connectionScreenComingSoon => switch (language) {
-    CompanionLanguage.english => 'Current Connection (W07) is coming soon.',
-    CompanionLanguage.sinhala => 'වත්මන් සම්බන්ධතා තිරය (W07) ළඟදීම පැමිණේ.',
-    CompanionLanguage.tamil => 'தற்போதைய இணைப்பு திரை (W07) விரைவில் வரும்.',
-  };
-
   String get schedulingHandOffComingSoon => switch (language) {
     CompanionLanguage.english => 'Scheduling hand-off (H01) is coming soon.',
     CompanionLanguage.sinhala => 'හමුවීම් සැලසුම් කිරීම (H01) ළඟදීම පැමිණේ.',
     CompanionLanguage.tamil => 'சந்திப்பு திட்டமிடல் (H01) விரைவில் வரும்.',
+  };
+
+  String get myConnection => switch (language) {
+    CompanionLanguage.english => 'My Connection',
+    CompanionLanguage.sinhala => 'මගේ සම්බන්ධතාව',
+    CompanionLanguage.tamil => 'என் இணைப்பு',
+  };
+
+  String get activeCompanionSubtitle => switch (language) {
+    CompanionLanguage.english => 'Your active companion and next actions.',
+    CompanionLanguage.sinhala => 'ඔබගේ සක්‍රිය සහචරයා සහ ඊළඟ ක්‍රියා.',
+    CompanionLanguage.tamil =>
+      'உங்கள் செயலில் உள்ள துணையாளர் மற்றும் அடுத்த செயல்கள்.',
+  };
+
+  String get currentConnectionActive => switch (language) {
+    CompanionLanguage.english => 'Active',
+    CompanionLanguage.sinhala => 'සක්‍රිය',
+    CompanionLanguage.tamil => 'செயலில்',
+  };
+
+  String get nextCheckIn => switch (language) {
+    CompanionLanguage.english => 'Next check-in',
+    CompanionLanguage.sinhala => 'ඊළඟ හමුවීම',
+    CompanionLanguage.tamil => 'அடுத்த சந்திப்பு',
+  };
+
+  String get nextCheckInTime => switch (language) {
+    CompanionLanguage.english => 'Sunday • 6:30 PM',
+    CompanionLanguage.sinhala => 'ඉරිදා • ප.ව. 6:30',
+    CompanionLanguage.tamil => 'ஞாயிறு • மாலை 6:30',
+  };
+
+  String get viewOrScheduleCheckIn => switch (language) {
+    CompanionLanguage.english => 'View / Schedule Check-in',
+    CompanionLanguage.sinhala => 'හමුවීම බලන්න / සැලසුම් කරන්න',
+    CompanionLanguage.tamil => 'சந்திப்பை பார்க்கவும் / திட்டமிடவும்',
+  };
+
+  String get manageConnection => switch (language) {
+    CompanionLanguage.english => 'Manage connection',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාව කළමනාකරණය කරන්න',
+    CompanionLanguage.tamil => 'இணைப்பை நிர்வகிக்கவும்',
+  };
+
+  String get completedCheckInsUnaffected => switch (language) {
+    CompanionLanguage.english =>
+      'These actions do not affect completed check-ins.',
+    CompanionLanguage.sinhala =>
+      'මෙම ක්‍රියා සම්පූර්ණ කළ හමුවීම්වලට බලපාන්නේ නැත.',
+    CompanionLanguage.tamil => 'இந்த செயல்கள் முடிந்த சந்திப்புகளை பாதிக்காது.',
+  };
+
+  String get manageConnectionComingSoon => switch (language) {
+    CompanionLanguage.english => 'Manage Connection (W08) is coming soon.',
+    CompanionLanguage.sinhala =>
+      'සම්බන්ධතාව කළමනාකරණය කිරීම (W08) ළඟදීම පැමිණේ.',
+    CompanionLanguage.tamil =>
+      'இணைப்பை நிர்வகிக்கும் திரை (W08) விரைவில் வரும்.',
   };
 
   String get declinedScreenComingSoon => switch (language) {
