@@ -62,6 +62,7 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
   void _onFindCompanions() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: '/companion-recommendations'),
         builder: (_) =>
             RecommendedCompanionsScreen(selectedLanguage: _selectedLanguage),
       ),

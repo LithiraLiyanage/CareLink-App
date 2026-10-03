@@ -276,13 +276,115 @@ class CompanionStrings {
     CompanionLanguage.tamil => 'கோரிக்கையை அனுப்பவும்',
   };
 
-  String get requestPendingPlaceholder => switch (language) {
+  String get matchRequest => switch (language) {
+    CompanionLanguage.english => 'Match Request',
+    CompanionLanguage.sinhala => 'ගැළපුම් ඉල්ලීම',
+    CompanionLanguage.tamil => 'பொருத்த கோரிக்கை',
+  };
+
+  String get matchingRequiresAgreement => switch (language) {
     CompanionLanguage.english =>
-      'Request Pending is coming soon. No request was sent.',
+      'Matching only becomes active after both people agree.',
     CompanionLanguage.sinhala =>
-      'ඉල්ලීමේ තත්ත්ව තිරය ළඟදීම පැමිණේ. ඉල්ලීමක් යවා නැත.',
+      'දෙදෙනාම එකඟ වූ පසු පමණක් සම්බන්ධතාව සක්‍රිය වේ.',
     CompanionLanguage.tamil =>
-      'கோரிக்கை நிலைத் திரை விரைவில் வரும். கோரிக்கை அனுப்பப்படவில்லை.',
+      'இருவரும் ஒப்புக்கொண்ட பிறகே இணைப்பு செயல்படும்.',
+  };
+
+  String get pending => switch (language) {
+    CompanionLanguage.english => 'Pending',
+    CompanionLanguage.sinhala => 'රැඳී සිටී',
+    CompanionLanguage.tamil => 'நிலுவையில்',
+  };
+
+  String get yourRequestSent => switch (language) {
+    CompanionLanguage.english => 'Your request has been sent.',
+    CompanionLanguage.sinhala => 'ඔබගේ ඉල්ලීම යවා ඇත.',
+    CompanionLanguage.tamil => 'உங்கள் கோரிக்கை அனுப்பப்பட்டது.',
+  };
+
+  String waitingForCompanion(String firstName) => switch (language) {
+    CompanionLanguage.english => 'Waiting for $firstName to respond.',
+    CompanionLanguage.sinhala => '$firstNameගේ ප්‍රතිචාරය බලා සිටී.',
+    CompanionLanguage.tamil => '$firstName-ன் பதிலை காத்திருக்கிறது.',
+  };
+
+  String get requestProgress => switch (language) {
+    CompanionLanguage.english => 'Request progress',
+    CompanionLanguage.sinhala => 'ඉල්ලීමේ ප්‍රගතිය',
+    CompanionLanguage.tamil => 'கோரிக்கை முன்னேற்றம்',
+  };
+
+  String get requestSentStep => switch (language) {
+    CompanionLanguage.english => 'Request sent',
+    CompanionLanguage.sinhala => 'ඉල්ලීම යවා ඇත',
+    CompanionLanguage.tamil => 'கோரிக்கை அனுப்பப்பட்டது',
+  };
+
+  String get completed => switch (language) {
+    CompanionLanguage.english => 'Completed',
+    CompanionLanguage.sinhala => 'සම්පූර්ණයි',
+    CompanionLanguage.tamil => 'முடிந்தது',
+  };
+
+  String get waitingForResponse => switch (language) {
+    CompanionLanguage.english => 'Waiting for response',
+    CompanionLanguage.sinhala => 'ප්‍රතිචාරය බලා සිටී',
+    CompanionLanguage.tamil => 'பதிலை காத்திருக்கிறது',
+  };
+
+  String get inProgress => switch (language) {
+    CompanionLanguage.english => 'In progress',
+    CompanionLanguage.sinhala => 'ක්‍රියාත්මක වෙමින් පවතී',
+    CompanionLanguage.tamil => 'செயலில் உள்ளது',
+  };
+
+  String get connectionDecision => switch (language) {
+    CompanionLanguage.english => 'Connection decision',
+    CompanionLanguage.sinhala => 'සම්බන්ධතා තීරණය',
+    CompanionLanguage.tamil => 'இணைப்பு முடிவு',
+  };
+
+  String get cancelRequest => switch (language) {
+    CompanionLanguage.english => 'Cancel Request',
+    CompanionLanguage.sinhala => 'ඉල්ලීම අවලංගු කරන්න',
+    CompanionLanguage.tamil => 'கோரிக்கையை ரத்து செய்',
+  };
+
+  String get backToMatches => switch (language) {
+    CompanionLanguage.english => 'Back to Matches',
+    CompanionLanguage.sinhala => 'ගැළපීම් වෙත ආපසු යන්න',
+    CompanionLanguage.tamil => 'பொருத்தங்களுக்கு திரும்பவும்',
+  };
+
+  String get simulateAccept => switch (language) {
+    CompanionLanguage.english => 'Simulate Accept',
+    CompanionLanguage.sinhala => 'පිළිගැනීම පරීක්ෂා කරන්න',
+    CompanionLanguage.tamil => 'ஏற்றுக்கொள்ளுதலை சோதிக்கவும்',
+  };
+
+  String get simulateDecline => switch (language) {
+    CompanionLanguage.english => 'Simulate Decline',
+    CompanionLanguage.sinhala => 'ප්‍රතික්ෂේප කිරීම පරීක්ෂා කරන්න',
+    CompanionLanguage.tamil => 'நிராகரிப்பை சோதிக்கவும்',
+  };
+
+  String get developmentOnly => switch (language) {
+    CompanionLanguage.english => 'Development only',
+    CompanionLanguage.sinhala => 'සංවර්ධන පරීක්ෂණ සඳහා පමණි',
+    CompanionLanguage.tamil => 'உருவாக்கச் சோதனைக்கு மட்டும்',
+  };
+
+  String get acceptedScreenComingSoon => switch (language) {
+    CompanionLanguage.english => 'Accepted screen (W06) is coming soon.',
+    CompanionLanguage.sinhala => 'පිළිගැනීමේ තිරය (W06) ළඟදීම පැමිණේ.',
+    CompanionLanguage.tamil => 'ஏற்றுக்கொள்ளப்பட்ட திரை (W06) விரைவில் வரும்.',
+  };
+
+  String get declinedScreenComingSoon => switch (language) {
+    CompanionLanguage.english => 'Declined screen (W06B) is coming soon.',
+    CompanionLanguage.sinhala => 'ප්‍රතික්ෂේප කිරීමේ තිරය (W06B) ළඟදීම පැමිණේ.',
+    CompanionLanguage.tamil => 'நிராகரிக்கப்பட்ட திரை (W06B) விரைவில் வரும்.',
   };
 
   String get requestComingSoon => switch (language) {

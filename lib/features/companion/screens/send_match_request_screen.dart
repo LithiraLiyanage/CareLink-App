@@ -4,6 +4,7 @@ import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import 'request_pending_screen.dart';
 
 class SendMatchRequestScreen extends StatelessWidget {
   const SendMatchRequestScreen({
@@ -19,13 +20,15 @@ class SendMatchRequestScreen extends StatelessWidget {
   static const Color _careLinkCoral = Color(0xFFFF625F);
   static const Color _borderColor = Color(0xFFE7E0EC);
 
-  void _onSendRequest(BuildContext context, CompanionStrings strings) {
-    // TODO: Navigate to W05 Request Pending when that screen is implemented.
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(strings.requestPendingPlaceholder)),
-      );
+  void _onSendRequest(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => RequestPendingScreen(
+          profile: profile,
+          selectedLanguage: selectedLanguage,
+        ),
+      ),
+    );
   }
 
   @override
@@ -118,7 +121,7 @@ class SendMatchRequestScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ElevatedButton(
-                    onPressed: () => _onSendRequest(context, strings),
+                    onPressed: () => _onSendRequest(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _careLinkTeal,
                       foregroundColor: Colors.white,
