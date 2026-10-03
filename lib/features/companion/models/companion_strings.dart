@@ -111,10 +111,90 @@ class CompanionStrings {
     CompanionLanguage.tamil => 'இசை',
   };
 
-  String get profileComingSoon => switch (language) {
-    CompanionLanguage.english => 'Profile screen will be available soon.',
-    CompanionLanguage.sinhala => 'පැතිකඩ තිරය ළඟදීම ලබා ගත හැක.',
-    CompanionLanguage.tamil => 'சுயவிவரத் திரை விரைவில் கிடைக்கும்.',
+  String get verifiedStudentCompanion => switch (language) {
+    CompanionLanguage.english => 'Verified Student Companion',
+    CompanionLanguage.sinhala => 'තහවුරු කළ ශිෂ්‍ය සහචරයෙක්',
+    CompanionLanguage.tamil => 'சரிபார்க்கப்பட்ட மாணவர் துணையாளர்',
+  };
+
+  String get about => switch (language) {
+    CompanionLanguage.english => 'About',
+    CompanionLanguage.sinhala => 'විස්තරය',
+    CompanionLanguage.tamil => 'பற்றி',
+  };
+
+  String get languages => switch (language) {
+    CompanionLanguage.english => 'Languages',
+    CompanionLanguage.sinhala => 'භාෂා',
+    CompanionLanguage.tamil => 'மொழிகள்',
+  };
+
+  String get interests => switch (language) {
+    CompanionLanguage.english => 'Interests',
+    CompanionLanguage.sinhala => 'රුචිකත්වයන්',
+    CompanionLanguage.tamil => 'விருப்பங்கள்',
+  };
+
+  String get availability => switch (language) {
+    CompanionLanguage.english => 'Availability',
+    CompanionLanguage.sinhala => 'ලබාගත හැකි වේලාව',
+    CompanionLanguage.tamil => 'கிடைக்கும் நேரம்',
+  };
+
+  String get whyGoodMatch => switch (language) {
+    CompanionLanguage.english => 'Why you may be a good match',
+    CompanionLanguage.sinhala => 'ඔබ දෙදෙනා හොඳින් ගැළපිය හැක්කේ ඇයි?',
+    CompanionLanguage.tamil =>
+      'நீங்கள் நல்ல பொருத்தமாக இருக்கக்கூடிய காரணங்கள்',
+  };
+
+  String get samePreferredLanguage => switch (language) {
+    CompanionLanguage.english => 'Same preferred language',
+    CompanionLanguage.sinhala => 'එකම කැමති භාෂාව',
+    CompanionLanguage.tamil => 'ஒரே விருப்ப மொழி',
+  };
+
+  String get sharedGardeningAndMusic => switch (language) {
+    CompanionLanguage.english => 'Shared gardening and music interests',
+    CompanionLanguage.sinhala => 'ගෙවතු වගාව සහ සංගීතය පිළිබඳ සමාන රුචිකත්වයන්',
+    CompanionLanguage.tamil =>
+      'தோட்டப்பணி மற்றும் இசையில் பொதுவான விருப்பங்கள்',
+  };
+
+  String get matchingSundayAvailability => switch (language) {
+    CompanionLanguage.english => 'Matching Sunday availability',
+    CompanionLanguage.sinhala => 'ඉරිදා ලබාගත හැකි වේලාව ගැළපේ',
+    CompanionLanguage.tamil => 'ஞாயிற்றுக்கிழமை கிடைக்கும் நேரம் பொருந்துகிறது',
+  };
+
+  String get sendMatchRequest => switch (language) {
+    CompanionLanguage.english => 'Send Match Request',
+    CompanionLanguage.sinhala => 'ගැළපුම් ඉල්ලීම යවන්න',
+    CompanionLanguage.tamil => 'பொருத்த கோரிக்கையை அனுப்பவும்',
+  };
+
+  String get backToRecommendations => switch (language) {
+    CompanionLanguage.english => 'Back to Recommendations',
+    CompanionLanguage.sinhala => 'නිර්දේශ වෙත ආපසු යන්න',
+    CompanionLanguage.tamil => 'பரிந்துரைகளுக்கு திரும்பவும்',
+  };
+
+  String get volunteerAbout => switch (language) {
+    CompanionLanguage.english => 'University student volunteer who enjoys meaningful conversations and community activities.',
+    CompanionLanguage.sinhala => 'අර්ථවත් සංවාද සහ ප්‍රජා ක්‍රියාකාරකම්වලට කැමති විශ්වවිද්‍යාල ශිෂ්‍ය ස්වේච්ඡා සේවිකාවක්.',
+    CompanionLanguage.tamil => 'அர்த்தமுள்ள உரையாடல்களையும் சமூக செயல்பாடுகளையும் விரும்பும் பல்கலைக்கழக மாணவர் தன்னார்வலர்.',
+  };
+
+  String get sundayAvailability => switch (language) {
+    CompanionLanguage.english => 'Sunday, 4:00 PM - 7:00 PM',
+    CompanionLanguage.sinhala => 'ඉරිදා, ප.ව. 4:00 - 7:00',
+    CompanionLanguage.tamil => 'ஞாயிற்றுக்கிழமை, மாலை 4:00 - 7:00',
+  };
+
+  String get traditionalFood => switch (language) {
+    CompanionLanguage.english => 'Traditional Food',
+    CompanionLanguage.sinhala => 'සාම්ප්‍රදායික ආහාර',
+    CompanionLanguage.tamil => 'பாரம்பரிய உணவு',
   };
 
   String get requestComingSoon => switch (language) {

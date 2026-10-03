@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../app/theme.dart';
 import '../models/companion_language.dart';
+import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import 'companion_profile_screen.dart';
 
 class RecommendedCompanionsScreen extends StatelessWidget {
   const RecommendedCompanionsScreen({
@@ -25,6 +27,16 @@ class RecommendedCompanionsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = Theme.of(context).textTheme;
+    final featuredProfile = CompanionProfile(
+      id: 'nethmi-jayasooriya',
+      name: 'Nethmi Jayasooriya',
+      imagePath: '',
+      verified: true,
+      languages: const ['Sinhala', 'English', 'Tamil'],
+      interests: [strings.gardening, strings.music, strings.traditionalFood],
+      availability: strings.sundayAvailability,
+      about: strings.volunteerAbout,
+    );
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -63,7 +75,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildFeaturedCard(context, strings),
+                  _buildFeaturedCard(context, strings, featuredProfile),
                   const SizedBox(height: 14),
                   _buildSmallCard(context, strings, 'Amaya Perera', 'AP'),
                   const SizedBox(height: 14),
@@ -150,7 +162,11 @@ class RecommendedCompanionsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeaturedCard(BuildContext context, CompanionStrings strings) {
+  Widget _buildFeaturedCard(
+    BuildContext context,
+    CompanionStrings strings,
+    CompanionProfile profile,
+  ) {
     final textTheme = Theme.of(context).textTheme;
 
     return Card(
@@ -169,9 +185,9 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Nethmi Jayasooriya', style: textTheme.titleLarge),
+                      Text(profile.name, style: textTheme.titleLarge),
                       const SizedBox(height: 8),
-                      _buildVerifiedBadge(strings),
+                      if (profile.verified) _buildVerifiedBadge(strings),
                     ],
                   ),
                 ),
@@ -205,8 +221,16 @@ class RecommendedCompanionsScreen extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 final profileButton = OutlinedButton(
-                  onPressed: () =>
-                      _showPlaceholder(context, strings.profileComingSoon),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => CompanionProfileScreen(
+                          profile: profile,
+                          selectedLanguage: selectedLanguage,
+                        ),
+                      ),
+                    );
+                  },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: _careLinkTeal,
                     side: const BorderSide(color: _careLinkTeal),
