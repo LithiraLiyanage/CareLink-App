@@ -7,8 +7,10 @@ import '../widgets/companion_entrance.dart';
 
 import '../../../app/theme.dart';
 import '../models/companion_language.dart';
+import '../models/companion_match.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import 'connection_paused_screen.dart';
 import 'end_connection_confirmation_screen.dart';
 
 /// W08: review an active connection before choosing whether to end it.
@@ -17,10 +19,15 @@ class ManageConnectionScreen extends StatelessWidget {
     super.key,
     required this.profile,
     required this.selectedLanguage,
-  });
+    this.connectionStatus = MatchStatus.accepted,
+  }) : assert(
+         connectionStatus == MatchStatus.accepted ||
+             connectionStatus == MatchStatus.paused,
+       );
 
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
+  final MatchStatus connectionStatus;
 
   static const Color _teal = Color(0xFF087F83);
 
@@ -28,6 +35,7 @@ class ManageConnectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
+    final isPaused = connectionStatus == MatchStatus.paused;
 
     return CompanionScaffold(
       appBar: AppBar(title: const Text('CareLink')),
@@ -82,21 +90,45 @@ class ManageConnectionScreen extends StatelessWidget {
                           children: [
                             Text(profile.name, style: textTheme.titleLarge),
                             const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.check_circle,
-                                  color: CareLinkTheme.successColor,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                    strings.currentConnectionActive,
-                                    style: textTheme.bodyLarge,
+                            AnimatedContainer(
+                              duration: MediaQuery.of(context).disableAnimations
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 220),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isPaused
+                                    ? CompanionPalette.mint
+                                    : CareLinkTheme.successColor.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isPaused
+                                        ? Icons.pause_circle_outline
+                                        : Icons.check_circle,
+                                    color: isPaused
+                                        ? CompanionPalette.teal
+                                        : CareLinkTheme.successColor,
+                                    size: 20,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      isPaused
+                                          ? strings.paused
+                                          : strings.currentConnectionActive,
+                                      style: textTheme.bodyLarge,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 12),
                             Text(
@@ -107,7 +139,84 @@ class ManageConnectionScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 18),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      color: CompanionPalette.mint,
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor: CompanionPalette.teal
+                                      .withValues(alpha: 0.12),
+                                  child: Icon(
+                                    isPaused
+                                        ? Icons.play_arrow_outlined
+                                        : Icons.pause_outlined,
+                                    color: CompanionPalette.teal,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        isPaused
+                                            ? strings.resumeConnection
+                                            : strings.pauseConnection,
+                                        style: textTheme.titleMedium,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        isPaused
+                                            ? strings.pausedMeaning
+                                            : strings
+                                                  .pauseConnectionDescription,
+                                        style: textTheme.bodyMedium,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            OutlinedButton.icon(
+                              onPressed: () =>
+                                  Navigator.of(context).pushReplacement(
+                                    CompanionRoute<void>(
+                                      context: context,
+                                      builder: (_) => ConnectionPausedScreen(
+                                        profile: profile,
+                                        selectedLanguage: selectedLanguage,
+                                        connectionStatus: MatchStatus.paused,
+                                      ),
+                                    ),
+                                  ),
+                              icon: Icon(
+                                isPaused
+                                    ? Icons.play_arrow_outlined
+                                    : Icons.pause_outlined,
+                              ),
+                              label: Text(
+                                isPaused
+                                    ? strings.resumeConnection
+                                    : strings.pauseConnection,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: () => Navigator.of(context).pop(),
                       style: ElevatedButton.styleFrom(
@@ -133,6 +242,7 @@ class ManageConnectionScreen extends StatelessWidget {
                               builder: (_) => EndConnectionConfirmationScreen(
                                 profile: profile,
                                 selectedLanguage: selectedLanguage,
+                                connectionStatus: connectionStatus,
                               ),
                             ),
                           ),

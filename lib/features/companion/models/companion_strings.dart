@@ -722,4 +722,89 @@ class CompanionStrings {
     CompanionLanguage.sinhala => 'සංචලනය ළඟදීම සම්බන්ධ කෙරේ.',
     CompanionLanguage.tamil => 'வழிசெலுத்தல் விரைவில் இணைக்கப்படும்.',
   };
+
+  String get requestNotAccepted => switch (language) {
+    CompanionLanguage.english => 'Request Not Accepted',
+    CompanionLanguage.sinhala => 'ඉල්ලීම පිළිගෙන නැත',
+    CompanionLanguage.tamil => 'கோரிக்கை ஏற்கப்படவில்லை',
+  };
+
+  String get requestDeclinedMessage => switch (language) {
+    CompanionLanguage.english =>
+      "That's okay. You can explore other suitable companions.",
+    CompanionLanguage.sinhala =>
+      'එය ගැටලුවක් නොවේ. ඔබට වෙනත් සුදුසු සහචරයින් සොයා බැලිය හැක.',
+    CompanionLanguage.tamil =>
+      'பரவாயில்லை. நீங்கள் மற்ற பொருத்தமான துணையாளர்களை பார்க்கலாம்.',
+  };
+
+  String get declined => switch (language) {
+    CompanionLanguage.english => 'Declined',
+    CompanionLanguage.sinhala => 'ප්‍රතික්ෂේප කර ඇත',
+    CompanionLanguage.tamil => 'நிராகரிக்கப்பட்டது',
+  };
+
+  String get declinedPrivacyMessage => switch (language) {
+    CompanionLanguage.english => 'No active connection was created and your private information remains protected.',
+    CompanionLanguage.sinhala => 'සක්‍රිය සම්බන්ධතාවයක් නිර්මාණය වී නොමැති අතර ඔබගේ පෞද්ගලික තොරතුරු ආරක්ෂිතව පවතී.',
+    CompanionLanguage.tamil => 'செயலில் உள்ள இணைப்பு உருவாக்கப்படவில்லை மற்றும் உங்கள் தனிப்பட்ட தகவல்கள் பாதுகாப்பாக இருக்கும்.',
+  };
+
+  String get findAnotherCompanion => switch (language) {
+    CompanionLanguage.english => 'Find Another Companion',
+    CompanionLanguage.sinhala => 'වෙනත් සහචරයෙකු සොයන්න',
+    CompanionLanguage.tamil => 'மற்றொரு துணையாளரை தேடவும்',
+  };
+
+  String get connectionPaused => switch (language) {
+    CompanionLanguage.english => 'Connection Paused',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාව තාවකාලිකව නවතා ඇත',
+    CompanionLanguage.tamil => 'இணைப்பு தற்காலிகமாக நிறுத்தப்பட்டது',
+  };
+
+  String get pausedActivitySubtitle => switch (language) {
+    CompanionLanguage.english =>
+      'Your companionship activity is temporarily paused.',
+    CompanionLanguage.sinhala => 'ඔබගේ සහචර ක්‍රියාකාරකම් තාවකාලිකව නවතා ඇත.',
+    CompanionLanguage.tamil =>
+      'உங்கள் துணையாளர் செயல்பாடு தற்காலிகமாக நிறுத்தப்பட்டுள்ளது.',
+  };
+
+  String get paused => switch (language) {
+    CompanionLanguage.english => 'Paused',
+    CompanionLanguage.sinhala => 'තාවකාලිකව නවතා ඇත',
+    CompanionLanguage.tamil => 'தற்காலிகமாக நிறுத்தப்பட்டது',
+  };
+
+  String get whatThisMeans => switch (language) {
+    CompanionLanguage.english => 'What this means',
+    CompanionLanguage.sinhala => 'මෙයින් අදහස් වන්නේ',
+    CompanionLanguage.tamil => 'இதன் பொருள்',
+  };
+
+  String get pausedMeaning => switch (language) {
+    CompanionLanguage.english => 'New companionship activity is paused. Your existing connection can be resumed later.',
+    CompanionLanguage.sinhala => 'නව සහචර ක්‍රියාකාරකම් තාවකාලිකව නවතා ඇත. ඔබගේ පවතින සම්බන්ධතාව පසුව නැවත ආරම්භ කළ හැක.',
+    CompanionLanguage.tamil => 'புதிய துணையாளர் செயல்பாடு தற்காலிகமாக நிறுத்தப்பட்டுள்ளது. உங்கள் தற்போதைய இணைப்பை பின்னர் மீண்டும் தொடங்கலாம்.',
+  };
+
+  String get resumeConnection => switch (language) {
+    CompanionLanguage.english => 'Resume Connection',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාව නැවත ආරම්භ කරන්න',
+    CompanionLanguage.tamil => 'இணைப்பை மீண்டும் தொடங்கவும்',
+  };
+
+  String get pauseConnection => switch (language) {
+    CompanionLanguage.english => 'Pause Connection',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාව තාවකාලිකව නවත්වන්න',
+    CompanionLanguage.tamil => 'இணைப்பை தற்காலிகமாக நிறுத்தவும்',
+  };
+
+  String get pauseConnectionDescription => switch (language) {
+    CompanionLanguage.english =>
+      'Temporarily pause new companionship activity. You can resume later.',
+    CompanionLanguage.sinhala =>
+      'නව සහචර ක්‍රියාකාරකම් තාවකාලිකව නවතී. ඔබට පසුව නැවත ආරම්භ කළ හැක.',
+    CompanionLanguage.tamil => 'புதிய துணையாளர் செயல்பாடு தற்காலிகமாக நிறுத்தப்படும். பின்னர் மீண்டும் தொடங்கலாம்.',
+  };
 }

@@ -42,6 +42,8 @@ void main() {
 
       await tester.tap(find.text(strings.manageConnection));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text(strings.reviewEndConnection));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(strings.reviewEndConnection));
       await tester.pumpAndSettle();
 

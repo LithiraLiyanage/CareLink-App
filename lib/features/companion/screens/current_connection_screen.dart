@@ -9,6 +9,7 @@ import '../widgets/companion_bottom_navigation.dart';
 
 import '../../../app/theme.dart';
 import '../models/companion_language.dart';
+import '../models/companion_match.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
 import '../widgets/carelink_brand_header.dart';
@@ -20,10 +21,15 @@ class CurrentConnectionScreen extends StatelessWidget {
     super.key,
     required this.profile,
     required this.selectedLanguage,
-  });
+    this.connectionStatus = MatchStatus.accepted,
+  }) : assert(
+         connectionStatus == MatchStatus.accepted ||
+             connectionStatus == MatchStatus.paused,
+       );
 
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
+  final MatchStatus connectionStatus;
 
   static const Color _careLinkTeal = Color(0xFF087F83);
   static const Color _careLinkCoral = Color(0xFFFF625F);
@@ -39,6 +45,7 @@ class CurrentConnectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
+    final isPaused = connectionStatus == MatchStatus.paused;
 
     return CompanionScaffold(
       body: CompanionEntrance(
@@ -62,7 +69,9 @@ class CurrentConnectionScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      strings.activeCompanionSubtitle,
+                      isPaused
+                          ? strings.pausedActivitySubtitle
+                          : strings.activeCompanionSubtitle,
                       style: textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 20),
@@ -97,16 +106,18 @@ class CurrentConnectionScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       ElevatedButton(
-                        onPressed: () => Navigator.of(context).push(
-                          CompanionRoute<void>(
-                            context: context,
-                            builder: (_) => SchedulingHandoffScreen(
-                              profile: profile,
-                              selectedLanguage: selectedLanguage,
-                              fromCurrentConnection: true,
-                            ),
-                          ),
-                        ),
+                        onPressed: isPaused
+                            ? null
+                            : () => Navigator.of(context).push(
+                                CompanionRoute<void>(
+                                  context: context,
+                                  builder: (_) => SchedulingHandoffScreen(
+                                    profile: profile,
+                                    selectedLanguage: selectedLanguage,
+                                    fromCurrentConnection: true,
+                                  ),
+                                ),
+                              ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _careLinkTeal,
                           foregroundColor: Colors.white,
@@ -125,6 +136,7 @@ class CurrentConnectionScreen extends StatelessWidget {
                             builder: (_) => ManageConnectionScreen(
                               profile: profile,
                               selectedLanguage: selectedLanguage,
+                              connectionStatus: connectionStatus,
                             ),
                           ),
                         ),
@@ -217,29 +229,42 @@ class CurrentConnectionScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Container(
+              AnimatedContainer(
+                duration: MediaQuery.of(context).disableAnimations
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 7,
                 ),
                 decoration: BoxDecoration(
-                  color: CareLinkTheme.successColor.withValues(alpha: 0.12),
+                  color: connectionStatus == MatchStatus.paused
+                      ? CompanionPalette.mint
+                      : CareLinkTheme.successColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.check_circle,
+                    Icon(
+                      connectionStatus == MatchStatus.paused
+                          ? Icons.pause_circle_outline
+                          : Icons.check_circle,
                       size: 18,
-                      color: CareLinkTheme.successColor,
+                      color: connectionStatus == MatchStatus.paused
+                          ? CompanionPalette.teal
+                          : CareLinkTheme.successColor,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      strings.currentConnectionActive,
-                      style: const TextStyle(
-                        color: CareLinkTheme.textPrimary,
-                        fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: Text(
+                        connectionStatus == MatchStatus.paused
+                            ? strings.paused
+                            : strings.currentConnectionActive,
+                        style: const TextStyle(
+                          color: CareLinkTheme.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],

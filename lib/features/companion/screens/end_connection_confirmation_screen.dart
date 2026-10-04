@@ -7,20 +7,26 @@ import '../widgets/companion_entrance.dart';
 
 import '../../../app/theme.dart';
 import '../models/companion_language.dart';
+import '../models/companion_match.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
 import 'recommended_companions_screen.dart';
 
-/// W08B: the connection stays active unless End Connection is explicitly tapped.
+/// W08B: the connection keeps its current state until End is explicitly tapped.
 class EndConnectionConfirmationScreen extends StatelessWidget {
   const EndConnectionConfirmationScreen({
     super.key,
     required this.profile,
     required this.selectedLanguage,
-  });
+    this.connectionStatus = MatchStatus.accepted,
+  }) : assert(
+         connectionStatus == MatchStatus.accepted ||
+             connectionStatus == MatchStatus.paused,
+       );
 
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
+  final MatchStatus connectionStatus;
 
   static const Color _teal = Color(0xFF087F83);
 
@@ -29,7 +35,7 @@ class EndConnectionConfirmationScreen extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     var foundRecommendations = false;
 
-    // This mock flow has no backend state. Remove every Active screen from
+    // This mock flow has no backend state. Remove every connection screen from
     // the stack and return to the existing W02 route, preserving its language.
     navigator.popUntil((route) {
       if (route.settings.name == '/companion-recommendations') {
@@ -62,6 +68,7 @@ class EndConnectionConfirmationScreen extends StatelessWidget {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
     final firstName = profile.name.trim().split(RegExp(r'\s+')).first;
+    final isPaused = connectionStatus == MatchStatus.paused;
 
     return CompanionScaffold(
       appBar: AppBar(title: const Text('CareLink')),
@@ -99,15 +106,21 @@ class EndConnectionConfirmationScreen extends StatelessWidget {
                             const SizedBox(height: 12),
                             Row(
                               children: [
-                                const Icon(
-                                  Icons.check_circle,
-                                  color: CareLinkTheme.successColor,
+                                Icon(
+                                  isPaused
+                                      ? Icons.pause_circle_outline
+                                      : Icons.check_circle,
+                                  color: isPaused
+                                      ? CompanionPalette.teal
+                                      : CareLinkTheme.successColor,
                                   size: 20,
                                 ),
                                 const SizedBox(width: 8),
                                 Flexible(
                                   child: Text(
-                                    strings.currentConnectionActive,
+                                    isPaused
+                                        ? strings.paused
+                                        : strings.currentConnectionActive,
                                     style: textTheme.bodyLarge,
                                   ),
                                 ),

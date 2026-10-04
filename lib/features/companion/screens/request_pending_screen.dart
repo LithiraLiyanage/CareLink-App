@@ -12,6 +12,7 @@ import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
 import '../widgets/carelink_brand_header.dart';
 import 'connection_accepted_screen.dart';
+import 'request_declined_screen.dart';
 
 class RequestPendingScreen extends StatelessWidget {
   const RequestPendingScreen({
@@ -32,12 +33,6 @@ class RequestPendingScreen extends StatelessWidget {
       (route) =>
           route.settings.name == '/companion-recommendations' || route.isFirst,
     );
-  }
-
-  void _showSimulationPlaceholder(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -318,7 +313,7 @@ class RequestPendingScreen extends StatelessWidget {
     BuildContext context,
     CompanionStrings strings,
   ) {
-    // Development-only simulation controls; W06B is not implemented yet.
+    // Development-only simulation controls until a real response source exists.
     return Card(
       margin: EdgeInsets.zero,
       child: SizedBox(
@@ -353,10 +348,14 @@ class RequestPendingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               OutlinedButton(
-                // TODO: Navigate to W06B Request Declined.
-                onPressed: () => _showSimulationPlaceholder(
-                  context,
-                  strings.declinedScreenComingSoon,
+                onPressed: () => Navigator.of(context).pushReplacement(
+                  CompanionRoute<void>(
+                    context: context,
+                    builder: (_) => RequestDeclinedScreen(
+                      profile: profile,
+                      selectedLanguage: selectedLanguage,
+                    ),
+                  ),
                 ),
                 style: _developmentButtonStyle(),
                 child: Text(

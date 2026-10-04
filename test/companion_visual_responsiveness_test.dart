@@ -1,9 +1,11 @@
 import 'package:carelink_app/app/theme.dart';
 import 'package:carelink_app/features/companion/models/companion_language.dart';
+import 'package:carelink_app/features/companion/models/companion_match.dart';
 import 'package:carelink_app/features/companion/models/companion_profile.dart';
 import 'package:carelink_app/features/companion/models/companion_strings.dart';
 import 'package:carelink_app/features/companion/screens/companion_profile_screen.dart';
 import 'package:carelink_app/features/companion/screens/connection_accepted_screen.dart';
+import 'package:carelink_app/features/companion/screens/connection_paused_screen.dart';
 import 'package:carelink_app/features/companion/screens/conversation_ideas_screen.dart';
 import 'package:carelink_app/features/companion/screens/current_connection_screen.dart';
 import 'package:carelink_app/features/companion/screens/end_connection_confirmation_screen.dart';
@@ -11,6 +13,7 @@ import 'package:carelink_app/features/companion/screens/manage_connection_screen
 import 'package:carelink_app/features/companion/screens/matching_preferences_screen.dart';
 import 'package:carelink_app/features/companion/screens/recommended_companions_screen.dart';
 import 'package:carelink_app/features/companion/screens/request_pending_screen.dart';
+import 'package:carelink_app/features/companion/screens/request_declined_screen.dart';
 import 'package:carelink_app/features/companion/screens/scheduling_handoff_screen.dart';
 import 'package:carelink_app/features/companion/screens/send_match_request_screen.dart';
 import 'package:flutter/material.dart';
@@ -62,6 +65,10 @@ void main() {
                 profile: profile,
                 selectedLanguage: language,
               ),
+              RequestDeclinedScreen(
+                profile: profile,
+                selectedLanguage: language,
+              ),
               ConnectionAcceptedScreen(
                 profile: profile,
                 selectedLanguage: language,
@@ -73,6 +80,11 @@ void main() {
               ManageConnectionScreen(
                 profile: profile,
                 selectedLanguage: language,
+              ),
+              ConnectionPausedScreen(
+                profile: profile,
+                selectedLanguage: language,
+                connectionStatus: MatchStatus.paused,
               ),
               EndConnectionConfirmationScreen(
                 profile: profile,
