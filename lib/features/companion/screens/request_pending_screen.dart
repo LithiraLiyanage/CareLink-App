@@ -4,6 +4,7 @@ import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import '../widgets/carelink_brand_header.dart';
 import 'connection_accepted_screen.dart';
 
 class RequestPendingScreen extends StatelessWidget {
@@ -50,7 +51,7 @@ class RequestPendingScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildBrandHeader(),
+                  const CareLinkBrandHeader(),
                   const SizedBox(height: 24),
                   Semantics(
                     header: true,
@@ -107,7 +108,7 @@ class RequestPendingScreen extends StatelessWidget {
                   TextButton(
                     onPressed: () => Navigator.of(context).maybePop(),
                     style: TextButton.styleFrom(
-                      foregroundColor: _careLinkCoral,
+                      foregroundColor: CareLinkTheme.errorColor,
                       minimumSize: const Size(double.infinity, 48),
                     ),
                     child: Text(
@@ -119,44 +120,6 @@ class RequestPendingScreen extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBrandHeader() {
-    return Semantics(
-      label: 'CareLink',
-      child: ExcludeSemantics(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(9),
-              child: Image.asset(
-                'assets/images/carelink_logo.png',
-                width: 38,
-                height: 38,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(width: 9),
-            const Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Care',
-                    style: TextStyle(color: _careLinkTeal),
-                  ),
-                  TextSpan(
-                    text: 'Link',
-                    style: TextStyle(color: _careLinkCoral),
-                  ),
-                ],
-              ),
-              style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
-            ),
-          ],
         ),
       ),
     );
@@ -223,11 +186,13 @@ class RequestPendingScreen extends StatelessWidget {
                       color: _careLinkCoral,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      strings.pending,
-                      style: const TextStyle(
-                        color: CareLinkTheme.textPrimary,
-                        fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: Text(
+                        strings.pending,
+                        style: const TextStyle(
+                          color: CareLinkTheme.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -321,9 +286,9 @@ class RequestPendingScreen extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     status,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
-                      color: color,
+                      color: CareLinkTheme.textPrimary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

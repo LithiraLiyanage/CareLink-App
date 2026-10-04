@@ -4,6 +4,7 @@ import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import '../widgets/carelink_brand_header.dart';
 import 'current_connection_screen.dart';
 import 'scheduling_handoff_screen.dart';
 
@@ -38,7 +39,7 @@ class ConnectionAcceptedScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildBrandHeader(),
+                  const CareLinkBrandHeader(),
                   const SizedBox(height: 24),
                   Center(
                     child: Column(
@@ -155,44 +156,6 @@ class ConnectionAcceptedScreen extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBrandHeader() {
-    return Semantics(
-      label: 'CareLink',
-      child: ExcludeSemantics(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(9),
-              child: Image.asset(
-                'assets/images/carelink_logo.png',
-                width: 38,
-                height: 38,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(width: 9),
-            const Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Care',
-                    style: TextStyle(color: _careLinkTeal),
-                  ),
-                  TextSpan(
-                    text: 'Link',
-                    style: TextStyle(color: _careLinkCoral),
-                  ),
-                ],
-              ),
-              style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
-            ),
-          ],
         ),
       ),
     );
@@ -351,11 +314,13 @@ class ConnectionAcceptedScreen extends StatelessWidget {
                       color: CareLinkTheme.successColor,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      strings.active,
-                      style: const TextStyle(
-                        color: CareLinkTheme.textPrimary,
-                        fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: Text(
+                        strings.active,
+                        style: const TextStyle(
+                          color: CareLinkTheme.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],

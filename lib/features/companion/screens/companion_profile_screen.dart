@@ -4,6 +4,7 @@ import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import '../widgets/carelink_brand_header.dart';
 import 'send_match_request_screen.dart';
 
 class CompanionProfileScreen extends StatelessWidget {
@@ -45,7 +46,7 @@ class CompanionProfileScreen extends StatelessWidget {
                         color: _careLinkTeal,
                       ),
                       const SizedBox(width: 8),
-                      _buildBrandHeader(),
+                      Expanded(child: const CareLinkBrandHeader()),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -175,44 +176,6 @@ class CompanionProfileScreen extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBrandHeader() {
-    return Semantics(
-      label: 'CareLink',
-      child: ExcludeSemantics(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(9),
-              child: Image.asset(
-                'assets/images/carelink_logo.png',
-                width: 38,
-                height: 38,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(width: 9),
-            const Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Care',
-                    style: TextStyle(color: _careLinkTeal),
-                  ),
-                  TextSpan(
-                    text: 'Link',
-                    style: TextStyle(color: _careLinkCoral),
-                  ),
-                ],
-              ),
-              style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
-            ),
-          ],
         ),
       ),
     );

@@ -319,7 +319,7 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
                   textAlign: TextAlign.center,
                 ),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: selected ? _coral : _teal,
+                  foregroundColor: selected ? CareLinkTheme.textPrimary : _teal,
                   side: BorderSide(color: selected ? _coral : _teal),
                   minimumSize: const Size(double.infinity, 48),
                 ),

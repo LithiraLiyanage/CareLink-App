@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/theme.dart';
 import '../models/companion_language.dart';
+import '../widgets/carelink_brand_header.dart';
 import 'recommended_companions_screen.dart';
 
 class MatchingPreferencesScreen extends StatefulWidget {
@@ -92,7 +93,7 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildBrandHeader(),
+                  const CareLinkBrandHeader(large: true),
                   const SizedBox(height: 24),
                   Semantics(
                     header: true,
@@ -240,49 +241,6 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
               icon: Icon(Icons.event_outlined),
               selectedIcon: Icon(Icons.event, color: _careLinkTeal),
               label: 'Check-ins',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBrandHeader() {
-    return Semantics(
-      container: true,
-      label: 'CareLink',
-      child: ExcludeSemantics(
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
-                'assets/images/carelink_logo.png',
-                width: 44,
-                height: 44,
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.high,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'Care',
-                    style: TextStyle(color: _careLinkTeal),
-                  ),
-                  TextSpan(
-                    text: 'Link',
-                    style: TextStyle(color: _careLinkCoral),
-                  ),
-                ],
-              ),
-              style: TextStyle(
-                fontSize: 25,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5,
-              ),
             ),
           ],
         ),
