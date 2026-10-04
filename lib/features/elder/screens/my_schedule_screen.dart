@@ -3,222 +3,291 @@ import 'package:flutter/material.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
-import 'elder_home_screen.dart';
 import 'memory_lane_screen.dart';
 import 'new_recurring_checkin_screen.dart';
-import 'nethmi_ready_screen.dart';
 import 'reschedule_checkin_screen.dart';
 
-class MyScheduleScreen extends StatefulWidget {
+class MyScheduleScreen extends StatelessWidget {
   const MyScheduleScreen({super.key});
 
-  @override
-  State<MyScheduleScreen> createState() => _MyScheduleScreenState();
-}
-
-class _MyScheduleScreenState extends State<MyScheduleScreen> {
-  int tab = 1;
-
-  void _open(Widget screen) {
+  void _open(BuildContext context, Widget screen) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 
   @override
   Widget build(BuildContext context) {
     return ElderPhoneScaffold(
+      backgroundColor: ElderColors.background,
+      statusBarColor: ElderColors.background,
+      darkStatusBar: true,
       bottomNavigationBar: ElderBottomNav(
         selectedIndex: 1,
-        onHome: () => _open(const ElderHomeScreen()),
-        onMemory: () => _open(const MemoryLaneScreen()),
+        onSchedule: () {},
+        onMemory: () => _open(context, const MemoryLaneScreen()),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 7, 18, 0),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                ElderBackButton(onPressed: () => Navigator.pop(context)),
-                const SizedBox(width: 7),
-                const CircleAvatar(
-                  radius: 15,
-                  backgroundColor: ElderColors.darkTeal,
-                  child: Text(
-                    'C',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Text(
-                  'CareLink',
-                  style: TextStyle(
-                    color: ElderColors.textDark,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
+            _topBar(context),
+            const SizedBox(height: 10),
             const Text(
               'My Schedule',
               style: TextStyle(
                 color: ElderColors.textDark,
-                fontSize: 23,
+                fontSize: 24,
+                height: 1,
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 7),
             const Text(
               'Your upcoming companion check-ins',
               style: TextStyle(
                 color: ElderColors.textMuted,
-                fontSize: 10,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 14),
             _tabs(),
-            const SizedBox(height: 12),
-            _session(
-              title: 'Today • 6:30 PM',
-              subtitle: 'Nethmi • Video',
-              status: 'NEXT',
-              onTap: () => _open(const NethmiReadyScreen()),
+            const SizedBox(height: 16),
+            Expanded(
+              child: Column(
+                children: [
+                  _scheduleCard(
+                    context,
+                    time: 'Today • 6:30 PM',
+                    subtitle: 'Nethmi • Video',
+                    badge: 'NEXT',
+                    filledBadge: true,
+                  ),
+                  const SizedBox(height: 13),
+                  _scheduleCard(
+                    context,
+                    time: 'Wed • 6:30 PM',
+                    subtitle: 'Nethmi • Video',
+                    badge: 'RECURRING',
+                  ),
+                  const SizedBox(height: 13),
+                  _scheduleCard(
+                    context,
+                    time: 'Fri • 6:30 PM',
+                    subtitle: 'Nethmi • Video',
+                    badge: 'RECURRING',
+                  ),
+                  const Spacer(),
+                  ElderPrimaryButton(
+                    label: '+  Create recurring check-in',
+                    color: ElderColors.darkTeal,
+                    height: 54,
+                    onPressed: () =>
+                        _open(context, const NewRecurringCheckInScreen()),
+                  ),
+                  const SizedBox(height: 10),
+                  _infoCard(),
+                ],
+              ),
             ),
-            const SizedBox(height: 13),
-            _session(
-              title: 'Wed • 6:30 PM',
-              subtitle: 'Nethmi • Video',
-              status: 'RECURRING',
-              onTap: () => _open(const RescheduleCheckInScreen()),
-            ),
-            const SizedBox(height: 13),
-            _session(
-              title: 'Fri • 6:30 PM',
-              subtitle: 'Nethmi • Voice',
-              status: 'RECURRING',
-              onTap: () => _open(const RescheduleCheckInScreen()),
-            ),
-            const Spacer(),
-            ElderPrimaryButton(
-              label: '+  Create recurring check-in',
-              height: 54,
-              onPressed: () => _open(const NewRecurringCheckInScreen()),
-            ),
-            const SizedBox(height: 10),
-            const ElderInfoCard(
-              icon: Icons.info_outline_rounded,
-              title: 'You can reschedule or cancel any',
-              subtitle: 'session.',
-            ),
-            const SizedBox(height: 4),
           ],
         ),
       ),
     );
   }
 
+  Widget _topBar(BuildContext context) {
+    return Row(
+      children: [
+        InkWell(
+          onTap: () => Navigator.of(context).maybePop(),
+          borderRadius: BorderRadius.circular(30),
+          child: Container(
+            width: 35,
+            height: 35,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0x66005B59)),
+            ),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: ElderColors.darkTeal,
+              size: 16,
+            ),
+          ),
+        ),
+        const SizedBox(width: 9),
+        Container(
+          width: 30,
+          height: 30,
+          decoration: const BoxDecoration(
+            color: ElderColors.darkTeal,
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: const Text(
+            'C',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        const Text(
+          'CareLink',
+          style: TextStyle(
+            color: ElderColors.textDark,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _tabs() {
-    const labels = ['Today', 'Upcoming', 'Past'];
+    Widget tab(String label, {bool selected = false}) {
+      return Expanded(
+        child: Container(
+          height: 42,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(13),
+            boxShadow: selected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x0D000000),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: ElderColors.textDark,
+              fontSize: 10.5,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Container(
-      height: 48,
-      padding: const EdgeInsets.all(3),
+      height: 50,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFF82E8D8),
+        color: ElderColors.mint,
         borderRadius: BorderRadius.circular(15),
       ),
       child: Row(
-        children: List.generate(labels.length, (i) {
-          final selected = tab == i;
-          return Expanded(
-            child: InkWell(
-              onTap: () => setState(() => tab = i),
-              borderRadius: BorderRadius.circular(13),
-              child: Container(
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: selected ? Colors.white : Colors.transparent,
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Text(
-                  labels[i],
-                  style: const TextStyle(
-                    color: ElderColors.textDark,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }),
+        children: [tab('Today'), tab('Upcoming', selected: true), tab('Past')],
       ),
     );
   }
 
-  Widget _session({
-    required String title,
+  Widget _scheduleCard(
+    BuildContext context, {
+    required String time,
     required String subtitle,
-    required String status,
-    required VoidCallback onTap,
+    required String badge,
+    bool filledBadge = false,
   }) {
     return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(15),
+      onTap: () => _open(context, const RescheduleCheckInScreen()),
+      borderRadius: BorderRadius.circular(17),
       child: Container(
-        height: 98,
-        padding: const EdgeInsets.all(11),
+        height: 104,
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: ElderColors.border),
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: const Color(0x6693CFC4)),
+          boxShadow: const [
             BoxShadow(
-              color: Colors.black.withValues(alpha: .04),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+              color: Color(0x09000000),
+              blurRadius: 10,
+              offset: Offset(0, 4),
             ),
           ],
         ),
         child: Row(
           children: [
-            const ElderAvatar(
-              asset: ElderAssets.nethmiAvatar,
-              size: 42,
-              border: false,
-            ),
-            const SizedBox(width: 10),
+            const ElderAvatar(asset: ElderAssets.nethmiAvatar, size: 48),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
+                    time,
                     style: const TextStyle(
                       color: ElderColors.textDark,
-                      fontSize: 12,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 5),
                   Text(
                     subtitle,
                     style: const TextStyle(
                       color: ElderColors.textMuted,
-                      fontSize: 9,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
             ),
-            ElderStatusPill(status, filled: status == 'NEXT'),
+            const SizedBox(width: 8),
+            ElderStatusPill(badge, filled: filledBadge),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _infoCard() {
+    return Container(
+      width: double.infinity,
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0x66A7EEE0),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0x6693CFC4)),
+      ),
+      child: const Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: Colors.white,
+            child: Icon(
+              Icons.info_outline_rounded,
+              color: ElderColors.darkTeal,
+              size: 19,
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'You can reschedule or cancel any session.',
+              style: TextStyle(
+                color: ElderColors.textDark,
+                fontSize: 9.5,
+                height: 1.25,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
