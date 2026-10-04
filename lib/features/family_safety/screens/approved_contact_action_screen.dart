@@ -122,54 +122,57 @@ class _ContactCard extends StatelessWidget {
   const _ContactCard();
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-        decoration: _cardDecoration(),
-        child: const Row(
-          children: [
-            CircleAvatar(
-              radius: 23,
-              backgroundColor: ApprovedContactActionScreen._lightTeal,
-              child: Icon(Icons.person_rounded,
-                  size: 27, color: ApprovedContactActionScreen._teal),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Jane Silva',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: ApprovedContactActionScreen._darkTeal,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Daughter',
-                    style: TextStyle(
-                      color: ApprovedContactActionScreen._secondary,
-                      fontSize: 11,
-                    ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    '+94 77 123 4567',
-                    style: TextStyle(
-                      color: ApprovedContactActionScreen._muted,
-                      fontSize: 10.5,
-                    ),
-                  ),
-                ],
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: () => Navigator.of(context).pushNamed('/case-outcome'),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+          decoration: _cardDecoration(),
+          child: const Row(
+            children: [
+              CircleAvatar(
+                radius: 23,
+                backgroundColor: ApprovedContactActionScreen._lightTeal,
+                child: Icon(Icons.person_rounded,
+                    size: 27, color: ApprovedContactActionScreen._teal),
               ),
-            ),
-            SizedBox(width: 8),
-            _ApprovedChip(),
-          ],
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Jane Silva',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: ApprovedContactActionScreen._darkTeal,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Daughter',
+                      style: TextStyle(
+                        color: ApprovedContactActionScreen._secondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      '+94 77 123 4567',
+                      style: TextStyle(
+                        color: ApprovedContactActionScreen._muted,
+                        fontSize: 10.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8),
+              _ApprovedChip(),
+            ],
+          ),
         ),
       );
 }

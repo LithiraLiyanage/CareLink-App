@@ -10,6 +10,7 @@ import '../features/family_safety/screens/coordinator_case_list_screen.dart';
 import '../features/family_safety/screens/coordinator_case_detail_screen.dart';
 import '../features/family_safety/screens/consent_context_review_screen.dart';
 import '../features/family_safety/screens/approved_contact_action_screen.dart';
+import '../features/family_safety/screens/audit_outcome_close_case_screen.dart';
 import 'theme.dart';
 
 class CareLinkApp extends StatelessWidget {
@@ -34,6 +35,7 @@ class CareLinkApp extends StatelessWidget {
             const CoordinatorCaseDetailScreen(),
         '/consent-context': (context) => const ConsentContextReviewScreen(),
         '/approved-contact': (context) => const ApprovedContactActionScreen(),
+        '/case-outcome': (context) => const AuditOutcomeCloseCaseScreen(),
       },
     );
   }
