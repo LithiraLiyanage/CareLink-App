@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/companion_route.dart';
+
+import '../widgets/companion_scaffold.dart';
+import '../widgets/companion_entrance.dart';
+import '../widgets/companion_avatar.dart';
+import '../widgets/companion_bottom_navigation.dart';
+
 import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
@@ -31,38 +38,39 @@ class CurrentConnectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
-    final textTheme = Theme.of(context).textTheme;
+    final textTheme = CompanionScaffold.textTheme(context);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const CareLinkBrandHeader(),
-                  const SizedBox(height: 24),
-                  Semantics(
-                    header: true,
-                    child: Text(
-                      strings.myConnection,
-                      style: textTheme.headlineMedium,
+    return CompanionScaffold(
+      body: CompanionEntrance(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const CareLinkBrandHeader(),
+                    const SizedBox(height: 24),
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        strings.myConnection,
+                        style: textTheme.headlineMedium,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    strings.activeCompanionSubtitle,
-                    style: textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildCompanionCard(context, strings),
-                  const SizedBox(height: 16),
-                  _buildNextCheckInCard(context, strings),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      strings.activeCompanionSubtitle,
+                      style: textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 20),
+                    _buildCompanionCard(context, strings),
+                    const SizedBox(height: 16),
+                    _buildNextCheckInCard(context, strings),
+                  ],
+                ),
               ),
             ),
           ),
@@ -90,7 +98,8 @@ class CurrentConnectionScreen extends StatelessWidget {
                     children: [
                       ElevatedButton(
                         onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
+                          CompanionRoute<void>(
+                            context: context,
                             builder: (_) => SchedulingHandoffScreen(
                               profile: profile,
                               selectedLanguage: selectedLanguage,
@@ -111,7 +120,8 @@ class CurrentConnectionScreen extends StatelessWidget {
                       const SizedBox(height: 8),
                       OutlinedButton(
                         onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
+                          CompanionRoute<void>(
+                            context: context,
                             builder: (_) => ManageConnectionScreen(
                               profile: profile,
                               selectedLanguage: selectedLanguage,
@@ -139,33 +149,14 @@ class CurrentConnectionScreen extends StatelessWidget {
                 ),
               ),
             ),
-            NavigationBar(
-              height: 72,
+            CompanionBottomNavigation(
+              selectedLanguage: selectedLanguage,
               selectedIndex: 1,
-              backgroundColor: CareLinkTheme.surfaceColor,
-              indicatorColor: _careLinkCoral.withValues(alpha: 0.16),
               onDestinationSelected: (index) {
                 if (index != 1) {
                   _showPlaceholder(context, strings.navigationComingSoon);
                 }
               },
-              destinations: [
-                NavigationDestination(
-                  icon: const Icon(Icons.home_outlined),
-                  selectedIcon: const Icon(Icons.home),
-                  label: strings.home,
-                ),
-                NavigationDestination(
-                  icon: const Icon(Icons.people_outline),
-                  selectedIcon: const Icon(Icons.people, color: _careLinkTeal),
-                  label: strings.matches,
-                ),
-                NavigationDestination(
-                  icon: const Icon(Icons.event_outlined),
-                  selectedIcon: const Icon(Icons.event, color: _careLinkTeal),
-                  label: strings.checkIns,
-                ),
-              ],
             ),
           ],
         ),
@@ -174,12 +165,6 @@ class CurrentConnectionScreen extends StatelessWidget {
   }
 
   Widget _buildCompanionCard(BuildContext context, CompanionStrings strings) {
-    final initials = profile.name
-        .split(' ')
-        .where((part) => part.isNotEmpty)
-        .take(2)
-        .map((part) => part[0])
-        .join();
     final textTheme = Theme.of(context).textTheme;
 
     return Card(
@@ -193,17 +178,10 @@ class CurrentConnectionScreen extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: _careLinkCoral.withValues(alpha: 0.16),
-                    child: Text(
-                      initials,
-                      style: const TextStyle(
-                        color: _careLinkTeal,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                  CompanionAvatar(
+                    name: profile.name,
+                    size: 56,
+                    imagePath: profile.imagePath,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -312,6 +290,7 @@ class CurrentConnectionScreen extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
+      color: CompanionPalette.mint,
       child: SizedBox(
         width: double.infinity,
         child: Padding(
@@ -340,6 +319,11 @@ class CurrentConnectionScreen extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 18,
+                    color: _careLinkTeal,
                   ),
                 ],
               ),

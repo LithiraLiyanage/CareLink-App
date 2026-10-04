@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/companion_route.dart';
+
+import '../widgets/companion_scaffold.dart';
+import '../widgets/companion_entrance.dart';
+import '../widgets/companion_avatar.dart';
+
 import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
@@ -23,7 +29,8 @@ class SendMatchRequestScreen extends StatelessWidget {
 
   void _onSendRequest(BuildContext context) {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
+      CompanionRoute<void>(
+        context: context,
         builder: (_) => RequestPendingScreen(
           profile: profile,
           selectedLanguage: selectedLanguage,
@@ -35,71 +42,72 @@ class SendMatchRequestScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
-    final textTheme = Theme.of(context).textTheme;
+    final textTheme = CompanionScaffold.textTheme(context);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: const Icon(Icons.arrow_back),
-                        tooltip: strings.cancel,
-                        color: _careLinkTeal,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(child: const CareLinkBrandHeader()),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Semantics(
-                    header: true,
-                    child: Text(
-                      strings.sendMatchRequest,
-                      style: textTheme.headlineMedium,
+    return CompanionScaffold(
+      body: CompanionEntrance(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          icon: const Icon(Icons.arrow_back),
+                          tooltip: strings.cancel,
+                          color: _careLinkTeal,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: const CareLinkBrandHeader()),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    strings.requestReviewSubtitle,
-                    style: textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildCompanionCard(context, strings),
-                  const SizedBox(height: 16),
-                  _buildNotice(context, strings),
-                  const SizedBox(height: 16),
-                  _buildPrivacyCard(
-                    context,
-                    title: strings.informationShared,
-                    items: [
-                      strings.firstName,
-                      strings.approvedInterests,
-                      strings.preferredLanguage,
-                    ],
-                    isShared: true,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildPrivacyCard(
-                    context,
-                    title: strings.notShared,
-                    items: [
-                      strings.phoneNumber,
-                      strings.homeAddress,
-                      strings.privateConversationContent,
-                    ],
-                    isShared: false,
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        strings.sendMatchRequest,
+                        style: textTheme.headlineMedium,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      strings.requestReviewSubtitle,
+                      style: textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 20),
+                    _buildCompanionCard(context, strings),
+                    const SizedBox(height: 16),
+                    _buildNotice(context, strings),
+                    const SizedBox(height: 16),
+                    _buildPrivacyCard(
+                      context,
+                      title: strings.informationShared,
+                      items: [
+                        strings.firstName,
+                        strings.approvedInterests,
+                        strings.preferredLanguage,
+                      ],
+                      isShared: true,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildPrivacyCard(
+                      context,
+                      title: strings.notShared,
+                      items: [
+                        strings.phoneNumber,
+                        strings.homeAddress,
+                        strings.privateConversationContent,
+                      ],
+                      isShared: false,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -151,12 +159,6 @@ class SendMatchRequestScreen extends StatelessWidget {
   }
 
   Widget _buildCompanionCard(BuildContext context, CompanionStrings strings) {
-    final initials = profile.name
-        .split(' ')
-        .where((part) => part.isNotEmpty)
-        .take(2)
-        .map((part) => part[0])
-        .join();
     final textTheme = Theme.of(context).textTheme;
 
     return Card(
@@ -165,17 +167,10 @@ class SendMatchRequestScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: _careLinkCoral.withValues(alpha: 0.16),
-              child: Text(
-                initials,
-                style: const TextStyle(
-                  color: _careLinkTeal,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+            CompanionAvatar(
+              name: profile.name,
+              size: 56,
+              imagePath: profile.imagePath,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -247,6 +242,9 @@ class SendMatchRequestScreen extends StatelessWidget {
   }) {
     return Card(
       margin: EdgeInsets.zero,
+      color: isShared
+          ? CompanionPalette.mint
+          : CompanionPalette.coral.withValues(alpha: 0.08),
       child: SizedBox(
         width: double.infinity,
         child: Padding(

@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/companion_route.dart';
+
+import '../widgets/companion_scaffold.dart';
+import '../widgets/companion_entrance.dart';
+import '../widgets/companion_avatar.dart';
+
 import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
@@ -33,7 +39,6 @@ class SchedulingHandoffScreen extends StatelessWidget {
   );
 
   static const Color _teal = Color(0xFF087F83);
-  static const Color _coral = Color(0xFFFF625F);
   static const Color _border = Color(0xFFE7E0EC);
 
   void _backToConnection(BuildContext context) {
@@ -46,7 +51,8 @@ class SchedulingHandoffScreen extends StatelessWidget {
     // W06 is below H01 in this path. Replace only H01 with W07 so the Back to
     // Connection action always lands on the accepted current connection.
     navigator.pushReplacement(
-      MaterialPageRoute<void>(
+      CompanionRoute<void>(
+        context: context,
         builder: (_) => CurrentConnectionScreen(
           profile: profile,
           selectedLanguage: selectedLanguage,
@@ -69,156 +75,154 @@ class SchedulingHandoffScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
-    final textTheme = Theme.of(context).textTheme;
+    final textTheme = CompanionScaffold.textTheme(context);
     final firstName = profile.name.trim().split(RegExp(r'\s+')).first;
 
-    return Scaffold(
+    return CompanionScaffold(
       appBar: AppBar(title: const Text('CareLink')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Semantics(
-                    header: true,
-                    child: Text(
-                      strings.scheduleCheckIn,
-                      style: textTheme.headlineMedium,
+      body: CompanionEntrance(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        strings.scheduleCheckIn,
+                        style: textTheme.headlineMedium,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    strings.schedulingHandoffSubtitle,
-                    style: textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.sync_alt,
-                                color: _teal,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Semantics(
-                                  header: true,
-                                  child: Text(
-                                    strings.systemHandoff,
-                                    style: textTheme.titleMedium,
-                                  ),
+                    const SizedBox(height: 8),
+                    Text(
+                      strings.schedulingHandoffSubtitle,
+                      style: textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 24),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      color: CompanionPalette.mint,
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.sync_alt,
+                                  color: _teal,
+                                  size: 24,
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 18),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              CircleAvatar(
-                                radius: 25,
-                                backgroundColor: _coral.withValues(alpha: 0.16),
-                                child: Text(
-                                  profile.name.isEmpty ? '?' : profile.name[0],
-                                  style: const TextStyle(
-                                    color: _teal,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      profile.name,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Semantics(
+                                    header: true,
+                                    child: Text(
+                                      strings.systemHandoff,
                                       style: textTheme.titleMedium,
                                     ),
-                                    const SizedBox(height: 5),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.check_circle,
-                                          color: CareLinkTheme.successColor,
-                                          size: 18,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Flexible(
-                                          child: Text(
-                                            strings.currentConnectionActive,
-                                            style: textTheme.bodySmall,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 18),
-                          Text(
-                            strings.readyToSchedule(firstName),
-                            style: textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            strings.acceptedConnectionHandoffDescription,
-                            style: textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.event_available_outlined,
-                                color: _teal,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Semantics(
-                                  header: true,
-                                  child: Text(
-                                    strings.nextModule,
-                                    style: textTheme.titleMedium,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            strings.schedulingNextSteps,
-                            style: textTheme.bodyMedium,
-                          ),
-                        ],
+                              ],
+                            ),
+                            const SizedBox(height: 18),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CompanionAvatar(
+                                  name: profile.name,
+                                  size: 50,
+                                  imagePath: profile.imagePath,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        profile.name,
+                                        style: textTheme.titleMedium,
+                                      ),
+                                      const SizedBox(height: 5),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.check_circle,
+                                            color: CareLinkTheme.successColor,
+                                            size: 18,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Flexible(
+                                            child: Text(
+                                              strings.currentConnectionActive,
+                                              style: textTheme.bodySmall,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 18),
+                            Text(
+                              strings.readyToSchedule(firstName),
+                              style: textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              strings.acceptedConnectionHandoffDescription,
+                              style: textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.event_available_outlined,
+                                  color: _teal,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Semantics(
+                                    header: true,
+                                    child: Text(
+                                      strings.nextModule,
+                                      style: textTheme.titleMedium,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              strings.schedulingNextSteps,
+                              style: textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

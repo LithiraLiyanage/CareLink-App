@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/companion_route.dart';
+
+import '../widgets/companion_scaffold.dart';
+import '../widgets/companion_entrance.dart';
+import '../widgets/companion_bottom_navigation.dart';
+import '../widgets/companion_avatar.dart';
+
 import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
@@ -27,7 +34,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
-    final textTheme = Theme.of(context).textTheme;
+    final textTheme = CompanionScaffold.textTheme(context);
     final featuredProfile = CompanionProfile(
       id: 'nethmi-jayasooriya',
       name: 'Nethmi Jayasooriya',
@@ -39,49 +46,62 @@ class RecommendedCompanionsScreen extends StatelessWidget {
       about: strings.volunteerAbout,
     );
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const CareLinkBrandHeader(large: true),
-                  const SizedBox(height: 24),
-                  Semantics(
-                    header: true,
-                    child: Text(
-                      strings.recommendedCompanions,
-                      style: textTheme.headlineMedium,
+    return CompanionScaffold(
+      body: CompanionEntrance(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const CareLinkBrandHeader(large: true),
+                    const SizedBox(height: 24),
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        strings.recommendedCompanions,
+                        style: textTheme.headlineMedium,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    strings.recommendationSubtitle,
-                    style: textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.tune, size: 20),
-                    label: Text(strings.adjustPreferences),
-                    style: TextButton.styleFrom(
-                      foregroundColor: _careLinkTeal,
-                      minimumSize: const Size(0, 48),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                    const SizedBox(height: 8),
+                    Text(
+                      strings.recommendationSubtitle,
+                      style: textTheme.bodyMedium,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildFeaturedCard(context, strings, featuredProfile),
-                  const SizedBox(height: 14),
-                  _buildSmallCard(context, strings, 'Amaya Perera', 'AP'),
-                  const SizedBox(height: 14),
-                  _buildSmallCard(context, strings, 'Kavindu Silva', 'KS'),
-                ],
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.tune, size: 20),
+                      label: Text(strings.adjustPreferences),
+                      style: TextButton.styleFrom(
+                        foregroundColor: _careLinkTeal,
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    CompanionEntrance(
+                      child: _buildFeaturedCard(
+                        context,
+                        strings,
+                        featuredProfile,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    CompanionEntrance(
+                      delay: const Duration(milliseconds: 55),
+                      child: _buildSmallCard(context, strings, 'Amaya Perera'),
+                    ),
+                    const SizedBox(height: 14),
+                    CompanionEntrance(
+                      delay: const Duration(milliseconds: 110),
+                      child: _buildSmallCard(context, strings, 'Kavindu Silva'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -89,33 +109,14 @@ class RecommendedCompanionsScreen extends StatelessWidget {
       ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: NavigationBar(
-          height: 72,
+        child: CompanionBottomNavigation(
+          selectedLanguage: selectedLanguage,
           selectedIndex: 1,
-          backgroundColor: CareLinkTheme.surfaceColor,
-          indicatorColor: _careLinkCoral.withValues(alpha: 0.16),
           onDestinationSelected: (index) {
             if (index != 1) {
               _showPlaceholder(context, strings.navigationComingSoon);
             }
           },
-          destinations: [
-            NavigationDestination(
-              icon: const Icon(Icons.home_outlined),
-              selectedIcon: const Icon(Icons.home),
-              label: strings.home,
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.people_outline),
-              selectedIcon: const Icon(Icons.people, color: _careLinkTeal),
-              label: strings.matches,
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.event_outlined),
-              selectedIcon: const Icon(Icons.event, color: _careLinkTeal),
-              label: strings.checkIns,
-            ),
-          ],
         ),
       ),
     );
@@ -138,7 +139,12 @@ class RecommendedCompanionsScreen extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildAvatar('NJ', size: 64),
+                CompanionAvatar(
+                  name: profile.name,
+                  size: 64,
+                  imagePath: profile.imagePath,
+                  heroTag: 'companion-${profile.id}',
+                ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -166,23 +172,38 @@ class RecommendedCompanionsScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
-            const Divider(height: 1),
-            const SizedBox(height: 16),
-            Semantics(
-              header: true,
-              child: Text(strings.whyThisMatch, style: textTheme.titleMedium),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: CompanionPalette.mint,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      strings.whyThisMatch,
+                      style: textTheme.titleMedium,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildReason(strings.sameLanguage),
+                  _buildReason(strings.twoSharedInterests),
+                  _buildReason(strings.availableAtPreferredTime),
+                ],
+              ),
             ),
-            const SizedBox(height: 10),
-            _buildReason(strings.sameLanguage),
-            _buildReason(strings.twoSharedInterests),
-            _buildReason(strings.availableAtPreferredTime),
             const SizedBox(height: 16),
             LayoutBuilder(
               builder: (context, constraints) {
                 final profileButton = OutlinedButton(
                   onPressed: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute<void>(
+                      CompanionRoute<void>(
+                        context: context,
                         builder: (_) => CompanionProfileScreen(
                           profile: profile,
                           selectedLanguage: selectedLanguage,
@@ -236,7 +257,6 @@ class RecommendedCompanionsScreen extends StatelessWidget {
     BuildContext context,
     CompanionStrings strings,
     String name,
-    String initials,
   ) {
     final textTheme = Theme.of(context).textTheme;
 
@@ -246,7 +266,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            _buildAvatar(initials, size: 48),
+            CompanionAvatar(name: name, size: 48),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -262,21 +282,6 @@ class RecommendedCompanionsScreen extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAvatar(String initials, {required double size}) {
-    return CircleAvatar(
-      radius: size / 2,
-      backgroundColor: _careLinkCoral.withValues(alpha: 0.16),
-      child: Text(
-        initials,
-        style: TextStyle(
-          color: _careLinkTeal,
-          fontSize: size * 0.3,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );

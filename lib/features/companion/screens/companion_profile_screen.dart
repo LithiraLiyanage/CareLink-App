@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/companion_route.dart';
+
+import '../widgets/companion_scaffold.dart';
+import '../widgets/companion_entrance.dart';
+import '../widgets/companion_avatar.dart';
+
 import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
@@ -24,101 +30,109 @@ class CompanionProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
-    final textTheme = Theme.of(context).textTheme;
+    final textTheme = CompanionScaffold.textTheme(context);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: const Icon(Icons.arrow_back),
-                        tooltip: strings.backToRecommendations,
-                        color: _careLinkTeal,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(child: const CareLinkBrandHeader()),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  _buildProfileHeader(context, strings),
-                  const SizedBox(height: 16),
-                  _buildSection(
-                    context,
-                    title: strings.about,
-                    child: Text(profile.about, style: textTheme.bodyMedium),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildSection(
-                    context,
-                    title: strings.languages,
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: profile.languages
-                          .map((language) => _buildChip(language))
-                          .toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildSection(
-                    context,
-                    title: strings.interests,
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: profile.interests
-                          .map(
-                            (interest) =>
-                                _buildChip(interest, highlighted: true),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildSection(
-                    context,
-                    title: strings.availability,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+    return CompanionScaffold(
+      body: CompanionEntrance(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        const Icon(
-                          Icons.schedule_outlined,
+                        IconButton(
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          icon: const Icon(Icons.arrow_back),
+                          tooltip: strings.backToRecommendations,
                           color: _careLinkTeal,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            profile.availability,
-                            style: textTheme.bodyMedium,
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            side: const BorderSide(
+                              color: CompanionPalette.border,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        Expanded(child: const CareLinkBrandHeader()),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildSection(
-                    context,
-                    title: strings.whyGoodMatch,
-                    child: Column(
-                      children: [
-                        _buildReason(strings.samePreferredLanguage),
-                        _buildReason(strings.sharedGardeningAndMusic),
-                        _buildReason(strings.matchingSundayAvailability),
-                      ],
+                    const SizedBox(height: 20),
+                    _buildProfileHeader(context, strings),
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      context,
+                      title: strings.about,
+                      child: Text(profile.about, style: textTheme.bodyMedium),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      context,
+                      title: strings.languages,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: profile.languages
+                            .map((language) => _buildChip(language))
+                            .toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      context,
+                      title: strings.interests,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: profile.interests
+                            .map(
+                              (interest) =>
+                                  _buildChip(interest, highlighted: true),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      context,
+                      title: strings.availability,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.schedule_outlined,
+                            color: _careLinkTeal,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              profile.availability,
+                              style: textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      context,
+                      title: strings.whyGoodMatch,
+                      highlighted: true,
+                      child: Column(
+                        children: [
+                          _buildReason(strings.samePreferredLanguage),
+                          _buildReason(strings.sharedGardeningAndMusic),
+                          _buildReason(strings.matchingSundayAvailability),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -143,7 +157,8 @@ class CompanionProfileScreen extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute<void>(
+                        CompanionRoute<void>(
+                          context: context,
                           builder: (_) => SendMatchRequestScreen(
                             profile: profile,
                             selectedLanguage: selectedLanguage,
@@ -192,7 +207,12 @@ class CompanionProfileScreen extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              _buildAvatar(),
+              CompanionAvatar(
+                name: profile.name,
+                size: 84,
+                imagePath: profile.imagePath,
+                heroTag: 'companion-${profile.id}',
+              ),
               const SizedBox(height: 12),
               Semantics(
                 header: true,
@@ -243,46 +263,15 @@ class CompanionProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAvatar() {
-    final initials = profile.name
-        .split(' ')
-        .where((part) => part.isNotEmpty)
-        .take(2)
-        .map((part) => part[0])
-        .join();
-    final fallback = CircleAvatar(
-      radius: 42,
-      backgroundColor: _careLinkCoral.withValues(alpha: 0.16),
-      child: Text(
-        initials,
-        style: const TextStyle(
-          color: _careLinkTeal,
-          fontSize: 26,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-
-    if (profile.imagePath.isEmpty) return fallback;
-
-    return ClipOval(
-      child: Image.asset(
-        profile.imagePath,
-        width: 84,
-        height: 84,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => fallback,
-      ),
-    );
-  }
-
   Widget _buildSection(
     BuildContext context, {
     required String title,
     required Widget child,
+    bool highlighted = false,
   }) {
     return Card(
       margin: EdgeInsets.zero,
+      color: highlighted ? CompanionPalette.mint : null,
       child: SizedBox(
         width: double.infinity,
         child: Padding(

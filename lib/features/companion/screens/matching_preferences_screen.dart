@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/companion_route.dart';
+
+import '../widgets/companion_scaffold.dart';
+import '../widgets/companion_entrance.dart';
+import '../widgets/companion_bottom_navigation.dart';
+import '../widgets/companion_option_chip.dart';
+
 import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../widgets/carelink_brand_header.dart';
@@ -16,7 +23,6 @@ class MatchingPreferencesScreen extends StatefulWidget {
 class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
   static const Color _careLinkTeal = Color(0xFF087F83);
   static const Color _careLinkCoral = Color(0xFFFF625F);
-  static const Color _chipBorderColor = Color(0xFFE7E0EC);
 
   static const List<String> _interestOptions = [
     'Gardening',
@@ -62,7 +68,8 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
 
   void _onFindCompanions() {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      CompanionRoute<void>(
+        context: context,
         settings: const RouteSettings(name: '/companion-recommendations'),
         builder: (_) =>
             RecommendedCompanionsScreen(selectedLanguage: _selectedLanguage),
@@ -80,139 +87,142 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final textTheme = CompanionScaffold.textTheme(context);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const CareLinkBrandHeader(large: true),
-                  const SizedBox(height: 24),
-                  Semantics(
-                    header: true,
-                    child: Text(
-                      'Find Your Companion',
-                      style: textTheme.headlineMedium,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Choose what matters most to you.',
-                    style: textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 14),
-                  _buildProfileHelper(textTheme),
-                  const SizedBox(height: 24),
-                  _buildSection(
-                    context,
-                    title: 'Preferred Companion Language',
-                    children: CompanionLanguage.values.map((language) {
-                      final displayLabel = language.displayLabel;
-                      final isSelected = _selectedLanguage == language;
-
-                      return _buildChoiceChip(
-                        label: displayLabel,
-                        semanticsLabel:
-                            '$displayLabel preferred companion language',
-                        isSelected: isSelected,
-                        onSelected: (_) {
-                          setState(() {
-                            _selectedLanguage = language;
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildSection(
-                    context,
-                    title: 'Shared interests',
-                    children: _interestOptions.map((interest) {
-                      final isSelected = _selectedInterests.contains(interest);
-
-                      return _buildFilterChip(
-                        label: interest,
-                        semanticsLabel: '$interest shared interest',
-                        isSelected: isSelected,
-                        onSelected: (selected) {
-                          _toggleInterest(interest, selected);
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildSection(
-                    context,
-                    title: 'Availability',
-                    children: _availabilityOptions.map((availability) {
-                      return _buildChoiceChip(
-                        label: availability,
-                        semanticsLabel: '$availability availability',
-                        isSelected: _selectedAvailability == availability,
-                        onSelected: (_) {
-                          setState(() {
-                            _selectedAvailability = availability;
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildSection(
-                    context,
-                    title: 'Preferred time',
-                    children: _preferredTimeOptions.map((time) {
-                      return _buildChoiceChip(
-                        label: time,
-                        semanticsLabel: '$time preferred time',
-                        isSelected: _selectedPreferredTime == time,
-                        onSelected: (_) {
-                          setState(() {
-                            _selectedPreferredTime = time;
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildSection(
-                    context,
-                    title: 'Check-in type',
-                    helperText: 'Optional',
-                    children: _checkInTypeOptions.map((type) {
-                      return _buildChoiceChip(
-                        label: type,
-                        semanticsLabel: '$type check-in type',
-                        isSelected: _selectedCheckInType == type,
-                        onSelected: (selected) {
-                          setState(() {
-                            _selectedCheckInType = selected ? type : null;
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _onFindCompanions,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _careLinkTeal,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 54),
+    return CompanionScaffold(
+      body: CompanionEntrance(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const CareLinkBrandHeader(large: true),
+                    const SizedBox(height: 24),
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        'Find Your Companion',
+                        style: textTheme.headlineMedium,
                       ),
-                      child: const Text('Find Companions'),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Text(
+                      'Choose what matters most to you.',
+                      style: textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 14),
+                    _buildProfileHelper(textTheme),
+                    const SizedBox(height: 24),
+                    _buildSection(
+                      context,
+                      title: 'Preferred Companion Language',
+                      children: CompanionLanguage.values.map((language) {
+                        final displayLabel = language.displayLabel;
+                        final isSelected = _selectedLanguage == language;
+
+                        return _buildChoiceChip(
+                          label: displayLabel,
+                          semanticsLabel:
+                              '$displayLabel preferred companion language',
+                          isSelected: isSelected,
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedLanguage = language;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      context,
+                      title: 'Shared interests',
+                      children: _interestOptions.map((interest) {
+                        final isSelected = _selectedInterests.contains(
+                          interest,
+                        );
+
+                        return _buildChoiceChip(
+                          label: interest,
+                          semanticsLabel: '$interest shared interest',
+                          isSelected: isSelected,
+                          onSelected: (selected) {
+                            _toggleInterest(interest, selected);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      context,
+                      title: 'Availability',
+                      children: _availabilityOptions.map((availability) {
+                        return _buildChoiceChip(
+                          label: availability,
+                          semanticsLabel: '$availability availability',
+                          isSelected: _selectedAvailability == availability,
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedAvailability = availability;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      context,
+                      title: 'Preferred time',
+                      children: _preferredTimeOptions.map((time) {
+                        return _buildChoiceChip(
+                          label: time,
+                          semanticsLabel: '$time preferred time',
+                          isSelected: _selectedPreferredTime == time,
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedPreferredTime = time;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSection(
+                      context,
+                      title: 'Check-in type',
+                      helperText: 'Optional',
+                      children: _checkInTypeOptions.map((type) {
+                        return _buildChoiceChip(
+                          label: type,
+                          semanticsLabel: '$type check-in type',
+                          isSelected: _selectedCheckInType == type,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedCheckInType = selected ? type : null;
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _onFindCompanions,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _careLinkTeal,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 54),
+                        ),
+                        child: const Text('Find Companions'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -220,29 +230,10 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
       ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: NavigationBar(
-          height: 72,
+        child: CompanionBottomNavigation(
+          selectedLanguage: CompanionLanguage.english,
           selectedIndex: 1,
-          backgroundColor: CareLinkTheme.surfaceColor,
-          indicatorColor: _careLinkCoral.withValues(alpha: 0.16),
           onDestinationSelected: _onNavigationSelected,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.people_outline),
-              selectedIcon: Icon(Icons.people, color: _careLinkTeal),
-              label: 'Matches',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.event_outlined),
-              selectedIcon: Icon(Icons.event, color: _careLinkTeal),
-              label: 'Check-ins',
-            ),
-          ],
         ),
       ),
     );
@@ -296,8 +287,15 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: CareLinkTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _chipBorderColor),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: CompanionPalette.border),
+        boxShadow: [
+          BoxShadow(
+            color: CompanionPalette.ink.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,55 +332,11 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
     required bool isSelected,
     required ValueChanged<bool> onSelected,
   }) {
-    return Semantics(
-      label: semanticsLabel,
+    return CompanionOptionChip(
+      label: label,
+      semanticsLabel: semanticsLabel,
       selected: isSelected,
-      button: true,
-      excludeSemantics: true,
-      child: ChoiceChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: onSelected,
-        showCheckmark: false,
-        selectedColor: _careLinkCoral,
-        backgroundColor: CareLinkTheme.surfaceColor,
-        side: BorderSide(color: isSelected ? _careLinkCoral : _chipBorderColor),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        labelStyle: TextStyle(
-          color: CareLinkTheme.textPrimary,
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterChip({
-    required String label,
-    required String semanticsLabel,
-    required bool isSelected,
-    required ValueChanged<bool> onSelected,
-  }) {
-    return Semantics(
-      label: semanticsLabel,
-      selected: isSelected,
-      button: true,
-      excludeSemantics: true,
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: onSelected,
-        showCheckmark: false,
-        selectedColor: _careLinkCoral,
-        backgroundColor: CareLinkTheme.surfaceColor,
-        side: BorderSide(color: isSelected ? _careLinkCoral : _chipBorderColor),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        labelStyle: TextStyle(
-          color: CareLinkTheme.textPrimary,
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-        ),
-      ),
+      onSelected: onSelected,
     );
   }
 }
