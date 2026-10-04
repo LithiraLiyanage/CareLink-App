@@ -571,6 +571,28 @@ class CompanionStrings {
     CompanionLanguage.tamil => 'இணைப்பை நிர்வகிக்கவும்',
   };
 
+  String get manageConnectionSubtitle => switch (language) {
+    CompanionLanguage.english => 'You stay in control of this companionship.',
+    CompanionLanguage.sinhala => 'මෙම සහචර සම්බන්ධතාව පිළිබඳ පාලනය ඔබ සතුය.',
+    CompanionLanguage.tamil =>
+      'இந்தத் துணையாளர் உறவின் கட்டுப்பாடு உங்களிடமே உள்ளது.',
+  };
+
+  String get endConnectionCardDescription => switch (language) {
+    CompanionLanguage.english =>
+      'End this companion relationship. Confirmation is required.',
+    CompanionLanguage.sinhala =>
+      'මෙම සහචර සම්බන්ධතාව අවසන් කරන්න. තහවුරු කිරීම අවශ්‍ය වේ.',
+    CompanionLanguage.tamil =>
+      'இந்தத் துணையாளர் உறவை முடிக்கவும். உறுதிப்படுத்தல் தேவை.',
+  };
+
+  String get noAccidentalEnding => switch (language) {
+    CompanionLanguage.english => 'No accidental ending',
+    CompanionLanguage.sinhala => 'අහම්බෙන් අවසන් වීමක් නැත',
+    CompanionLanguage.tamil => 'தவறுதலாக முடிவடையாது',
+  };
+
   String get confirmationProtects => switch (language) {
     CompanionLanguage.english =>
       'Confirmation protects against accidental ending.',

@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/companion_route.dart';
-
-import '../widgets/companion_scaffold.dart';
-import '../widgets/companion_entrance.dart';
-import '../widgets/companion_avatar.dart';
-import '../widgets/companion_bottom_navigation.dart';
-
-import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_match.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
-import '../widgets/carelink_brand_header.dart';
+import '../widgets/companion_avatar.dart';
+import '../widgets/companion_bottom_navigation.dart';
+import '../widgets/companion_entrance.dart';
+import '../widgets/companion_flow_header.dart';
+import '../widgets/companion_route.dart';
+import '../widgets/companion_scaffold.dart';
 import 'manage_connection_screen.dart';
 import 'scheduling_handoff_screen.dart';
 
@@ -31,10 +28,6 @@ class CurrentConnectionScreen extends StatelessWidget {
   final CompanionLanguage selectedLanguage;
   final MatchStatus connectionStatus;
 
-  static const Color _careLinkTeal = Color(0xFF087F83);
-  static const Color _careLinkCoral = Color(0xFFFF625F);
-  static const Color _borderColor = Color(0xFFE7E0EC);
-
   void _showPlaceholder(BuildContext context, String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -48,64 +41,58 @@ class CurrentConnectionScreen extends StatelessWidget {
     final isPaused = connectionStatus == MatchStatus.paused;
 
     return CompanionScaffold(
-      body: CompanionEntrance(
-        child: SafeArea(
+      body: SafeArea(
+        bottom: false,
+        child: CompanionEntrance(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const CareLinkBrandHeader(),
-                    const SizedBox(height: 24),
+                    CompanionFlowHeader(
+                      onBack: () => Navigator.of(context).maybePop(),
+                      backTooltip: strings.backToMatches,
+                      trailingIcon: null,
+                      showCoralDot: true,
+                    ),
+                    const SizedBox(height: 18),
                     Semantics(
                       header: true,
                       child: Text(
                         strings.myConnection,
-                        style: textTheme.headlineMedium,
+                        style: textTheme.headlineMedium?.copyWith(
+                          fontSize: 27,
+                          letterSpacing: -0.5,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 5),
                     Text(
                       isPaused
                           ? strings.pausedActivitySubtitle
                           : strings.activeCompanionSubtitle,
                       style: textTheme.bodyMedium,
                     ),
-                    const SizedBox(height: 20),
-                    _buildCompanionCard(context, strings),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 5),
+                    Container(
+                      width: 32,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: CompanionPalette.coral,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    _buildCompanionCard(context, strings, isPaused),
+                    const SizedBox(height: 24),
                     _buildNextCheckInCard(context, strings),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-              decoration: const BoxDecoration(
-                color: CareLinkTheme.surfaceColor,
-                border: Border(top: BorderSide(color: _borderColor)),
-              ),
-              child: Center(
-                heightFactor: 1,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      ElevatedButton(
+                    const SizedBox(height: 34),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
                         onPressed: isPaused
                             ? null
                             : () => Navigator.of(context).push(
@@ -118,57 +105,198 @@ class CurrentConnectionScreen extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _careLinkTeal,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 52),
-                        ),
                         child: Text(
                           strings.viewOrScheduleCheckIn,
                           textAlign: TextAlign.center,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      OutlinedButton(
-                        onPressed: () => Navigator.of(context).push(
-                          CompanionRoute<void>(
-                            context: context,
-                            builder: (_) => ManageConnectionScreen(
-                              profile: profile,
-                              selectedLanguage: selectedLanguage,
-                              connectionStatus: connectionStatus,
-                            ),
+                    ),
+                    const SizedBox(height: 26),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        CompanionRoute<void>(
+                          context: context,
+                          builder: (_) => ManageConnectionScreen(
+                            profile: profile,
+                            selectedLanguage: selectedLanguage,
+                            connectionStatus: connectionStatus,
                           ),
                         ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: _careLinkTeal,
-                          side: const BorderSide(color: _careLinkTeal),
-                          minimumSize: const Size(double.infinity, 52),
-                        ),
-                        child: Text(
-                          strings.manageConnection,
-                          textAlign: TextAlign.center,
-                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        strings.completedCheckInsUnaffected,
-                        textAlign: TextAlign.center,
-                        style: textTheme.bodySmall,
+                      style: TextButton.styleFrom(
+                        foregroundColor: CompanionPalette.ink,
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 0),
+                        alignment: Alignment.centerLeft,
+                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                    ],
-                  ),
+                      child: Text(strings.manageConnection),
+                    ),
+                    Text(
+                      strings.completedCheckInsUnaffected,
+                      style: textTheme.bodySmall,
+                    ),
+                  ],
                 ),
               ),
             ),
-            CompanionBottomNavigation(
-              selectedLanguage: selectedLanguage,
-              selectedIndex: 1,
-              onDestinationSelected: (index) {
-                if (index != 1) {
-                  _showPlaceholder(context, strings.navigationComingSoon);
-                }
-              },
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: CompanionBottomNavigation(
+          selectedLanguage: selectedLanguage,
+          selectedIndex: 1,
+          matchesIcon: Icons.favorite_border,
+          selectedMatchesIcon: Icons.favorite_border,
+          onDestinationSelected: (index) {
+            if (index != 1) {
+              _showPlaceholder(context, strings.navigationComingSoon);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompanionCard(
+    BuildContext context,
+    CompanionStrings strings,
+    bool isPaused,
+  ) {
+    final textTheme = Theme.of(context).textTheme;
+    final interests = profile.interests.take(2).toList();
+
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          children: [
+            const SizedBox(
+              width: double.infinity,
+              height: 3,
+              child: ColoredBox(color: CompanionPalette.teal),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(13),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CompanionAvatar(
+                        name: profile.name,
+                        size: 54,
+                        imagePath: profile.imagePath,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile.name,
+                              style: textTheme.titleMedium?.copyWith(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            if (profile.verified) ...[
+                              const SizedBox(height: 5),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: CompanionPalette.mint,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.check,
+                                      size: 13,
+                                      color: CompanionPalette.teal,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        strings.verifiedCompanion,
+                                        style: const TextStyle(
+                                          color: CompanionPalette.teal,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 9),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      AnimatedContainer(
+                        duration: MediaQuery.of(context).disableAnimations
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: CompanionPalette.mint,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isPaused ? Icons.pause_circle : Icons.circle,
+                              color: isPaused
+                                  ? CompanionPalette.teal
+                                  : const Color(0xFF2F855F),
+                              size: 11,
+                            ),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                isPaused
+                                    ? strings.paused
+                                    : strings.currentConnectionActive,
+                                softWrap: true,
+                                style: const TextStyle(
+                                  color: CompanionPalette.teal,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      for (var i = 0; i < interests.length; i++)
+                        _buildInterestChip(
+                          interests[i],
+                          i == 0 ? Icons.spa_outlined : Icons.music_note,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -176,185 +304,78 @@ class CurrentConnectionScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCompanionCard(BuildContext context, CompanionStrings strings) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Card(
-      margin: EdgeInsets.zero,
-      child: SizedBox(
-        width: double.infinity,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CompanionAvatar(
-                    name: profile.name,
-                    size: 56,
-                    imagePath: profile.imagePath,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(profile.name, style: textTheme.titleLarge),
-                        if (profile.verified) ...[
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.verified_outlined,
-                                size: 18,
-                                color: _careLinkTeal,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  strings.verifiedCompanion,
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: _careLinkTeal,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+  Widget _buildInterestChip(String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7F4),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: CompanionPalette.coral),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: CompanionPalette.coral),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: CompanionPalette.coral,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
-              const SizedBox(height: 16),
-              AnimatedContainer(
-                duration: MediaQuery.of(context).disableAnimations
-                    ? Duration.zero
-                    : const Duration(milliseconds: 220),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: connectionStatus == MatchStatus.paused
-                      ? CompanionPalette.mint
-                      : CareLinkTheme.successColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      connectionStatus == MatchStatus.paused
-                          ? Icons.pause_circle_outline
-                          : Icons.check_circle,
-                      size: 18,
-                      color: connectionStatus == MatchStatus.paused
-                          ? CompanionPalette.teal
-                          : CareLinkTheme.successColor,
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        connectionStatus == MatchStatus.paused
-                            ? strings.paused
-                            : strings.currentConnectionActive,
-                        style: const TextStyle(
-                          color: CareLinkTheme.textPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              Semantics(
-                header: true,
-                child: Text(
-                  strings.sharedInterests,
-                  style: textTheme.titleMedium,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: profile.interests.take(2).map((interest) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _careLinkCoral.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      interest,
-                      style: const TextStyle(
-                        color: CareLinkTheme.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildNextCheckInCard(BuildContext context, CompanionStrings strings) {
     final textTheme = Theme.of(context).textTheme;
-
-    return Card(
-      margin: EdgeInsets.zero,
-      color: CompanionPalette.mint,
-      child: SizedBox(
-        width: double.infinity,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Semantics(
-                header: true,
-                child: Text(strings.nextCheckIn, style: textTheme.titleMedium),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: CompanionPalette.mint,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: CompanionPalette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(
+            header: true,
+            child: Text(
+              strings.nextCheckIn,
+              style: textTheme.titleMedium?.copyWith(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: CompanionPalette.teal,
               ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.event_available_outlined,
-                    size: 24,
-                    color: _careLinkTeal,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  strings.nextCheckInTime,
+                  style: textTheme.titleLarge?.copyWith(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      strings.nextCheckInTime,
-                      style: textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.arrow_forward_ios,
-                    size: 18,
-                    color: _careLinkTeal,
-                  ),
-                ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: CompanionPalette.teal,
+                size: 24,
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }

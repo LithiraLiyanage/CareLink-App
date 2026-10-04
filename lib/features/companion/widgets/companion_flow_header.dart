@@ -8,10 +8,16 @@ class CompanionFlowHeader extends StatelessWidget {
     super.key,
     required this.onBack,
     required this.backTooltip,
+    this.trailingIcon = Icons.more_horiz,
+    this.trailingColor = CompanionPalette.teal,
+    this.showCoralDot = false,
   });
 
   final VoidCallback onBack;
   final String backTooltip;
+  final IconData? trailingIcon;
+  final Color trailingColor;
+  final bool showCoralDot;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +69,15 @@ class CompanionFlowHeader extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+                    if (showCoralDot)
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: const BoxDecoration(
+                          color: CompanionPalette.coral,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -71,21 +86,19 @@ class CompanionFlowHeader extends StatelessWidget {
         ),
         // Decorative until a companion-specific menu is approved.
         ExcludeSemantics(
-          child: Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: CompanionPalette.border),
-            ),
-            child: const Icon(
-              Icons.more_horiz,
-              color: CompanionPalette.teal,
-              size: 20,
-            ),
-          ),
+          child: trailingIcon == null
+              ? const SizedBox(width: 44, height: 44)
+              : Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: CompanionPalette.border),
+                  ),
+                  child: Icon(trailingIcon, color: trailingColor, size: 20),
+                ),
         ),
       ],
     );
