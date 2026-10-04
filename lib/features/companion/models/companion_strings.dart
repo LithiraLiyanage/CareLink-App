@@ -70,6 +70,18 @@ class CompanionStrings {
     CompanionLanguage.tamil => 'சரிபார்க்கப்பட்ட மாணவர்',
   };
 
+  String get amayaRecommendationDetails => switch (language) {
+    CompanionLanguage.english => 'English • Books • Weekend morning',
+    CompanionLanguage.sinhala => 'English • පොත් • සති අන්තයේ උදෑසන',
+    CompanionLanguage.tamil => 'English • புத்தகங்கள் • வார இறுதி காலை',
+  };
+
+  String get kavinduRecommendationDetails => switch (language) {
+    CompanionLanguage.english => 'Sinhala • Music • Weekday evening',
+    CompanionLanguage.sinhala => 'Sinhala • සංගීතය • සතියේ දිනක සවස',
+    CompanionLanguage.tamil => 'Sinhala • இசை • வாரநாள் மாலை',
+  };
+
   String get home => switch (language) {
     CompanionLanguage.english => 'Home',
     CompanionLanguage.sinhala => 'මුල් පිටුව',
