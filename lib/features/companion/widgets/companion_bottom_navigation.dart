@@ -10,11 +10,15 @@ class CompanionBottomNavigation extends StatelessWidget {
     required this.selectedLanguage,
     required this.selectedIndex,
     required this.onDestinationSelected,
+    this.matchesIcon = Icons.people_outline,
+    this.selectedMatchesIcon = Icons.people,
   });
 
   final CompanionLanguage selectedLanguage;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final IconData matchesIcon;
+  final IconData selectedMatchesIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +35,8 @@ class CompanionBottomNavigation extends StatelessWidget {
           label: strings.home,
         ),
         NavigationDestination(
-          icon: const Icon(Icons.people_outline),
-          selectedIcon: const Icon(Icons.people),
+          icon: Icon(matchesIcon),
+          selectedIcon: Icon(selectedMatchesIcon),
           label: strings.matches,
         ),
         NavigationDestination(

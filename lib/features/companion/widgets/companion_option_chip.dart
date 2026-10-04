@@ -20,7 +20,7 @@ class CompanionOptionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final duration = MediaQuery.of(context).disableAnimations
         ? Duration.zero
-        : const Duration(milliseconds: 180);
+        : const Duration(milliseconds: 200);
     final radius = BorderRadius.circular(24);
 
     return Semantics(
@@ -28,7 +28,7 @@ class CompanionOptionChip extends StatelessWidget {
       selected: selected,
       button: true,
       child: AnimatedScale(
-        scale: selected ? 1.02 : 1,
+        scale: selected ? 1.01 : 1,
         duration: duration,
         curve: Curves.easeOut,
         child: AnimatedContainer(
@@ -36,14 +36,14 @@ class CompanionOptionChip extends StatelessWidget {
           curve: Curves.easeOut,
           decoration: BoxDecoration(
             color: selected
-                ? CompanionPalette.coral.withValues(alpha: 0.12)
-                : Colors.white,
+                ? const Color(0xFFFFF7F4)
+                : Colors.white.withValues(alpha: 0.88),
             borderRadius: radius,
             border: Border.all(
               color: selected
                   ? CompanionPalette.coral
                   : CompanionPalette.border,
-              width: selected ? 1.5 : 1,
+              width: selected ? 1.4 : 1,
             ),
           ),
           child: Material(
@@ -52,9 +52,9 @@ class CompanionOptionChip extends StatelessWidget {
               borderRadius: radius,
               onTap: () => onSelected(!selected),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 48),
+                constraints: const BoxConstraints(minWidth: 76, minHeight: 40),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Center(
                     widthFactor: 1,
                     child: ExcludeSemantics(
@@ -62,7 +62,7 @@ class CompanionOptionChip extends StatelessWidget {
                         label,
                         style: const TextStyle(
                           color: CompanionPalette.ink,
-                          fontSize: 15,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
