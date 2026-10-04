@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/companion_route.dart';
-
-import '../widgets/companion_scaffold.dart';
-import '../widgets/companion_entrance.dart';
-import '../widgets/companion_avatar.dart';
-
-import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
-import '../widgets/carelink_brand_header.dart';
+import '../widgets/companion_avatar.dart';
+import '../widgets/companion_entrance.dart';
+import '../widgets/companion_flow_header.dart';
+import '../widgets/companion_route.dart';
+import '../widgets/companion_scaffold.dart';
 import 'request_pending_screen.dart';
 
 class SendMatchRequestScreen extends StatelessWidget {
@@ -22,10 +19,6 @@ class SendMatchRequestScreen extends StatelessWidget {
 
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
-
-  static const Color _careLinkTeal = Color(0xFF087F83);
-  static const Color _careLinkCoral = Color(0xFFFF625F);
-  static const Color _borderColor = Color(0xFFE7E0EC);
 
   void _onSendRequest(BuildContext context) {
     Navigator.of(context).pushReplacement(
@@ -45,46 +38,57 @@ class SendMatchRequestScreen extends StatelessWidget {
     final textTheme = CompanionScaffold.textTheme(context);
 
     return CompanionScaffold(
-      body: CompanionEntrance(
-        child: SafeArea(
+      body: SafeArea(
+        bottom: false,
+        child: CompanionEntrance(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: () => Navigator.of(context).maybePop(),
-                          icon: const Icon(Icons.arrow_back),
-                          tooltip: strings.cancel,
-                          color: _careLinkTeal,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(child: const CareLinkBrandHeader()),
-                      ],
+                    CompanionFlowHeader(
+                      onBack: () => Navigator.of(context).maybePop(),
+                      backTooltip: strings.cancel,
                     ),
                     const SizedBox(height: 20),
                     Semantics(
                       header: true,
                       child: Text(
                         strings.sendMatchRequest,
-                        style: textTheme.headlineMedium,
+                        style: textTheme.headlineMedium?.copyWith(
+                          fontSize: 27,
+                          letterSpacing: -0.5,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
                       strings.requestReviewSubtitle,
                       style: textTheme.bodyMedium,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 6),
+                    Container(
+                      width: 32,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: CompanionPalette.coral,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     _buildCompanionCard(context, strings),
-                    const SizedBox(height: 16),
-                    _buildNotice(context, strings),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
+                    Text(
+                      strings.connectionRequestMessage,
+                      style: textTheme.titleMedium?.copyWith(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     _buildPrivacyCard(
                       context,
                       title: strings.informationShared,
@@ -95,7 +99,7 @@ class SendMatchRequestScreen extends StatelessWidget {
                       ],
                       isShared: true,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     _buildPrivacyCard(
                       context,
                       title: strings.notShared,
@@ -116,11 +120,8 @@ class SendMatchRequestScreen extends StatelessWidget {
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: const BoxDecoration(
-            color: CareLinkTheme.surfaceColor,
-            border: Border(top: BorderSide(color: _borderColor)),
-          ),
+          color: CompanionPalette.background,
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
           child: Center(
             heightFactor: 1,
             child: ConstrainedBox(
@@ -131,23 +132,15 @@ class SendMatchRequestScreen extends StatelessWidget {
                 children: [
                   ElevatedButton(
                     onPressed: () => _onSendRequest(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _careLinkTeal,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 52),
-                    ),
                     child: Text(
                       strings.reviewSendRequest,
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  TextButton(
+                  const SizedBox(height: 8),
+                  OutlinedButton(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: _careLinkTeal,
-                      minimumSize: const Size(double.infinity, 48),
-                    ),
-                    child: Text(strings.cancel),
+                    child: Text(strings.cancel, textAlign: TextAlign.center),
                   ),
                 ],
               ),
@@ -163,73 +156,79 @@ class SendMatchRequestScreen extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
           children: [
-            CompanionAvatar(
-              name: profile.name,
-              size: 56,
-              imagePath: profile.imagePath,
+            const SizedBox(
+              width: double.infinity,
+              height: 2,
+              child: ColoredBox(color: CompanionPalette.teal),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
                 children: [
-                  Text(profile.name, style: textTheme.titleMedium),
-                  if (profile.verified) ...[
-                    const SizedBox(height: 6),
-                    Row(
+                  CompanionAvatar(
+                    name: profile.name,
+                    size: 44,
+                    imagePath: profile.imagePath,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.verified_outlined,
-                          size: 17,
-                          color: _careLinkTeal,
-                        ),
-                        const SizedBox(width: 5),
-                        Flexible(
-                          child: Text(
-                            strings.verified,
-                            style: textTheme.bodySmall?.copyWith(
-                              color: _careLinkTeal,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        Text(
+                          profile.name,
+                          style: textTheme.titleMedium?.copyWith(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
+                        if (profile.verified) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: CompanionPalette.mint,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.check,
+                                  size: 13,
+                                  color: CompanionPalette.teal,
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    strings.verified,
+                                    style: const TextStyle(
+                                      color: CompanionPalette.teal,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildNotice(BuildContext context, CompanionStrings strings) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _careLinkTeal.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.info_outline, color: _careLinkTeal, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              strings.connectionRequestMessage,
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: CareLinkTheme.textPrimary),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -240,65 +239,80 @@ class SendMatchRequestScreen extends StatelessWidget {
     required List<String> items,
     required bool isShared,
   }) {
-    return Card(
-      margin: EdgeInsets.zero,
-      color: isShared
-          ? CompanionPalette.mint
-          : CompanionPalette.coral.withValues(alpha: 0.08),
-      child: SizedBox(
-        width: double.infinity,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final statusColor = isShared
+        ? const Color(0xFF2F855F)
+        : const Color(0xFFB43F42);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
+      decoration: BoxDecoration(
+        color: isShared
+            ? CompanionPalette.mint
+            : CompanionPalette.coral.withValues(alpha: 0.075),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: statusColor.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Semantics(
-                header: true,
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
+              Icon(
+                isShared ? Icons.check_circle : Icons.cancel,
+                color: statusColor,
+                size: 22,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 14),
-              for (var index = 0; index < items.length; index++) ...[
-                if (index > 0) const SizedBox(height: 12),
-                _buildPrivacyItem(items[index], title, isShared: isShared),
-              ],
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPrivacyItem(
-    String label,
-    String sectionTitle, {
-    required bool isShared,
-  }) {
-    return Semantics(
-      label: '$label, $sectionTitle',
-      child: ExcludeSemantics(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              isShared ? Icons.check_circle_outline : Icons.block_outlined,
-              color: isShared ? _careLinkTeal : _careLinkCoral,
-              size: 21,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: CareLinkTheme.textPrimary,
+          const SizedBox(height: 9),
+          for (final item in items) ...[
+            Semantics(
+              label: '$item, $title',
+              child: ExcludeSemantics(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 7),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        isShared ? Icons.check_circle : Icons.close,
+                        color: statusColor,
+                        size: 17,
+                      ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          item,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: CompanionPalette.ink,
+                                fontSize: 14,
+                                height: 1.25,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
