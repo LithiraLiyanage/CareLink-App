@@ -53,11 +53,7 @@ class ConsentContextReviewScreen extends StatelessWidget {
       ),
       body: Stack(
         children: [
-          const Positioned(
-            top: -72,
-            right: -70,
-            child: _SoftCircle(size: 176),
-          ),
+          const Positioned(top: -72, right: -70, child: _SoftCircle(size: 176)),
           SafeArea(
             top: false,
             child: Center(
@@ -114,20 +110,25 @@ class _SectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(
-          color: ConsentContextReviewScreen._darkTeal,
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-        ),
-      );
+    text,
+    style: const TextStyle(
+      color: ConsentContextReviewScreen._darkTeal,
+      fontSize: 15,
+      fontWeight: FontWeight.w700,
+    ),
+  );
 }
 
 class _ProfileCard extends StatelessWidget {
   const _ProfileCard();
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => Navigator.of(context).pushNamed('/approved-contact'),
+      child: Ink(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
         decoration: _cardDecoration(),
         child: const Row(
@@ -135,36 +136,55 @@ class _ProfileCard extends StatelessWidget {
             CircleAvatar(
               radius: 23,
               backgroundColor: ConsentContextReviewScreen._lightTeal,
-              child: Icon(Icons.person_rounded,
-                  size: 27, color: ConsentContextReviewScreen._teal),
+              child: Icon(
+                Icons.person_rounded,
+                size: 27,
+                color: ConsentContextReviewScreen._teal,
+              ),
             ),
             SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Mrs. Silva',
-                      style: TextStyle(
-                        color: ConsentContextReviewScreen._darkTeal,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      )),
+                  Text(
+                    'Mrs. Silva',
+                    style: TextStyle(
+                      color: ConsentContextReviewScreen._darkTeal,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   SizedBox(height: 2),
-                  Text('Mother',
-                      style: TextStyle(
-                          color: ConsentContextReviewScreen._secondary,
-                          fontSize: 11)),
+                  Text(
+                    'Mother',
+                    style: TextStyle(
+                      color: ConsentContextReviewScreen._secondary,
+                      fontSize: 11,
+                    ),
+                  ),
                   SizedBox(height: 2),
-                  Text('Elder ID: EL001',
-                      style: TextStyle(
-                          color: ConsentContextReviewScreen._muted,
-                          fontSize: 10)),
+                  Text(
+                    'Elder ID: EL001',
+                    style: TextStyle(
+                      color: ConsentContextReviewScreen._muted,
+                      fontSize: 10,
+                    ),
+                  ),
                 ],
               ),
             ),
+            SizedBox(width: 8),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: ConsentContextReviewScreen._secondary,
+            ),
           ],
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _ConsentStatusCard extends StatelessWidget {
@@ -172,38 +192,38 @@ class _ConsentStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: _cardDecoration(),
-        child: const Column(
-          children: [
-            _StatusRow(
-              icon: Icons.groups_outlined,
-              label: 'Family sharing',
-              trailing: _ApprovedChip(),
-            ),
-            _StatusRow(
-              icon: Icons.person_outline,
-              label: 'Approved Contact',
-              trailing: _StatusValue(
-                'Jane Silva (Daughter)',
-                color: ConsentContextReviewScreen._primaryText,
-                weight: FontWeight.w600,
-              ),
-            ),
-            _StatusRow(
-              icon: Icons.calendar_today_outlined,
-              label: 'Valid from',
-              trailing: _StatusValue('1 Jan 2026'),
-            ),
-            _StatusRow(
-              icon: Icons.update,
-              label: 'Last updated',
-              trailing: _StatusValue('15 Sep 2026'),
-              last: true,
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    decoration: _cardDecoration(),
+    child: const Column(
+      children: [
+        _StatusRow(
+          icon: Icons.groups_outlined,
+          label: 'Family sharing',
+          trailing: _ApprovedChip(),
         ),
-      );
+        _StatusRow(
+          icon: Icons.person_outline,
+          label: 'Approved Contact',
+          trailing: _StatusValue(
+            'Jane Silva (Daughter)',
+            color: ConsentContextReviewScreen._primaryText,
+            weight: FontWeight.w600,
+          ),
+        ),
+        _StatusRow(
+          icon: Icons.calendar_today_outlined,
+          label: 'Valid from',
+          trailing: _StatusValue('1 Jan 2026'),
+        ),
+        _StatusRow(
+          icon: Icons.update,
+          label: 'Last updated',
+          trailing: _StatusValue('15 Sep 2026'),
+          last: true,
+        ),
+      ],
+    ),
+  );
 }
 
 class _StatusRow extends StatelessWidget {
@@ -221,40 +241,38 @@ class _StatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        constraints: const BoxConstraints(minHeight: 42),
-        padding: const EdgeInsets.symmetric(vertical: 7),
-        decoration: BoxDecoration(
-          border: last
-              ? null
-              : const Border(
-                  bottom: BorderSide(color: Color(0xFFEAF1EF)),
-                ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: ConsentContextReviewScreen._teal),
-            const SizedBox(width: 9),
-            Expanded(
-              flex: 5,
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: ConsentContextReviewScreen._secondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+    constraints: const BoxConstraints(minHeight: 42),
+    padding: const EdgeInsets.symmetric(vertical: 7),
+    decoration: BoxDecoration(
+      border: last
+          ? null
+          : const Border(bottom: BorderSide(color: Color(0xFFEAF1EF))),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, size: 18, color: ConsentContextReviewScreen._teal),
+        const SizedBox(width: 9),
+        Expanded(
+          flex: 5,
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: ConsentContextReviewScreen._secondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
-            const SizedBox(width: 6),
-            Expanded(
-              flex: 7,
-              child: Align(alignment: Alignment.centerRight, child: trailing),
-            ),
-          ],
+          ),
         ),
-      );
+        const SizedBox(width: 6),
+        Expanded(
+          flex: 7,
+          child: Align(alignment: Alignment.centerRight, child: trailing),
+        ),
+      ],
+    ),
+  );
 }
 
 class _StatusValue extends StatelessWidget {
@@ -270,12 +288,12 @@ class _StatusValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-        text,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.right,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: weight),
-      );
+    text,
+    maxLines: 2,
+    overflow: TextOverflow.ellipsis,
+    textAlign: TextAlign.right,
+    style: TextStyle(color: color, fontSize: 11, fontWeight: weight),
+  );
 }
 
 class _ApprovedChip extends StatelessWidget {
@@ -283,20 +301,20 @@ class _ApprovedChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: ConsentContextReviewScreen._lightSuccess,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: const Text(
-          'Approved',
-          style: TextStyle(
-            color: ConsentContextReviewScreen._success,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: ConsentContextReviewScreen._lightSuccess,
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: const Text(
+      'Approved',
+      style: TextStyle(
+        color: ConsentContextReviewScreen._success,
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
 }
 
 class _AllowedInformationCard extends StatelessWidget {
@@ -304,16 +322,16 @@ class _AllowedInformationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        decoration: _cardDecoration(),
-        child: const Column(
-          children: [
-            _AllowedRow('Check-in status'),
-            _AllowedRow('Schedule information'),
-            _AllowedRow('General wellbeing status', last: true),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+    decoration: _cardDecoration(),
+    child: const Column(
+      children: [
+        _AllowedRow('Check-in status'),
+        _AllowedRow('Schedule information'),
+        _AllowedRow('General wellbeing status', last: true),
+      ],
+    ),
+  );
 }
 
 class _AllowedRow extends StatelessWidget {
@@ -324,41 +342,42 @@ class _AllowedRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        constraints: const BoxConstraints(minHeight: 36),
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        decoration: BoxDecoration(
-          border: last
-              ? null
-              : const Border(
-                  bottom: BorderSide(color: Color(0xFFEAF1EF)),
-                ),
+    constraints: const BoxConstraints(minHeight: 36),
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    decoration: BoxDecoration(
+      border: last
+          ? null
+          : const Border(bottom: BorderSide(color: Color(0xFFEAF1EF))),
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: const BoxDecoration(
+            color: ConsentContextReviewScreen._lightSuccess,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.check_rounded,
+            size: 15,
+            color: ConsentContextReviewScreen._success,
+          ),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: const BoxDecoration(
-                color: ConsentContextReviewScreen._lightSuccess,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.check_rounded,
-                  size: 15, color: ConsentContextReviewScreen._success),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: ConsentContextReviewScreen._primaryText,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: ConsentContextReviewScreen._primaryText,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _RestrictedInformationCard extends StatelessWidget {
@@ -366,62 +385,61 @@ class _RestrictedInformationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: _cardDecoration(),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: ConsentContextReviewScreen._lightRed,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: const Icon(Icons.do_not_disturb_alt,
-                  size: 18, color: ConsentContextReviewScreen._restricted),
-            ),
-            const SizedBox(width: 11),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Private conversation content',
-                    style: TextStyle(
-                      color: ConsentContextReviewScreen._primaryText,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Not accessible',
-                    style: TextStyle(
-                      color: ConsentContextReviewScreen._restricted,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: _cardDecoration(),
+    child: Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: ConsentContextReviewScreen._lightRed,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: const Icon(
+            Icons.do_not_disturb_alt,
+            size: 18,
+            color: ConsentContextReviewScreen._restricted,
+          ),
         ),
-      );
+        const SizedBox(width: 11),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Private conversation content',
+                style: TextStyle(
+                  color: ConsentContextReviewScreen._primaryText,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'Not accessible',
+                style: TextStyle(
+                  color: ConsentContextReviewScreen._restricted,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 BoxDecoration _cardDecoration() => BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: ConsentContextReviewScreen._line),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x0800695C),
-          blurRadius: 10,
-          offset: Offset(0, 2),
-        ),
-      ],
-    );
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(14),
+  border: Border.all(color: ConsentContextReviewScreen._line),
+  boxShadow: const [
+    BoxShadow(color: Color(0x0800695C), blurRadius: 10, offset: Offset(0, 2)),
+  ],
+);
 
 class _SoftCircle extends StatelessWidget {
   const _SoftCircle({required this.size});
@@ -430,11 +448,11 @@ class _SoftCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        decoration: const BoxDecoration(
-          color: Color(0xFFDFF1ED),
-          shape: BoxShape.circle,
-        ),
-      );
+    width: size,
+    height: size,
+    decoration: const BoxDecoration(
+      color: Color(0xFFDFF1ED),
+      shape: BoxShape.circle,
+    ),
+  );
 }
