@@ -19,71 +19,64 @@ class NethmiReadyScreen extends StatelessWidget {
           _hero(context),
           Expanded(
             child: Transform.translate(
-              offset: const Offset(0, -8),
+              offset: const Offset(0, -12),
               child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
                 decoration: const BoxDecoration(
                   color: ElderColors.background,
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(24),
-                  ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const _IdentityRow(
                       name: 'Nethmi Jayasooriya',
                       role: 'Verified student companion',
                       avatar: ElderAssets.nethmiAvatar,
                     ),
-                    const SizedBox(height: 18),
                     const _ReadyMetrics(),
-                    const SizedBox(height: 16),
                     ElderPrimaryButton(
                       label: 'Start video call',
                       height: 54,
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) =>
-                                const ActiveVideoCallKamalaScreen(),
+                            builder: (_) => const ActiveVideoCallKamalaScreen(),
                           ),
                         );
                       },
                     ),
-                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: ElderOutlineButton(
                             label: 'Voice only',
+                            height: 48,
                             onPressed: () {},
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: ElderOutlineButton(
                             label: 'Message instead',
+                            height: 48,
                             onPressed: () {},
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
                       child: ElderOutlineButton(
                         label: 'Conversation Ideas',
+                        height: 48,
                         foregroundColor: ElderColors.darkTeal,
                         backgroundColor: const Color(0xFFBDF1F3),
                         onPressed: () {},
                       ),
                     ),
-                    const Spacer(),
-                    const ElderInfoCard(
-                      icon: Icons.check_rounded,
-                      title: 'You stay in control',
-                      subtitle: 'End, retry or ask for help at any time.',
-                    ),
+                    const _ControlInfo(),
                   ],
                 ),
               ),
@@ -96,54 +89,53 @@ class NethmiReadyScreen extends StatelessWidget {
 
   Widget _hero(BuildContext context) {
     return SizedBox(
-      height: 288,
+      height: 300,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            ElderAssets.nethmiReady,
-            fit: BoxFit.cover,
-          ),
-          Container(
-            decoration: const BoxDecoration(
+          Image.asset(ElderAssets.nethmiReady, fit: BoxFit.cover),
+          const DecoratedBox(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Color(0x99000000),
-                ],
+                stops: [0.35, 1],
+                colors: [Color(0x05000000), Color(0xB0000000)],
               ),
             ),
           ),
           Positioned(
-            left: 13,
-            top: 10,
+            left: 14,
+            top: 12,
             child: ElderBackButton(
               filled: true,
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.of(context).maybePop(),
             ),
           ),
           const Positioned(
-            left: 16,
-            bottom: 38,
+            left: 18,
+            right: 18,
+            bottom: 48,
             child: Text(
               'Nethmi is ready',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 25,
+                fontSize: 27,
+                height: 1,
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
           const Positioned(
-            left: 16,
-            bottom: 22,
+            left: 18,
+            right: 18,
+            bottom: 27,
             child: Text(
               'Today • 6:30 PM • Video check-in',
               style: TextStyle(
                 color: Colors.white70,
-                fontSize: 9.5,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -168,8 +160,8 @@ class _IdentityRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        ElderAvatar(asset: avatar, size: 44, border: false),
-        const SizedBox(width: 10),
+        ElderAvatar(asset: avatar, size: 54, border: false),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,21 +170,23 @@ class _IdentityRow extends StatelessWidget {
                 name,
                 style: const TextStyle(
                   color: ElderColors.textDark,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
                 role,
                 style: const TextStyle(
                   color: ElderColors.textMuted,
-                  fontSize: 8.5,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
         ),
+        const ElderStatusPill('VERIFIED'),
       ],
     );
   }
@@ -204,16 +198,18 @@ class _ReadyMetrics extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 72,
+      height: 80,
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: ElderColors.deepTeal),
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: const Row(
         children: [
-          Expanded(child: _Metric('30 min', 'planned duration')),
+          Expanded(child: _Metric('30 min', 'planned')),
+          VerticalDivider(width: 1, color: ElderColors.border),
           Expanded(child: _Metric('Video', 'private call')),
+          VerticalDivider(width: 1, color: ElderColors.border),
           Expanded(child: _Metric('Safe', 'controls on')),
         ],
       ),
@@ -236,19 +232,70 @@ class _Metric extends StatelessWidget {
           value,
           style: const TextStyle(
             color: ElderColors.textDark,
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         Text(
           label,
           style: const TextStyle(
             color: ElderColors.textMuted,
-            fontSize: 7.5,
+            fontSize: 8.5,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ControlInfo extends StatelessWidget {
+  const _ControlInfo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 68,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: ElderColors.mintSoft,
+        border: Border.all(color: ElderColors.border),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Row(
+        children: [
+          CircleAvatar(
+            radius: 19,
+            backgroundColor: Colors.white,
+            child: Icon(Icons.check_rounded, color: ElderColors.deepTeal),
+          ),
+          SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'You stay in control',
+                  style: TextStyle(
+                    color: ElderColors.textDark,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'End, retry or ask for help at any time.',
+                  style: TextStyle(
+                    color: ElderColors.textMuted,
+                    fontSize: 9,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
