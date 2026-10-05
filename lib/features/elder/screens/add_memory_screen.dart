@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/memory_item.dart';
+import '../services/mock_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
@@ -12,16 +14,76 @@ class AddMemoryScreen extends StatefulWidget {
 }
 
 class _AddMemoryScreenState extends State<AddMemoryScreen> {
+  final MockElderService _service = MockElderService.instance;
+
   final titleController = TextEditingController(
     text: 'Family New Year',
   );
 
   int visibility = 0;
+  bool _saving = false;
 
   @override
   void dispose() {
     titleController.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveMemory() async {
+    if (_saving) return;
+
+    final title = titleController.text.trim();
+
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a memory title.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+
+    const visibilityLabels = [
+      'Only me',
+      'Family',
+      'Companion',
+    ];
+
+    await _service.addMemory(
+      MemoryItem(
+        id: '',
+        ownerId: 'elder-kamala',
+        type: MemoryType.photo,
+        title: title,
+        caption: 'Saved from Add a memory',
+        mediaPath: ElderAssets.addMemoryPhoto,
+        memoryDate: DateTime(1998, 1, 1),
+        createdAt: DateTime.now(),
+        visibility: visibilityLabels[visibility],
+      ),
+    );
+
+    if (!mounted) return;
+    Navigator.of(context).maybePop();
+  }
+
+  Future<void> _deleteMemory() async {
+    final ok = await elderConfirm(
+      context,
+      title: 'Delete this memory?',
+      message: 'This action cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+
+    if (!ok || !mounted) return;
+
+    await _service.deleteMemory('memory-001');
+
+    if (!mounted) return;
+    Navigator.of(context).maybePop();
   }
 
   @override
@@ -47,7 +109,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
                   _dateField(),
                   _visibilitySection(),
                   const _PrivacyCard(),
-                  _actions(context),
+                  _actions(),
                 ],
               ),
             ),
@@ -254,11 +316,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
                 child: SizedBox(
                   height: 42,
                   child: OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        visibility = index;
-                      });
-                    },
+                    onPressed: () => setState(() => visibility = index),
                     style: OutlinedButton.styleFrom(
                       backgroundColor:
                           selected ? ElderColors.darkTeal : Colors.white,
@@ -291,31 +349,20 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
     );
   }
 
-  Widget _actions(BuildContext context) {
+  Widget _actions() {
     return Column(
       children: [
         ElderPrimaryButton(
-          label: 'Save memory',
+          label: _saving ? 'Saving...' : 'Save memory',
           height: 54,
-          onPressed: () => Navigator.of(context).maybePop(),
+          onPressed: _saveMemory,
         ),
         const SizedBox(height: 9),
         SizedBox(
           width: double.infinity,
           height: 48,
           child: OutlinedButton(
-            onPressed: () async {
-              final ok = await elderConfirm(
-                context,
-                title: 'Delete this memory?',
-                message: 'This action cannot be undone.',
-                confirmLabel: 'Delete',
-                destructive: true,
-              );
-
-              if (!ok || !context.mounted) return;
-              Navigator.of(context).maybePop();
-            },
+            onPressed: _deleteMemory,
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFFC94354),
               side: const BorderSide(color: ElderColors.coral),

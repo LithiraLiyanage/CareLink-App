@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/memory_item.dart';
+import '../services/mock_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
@@ -15,7 +17,37 @@ class MemoryLaneScreen extends StatefulWidget {
 }
 
 class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
+  final MockElderService _service = MockElderService.instance;
+
   int filter = 0;
+  bool _loading = true;
+  List<MemoryItem> _memories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMemories();
+  }
+
+  Future<void> _loadMemories() async {
+    final items = await _service.getMemories();
+
+    if (!mounted) return;
+
+    setState(() {
+      _memories = items;
+      _loading = false;
+    });
+  }
+
+  Future<void> _openAndRefresh(Widget screen) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => screen),
+    );
+
+    if (!mounted) return;
+    await _loadMemories();
+  }
 
   void _open(Widget screen) {
     Navigator.of(context).push(
@@ -38,29 +70,42 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
         children: [
           _header(context),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _photoCard(),
-                  _voiceCard(),
-                  _songCard(),
-                  ElderPrimaryButton(
-                    label: '+  Add a memory',
-                    color: ElderColors.coral,
-                    height: 54,
-                    onPressed: () => _open(
-                      const AddMemoryScreen(),
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: ElderColors.darkTeal,
+                    ),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _photoCard(),
+                        _voiceCard(),
+                        _songCard(),
+                        ElderPrimaryButton(
+                          label: '+  Add a memory',
+                          color: ElderColors.coral,
+                          height: 54,
+                          onPressed: () => _openAndRefresh(
+                            const AddMemoryScreen(),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
           ),
         ],
       ),
     );
+  }
+
+  MemoryItem? _firstOfType(MemoryType type) {
+    for (final item in _memories) {
+      if (item.type == type) return item;
+    }
+    return null;
   }
 
   Widget _header(BuildContext context) {
@@ -149,11 +194,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                   child: SizedBox(
                     height: 38,
                     child: OutlinedButton(
-                      onPressed: () {
-                        setState(() {
-                          filter = index;
-                        });
-                      },
+                      onPressed: () => setState(() => filter = index),
                       style: OutlinedButton.styleFrom(
                         backgroundColor:
                             selected ? Colors.white : Colors.transparent,
@@ -184,6 +225,8 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
   }
 
   Widget _photoCard() {
+    final memory = _firstOfType(MemoryType.photo);
+
     return Container(
       height: 238,
       decoration: BoxDecoration(
@@ -198,21 +241,21 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
               top: Radius.circular(15),
             ),
             child: Image.asset(
-              ElderAssets.familyMemory,
+              memory?.mediaPath ?? ElderAssets.familyMemory,
               height: 174,
               width: double.infinity,
               fit: BoxFit.cover,
             ),
           ),
-          const Expanded(
+          Expanded(
             child: Padding(
-              padding: EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 8,
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
+                  const CircleAvatar(
                     radius: 18,
                     backgroundColor: ElderColors.mintSoft,
                     child: Icon(
@@ -221,24 +264,24 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                       size: 18,
                     ),
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'A favourite family moment',
-                          style: TextStyle(
+                          memory?.title ?? 'A favourite family moment',
+                          style: const TextStyle(
                             color: ElderColors.textDark,
                             fontSize: 11.5,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        SizedBox(height: 3),
+                        const SizedBox(height: 3),
                         Text(
-                          'Colombo • Jan 1998',
-                          style: TextStyle(
+                          memory?.caption ?? 'Colombo • Jan 1998',
+                          style: const TextStyle(
                             color: ElderColors.textMuted,
                             fontSize: 8.5,
                           ),
@@ -256,6 +299,8 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
   }
 
   Widget _voiceCard() {
+    final memory = _firstOfType(MemoryType.voice);
+
     return Container(
       height: 80,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -264,15 +309,15 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
         border: Border.all(color: ElderColors.border),
         borderRadius: BorderRadius.circular(15),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          ElderAvatar(
+          const ElderAvatar(
             asset: ElderAssets.kamalaAvatar,
             size: 42,
             border: false,
           ),
-          SizedBox(width: 9),
-          CircleAvatar(
+          const SizedBox(width: 9),
+          const CircleAvatar(
             radius: 19,
             backgroundColor: ElderColors.darkTeal,
             child: Icon(
@@ -281,22 +326,22 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
               size: 23,
             ),
           ),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Listen to Amma's Story",
-                  style: TextStyle(
+                  memory?.title ?? "Listen to Amma's Story",
+                  style: const TextStyle(
                     color: ElderColors.textDark,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 8),
-                LinearProgressIndicator(
+                const SizedBox(height: 8),
+                const LinearProgressIndicator(
                   value: .58,
                   minHeight: 4,
                   color: ElderColors.deepTeal,
@@ -305,10 +350,10 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
               ],
             ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(
-            '02:45',
-            style: TextStyle(
+            memory?.caption ?? '02:45',
+            style: const TextStyle(
               color: ElderColors.textMuted,
               fontSize: 8,
             ),
@@ -319,6 +364,8 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
   }
 
   Widget _songCard() {
+    final memory = _firstOfType(MemoryType.song);
+
     return Container(
       height: 74,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -327,9 +374,9 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
         border: Border.all(color: ElderColors.border),
         borderRadius: BorderRadius.circular(15),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             radius: 20,
             backgroundColor: ElderColors.deepTeal,
             child: Icon(
@@ -338,22 +385,22 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
               size: 20,
             ),
           ),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Favourite Song',
-                  style: TextStyle(
+                  memory?.title ?? 'Favourite Song',
+                  style: const TextStyle(
                     color: ElderColors.textDark,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 8),
-                LinearProgressIndicator(
+                const SizedBox(height: 8),
+                const LinearProgressIndicator(
                   value: .52,
                   minHeight: 4,
                   color: Color(0xFFD6A64B),
@@ -362,8 +409,8 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
               ],
             ),
           ),
-          SizedBox(width: 10),
-          Icon(
+          const SizedBox(width: 10),
+          const Icon(
             Icons.play_circle_outline_rounded,
             color: ElderColors.deepTeal,
             size: 25,
