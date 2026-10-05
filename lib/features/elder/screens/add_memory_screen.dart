@@ -12,7 +12,10 @@ class AddMemoryScreen extends StatefulWidget {
 }
 
 class _AddMemoryScreenState extends State<AddMemoryScreen> {
-  final titleController = TextEditingController(text: 'Family New Year');
+  final titleController = TextEditingController(
+    text: 'Family New Year',
+  );
+
   int visibility = 0;
 
   @override
@@ -23,224 +26,29 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const labels = ['Only me', 'Family', 'Companion'];
-
     return ElderPhoneScaffold(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(18, 7, 18, 4),
+      backgroundColor: ElderColors.background,
+      statusBarColor: ElderColors.background,
+      darkStatusBar: true,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ElderBackButton(onPressed: () => Navigator.pop(context)),
-            const SizedBox(height: 10),
-            const Text(
-              'Add a memory',
-              style: TextStyle(
-                color: ElderColors.textDark,
-                fontSize: 23,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 2),
-            const Text(
-              'Save a photo, story or voice note',
-              style: TextStyle(
-                color: ElderColors.textMuted,
-                fontSize: 9.5,
-              ),
-            ),
-            const SizedBox(height: 13),
-            Row(
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: Image.asset(
-                      ElderAssets.addMemoryPhoto,
-                      height: 170,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Container(
-                    height: 170,
-                    decoration: BoxDecoration(
-                      color: ElderColors.mintSoft,
-                      border: Border.all(color: ElderColors.border),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: Colors.white,
-                          child: Icon(
-                            Icons.add_rounded,
-                            color: ElderColors.deepTeal,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Add photo',
-                          style: TextStyle(
-                            color: ElderColors.textDark,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Tap to replace',
-                          style: TextStyle(
-                            color: ElderColors.textMuted,
-                            fontSize: 8,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _label('Memory title'),
-            const SizedBox(height: 5),
-            TextField(
-              controller: titleController,
-              style: const TextStyle(
-                color: ElderColors.textDark,
-                fontSize: 11,
-              ),
-              decoration: InputDecoration(
-                prefixIcon: const Icon(
-                  Icons.title_rounded,
-                  color: ElderColors.deepTeal,
-                  size: 20,
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 10,
-                  horizontal: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(11),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            _label('Date'),
-            const SizedBox(height: 5),
-            Container(
-              height: 52,
-              padding: const EdgeInsets.symmetric(horizontal: 11),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: ElderColors.deepTeal),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: const Row(
+            _header(context),
+            const SizedBox(height: 14),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.schedule_rounded,
-                    color: ElderColors.deepTeal,
-                    size: 18,
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    '01 Jan 1998',
-                    style: TextStyle(
-                      color: ElderColors.textDark,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  _mediaSection(),
+                  _titleField(),
+                  _dateField(),
+                  _visibilitySection(),
+                  const _PrivacyCard(),
+                  _actions(context),
                 ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            _label('Visibility'),
-            const SizedBox(height: 5),
-            Row(
-              children: List.generate(labels.length, (i) {
-                final selected = visibility == i;
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(right: i == 2 ? 0 : 6),
-                    child: SizedBox(
-                      height: 38,
-                      child: OutlinedButton(
-                        onPressed: () => setState(() => visibility = i),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: selected
-                              ? ElderColors.darkTeal
-                              : Colors.white,
-                          foregroundColor: selected
-                              ? Colors.white
-                              : ElderColors.deepTeal,
-                          side: const BorderSide(
-                            color: ElderColors.deepTeal,
-                          ),
-                          padding: EdgeInsets.zero,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(17),
-                          ),
-                        ),
-                        child: Text(
-                          labels[i],
-                          style: const TextStyle(fontSize: 8.5),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(height: 10),
-            const ElderInfoCard(
-              icon: Icons.check_rounded,
-              title: 'Private by default.',
-              subtitle: 'You choose who can see it.',
-            ),
-            const SizedBox(height: 10),
-            ElderPrimaryButton(
-              label: 'Save memory',
-              height: 50,
-              onPressed: () => Navigator.pop(context),
-            ),
-            const SizedBox(height: 7),
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: OutlinedButton(
-                onPressed: () async {
-                  final ok = await elderConfirm(
-                    context,
-                    title: 'Delete this memory?',
-                    message: 'This action cannot be undone.',
-                    confirmLabel: 'Delete',
-                    destructive: true,
-                  );
-                  if (!ok || !context.mounted) return;
-                  Navigator.pop(context);
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFC94354),
-                  side: const BorderSide(color: ElderColors.coral),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                ),
-                child: const Text(
-                  'Delete memory',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
               ),
             ),
           ],
@@ -249,13 +57,347 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
     );
   }
 
+  Widget _header(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ElderBackButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'Add a memory',
+          style: TextStyle(
+            color: ElderColors.textDark,
+            fontSize: 24,
+            height: 1.05,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Save a photo, story or voice note',
+          style: TextStyle(
+            color: ElderColors.textMuted,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _mediaSection() {
+    return Row(
+      children: [
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.asset(
+              ElderAssets.addMemoryPhoto,
+              height: 170,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Container(
+            height: 170,
+            decoration: BoxDecoration(
+              color: ElderColors.mintSoft,
+              border: Border.all(color: ElderColors.border),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.white,
+                  child: Icon(
+                    Icons.add_a_photo_outlined,
+                    color: ElderColors.deepTeal,
+                    size: 23,
+                  ),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'Add photo',
+                  style: TextStyle(
+                    color: ElderColors.textDark,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Tap to replace',
+                  style: TextStyle(
+                    color: ElderColors.textMuted,
+                    fontSize: 8.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _titleField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Memory title'),
+        const SizedBox(height: 7),
+        SizedBox(
+          height: 56,
+          child: TextField(
+            controller: titleController,
+            textAlignVertical: TextAlignVertical.center,
+            style: const TextStyle(
+              color: ElderColors.textDark,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(
+                Icons.title_rounded,
+                color: ElderColors.deepTeal,
+                size: 20,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 11),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: ElderColors.border),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: ElderColors.deepTeal),
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _dateField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Date'),
+        const SizedBox(height: 7),
+        Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 13),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: ElderColors.border),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: ElderColors.mintSoft,
+                child: Icon(
+                  Icons.calendar_month_outlined,
+                  color: ElderColors.deepTeal,
+                  size: 18,
+                ),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '01 Jan 1998',
+                  style: TextStyle(
+                    color: ElderColors.textDark,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: ElderColors.textMuted,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _visibilitySection() {
+    const labels = ['Only me', 'Family', 'Companion'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Visibility'),
+        const SizedBox(height: 7),
+        Row(
+          children: List.generate(labels.length, (index) {
+            final selected = visibility == index;
+
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  right: index == labels.length - 1 ? 0 : 7,
+                ),
+                child: SizedBox(
+                  height: 42,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      setState(() {
+                        visibility = index;
+                      });
+                    },
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor:
+                          selected ? ElderColors.darkTeal : Colors.white,
+                      foregroundColor:
+                          selected ? Colors.white : ElderColors.deepTeal,
+                      side: BorderSide(
+                        color: selected
+                            ? ElderColors.darkTeal
+                            : ElderColors.border,
+                      ),
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(21),
+                      ),
+                    ),
+                    child: Text(
+                      labels[index],
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _actions(BuildContext context) {
+    return Column(
+      children: [
+        ElderPrimaryButton(
+          label: 'Save memory',
+          height: 54,
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        const SizedBox(height: 9),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton(
+            onPressed: () async {
+              final ok = await elderConfirm(
+                context,
+                title: 'Delete this memory?',
+                message: 'This action cannot be undone.',
+                confirmLabel: 'Delete',
+                destructive: true,
+              );
+
+              if (!ok || !context.mounted) return;
+              Navigator.of(context).maybePop();
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFC94354),
+              side: const BorderSide(color: ElderColors.coral),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text(
+              'Delete memory',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _label(String text) {
     return Text(
       text,
       style: const TextStyle(
         color: ElderColors.textMuted,
-        fontSize: 8.5,
+        fontSize: 9.5,
         fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
+class _PrivacyCard extends StatelessWidget {
+  const _PrivacyCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 68,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: ElderColors.mintSoft,
+        border: Border.all(color: ElderColors.border),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: const Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: Colors.white,
+            child: Icon(
+              Icons.lock_outline_rounded,
+              color: ElderColors.deepTeal,
+              size: 19,
+            ),
+          ),
+          SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Private by default.',
+                  style: TextStyle(
+                    color: ElderColors.textDark,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'You choose who can see it.',
+                  style: TextStyle(
+                    color: ElderColors.textMuted,
+                    fontSize: 9,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
