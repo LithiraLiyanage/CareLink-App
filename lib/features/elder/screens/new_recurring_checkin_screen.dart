@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
-import 'my_schedule_screen.dart';
+import 'reschedule_checkin_screen.dart';
 
 class NewRecurringCheckInScreen extends StatefulWidget {
   const NewRecurringCheckInScreen({super.key});
@@ -336,9 +336,9 @@ class _NewRecurringCheckInScreenState
           color: ElderColors.coral,
           height: 54,
           onPressed: () {
-            Navigator.of(context).pushReplacement(
+            Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => const MyScheduleScreen(),
+                builder: (_) => const RescheduleCheckInScreen(),
               ),
             );
           },

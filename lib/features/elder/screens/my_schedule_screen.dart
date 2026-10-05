@@ -5,13 +5,16 @@ import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
 import 'memory_lane_screen.dart';
 import 'new_recurring_checkin_screen.dart';
+import 'nethmi_ready_screen.dart';
 import 'reschedule_checkin_screen.dart';
 
 class MyScheduleScreen extends StatelessWidget {
   const MyScheduleScreen({super.key});
 
   void _open(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => screen),
+    );
   }
 
   @override
@@ -62,6 +65,10 @@ class MyScheduleScreen extends StatelessWidget {
                     subtitle: 'Nethmi • Video',
                     badge: 'NEXT',
                     filledBadge: true,
+                    onTap: () => _open(
+                      context,
+                      const NethmiReadyScreen(),
+                    ),
                   ),
                   const SizedBox(height: 13),
                   _scheduleCard(
@@ -69,6 +76,10 @@ class MyScheduleScreen extends StatelessWidget {
                     time: 'Wed • 6:30 PM',
                     subtitle: 'Nethmi • Video',
                     badge: 'RECURRING',
+                    onTap: () => _open(
+                      context,
+                      const RescheduleCheckInScreen(),
+                    ),
                   ),
                   const SizedBox(height: 13),
                   _scheduleCard(
@@ -76,14 +87,20 @@ class MyScheduleScreen extends StatelessWidget {
                     time: 'Fri • 6:30 PM',
                     subtitle: 'Nethmi • Video',
                     badge: 'RECURRING',
+                    onTap: () => _open(
+                      context,
+                      const RescheduleCheckInScreen(),
+                    ),
                   ),
                   const Spacer(),
                   ElderPrimaryButton(
                     label: '+  Create recurring check-in',
                     color: ElderColors.darkTeal,
                     height: 54,
-                    onPressed: () =>
-                        _open(context, const NewRecurringCheckInScreen()),
+                    onPressed: () => _open(
+                      context,
+                      const NewRecurringCheckInScreen(),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   _infoCard(),
@@ -108,7 +125,9 @@ class MyScheduleScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0x66005B59)),
+              border: Border.all(
+                color: const Color(0x66005B59),
+              ),
             ),
             child: const Icon(
               Icons.arrow_back_ios_new_rounded,
@@ -187,7 +206,11 @@ class MyScheduleScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
       ),
       child: Row(
-        children: [tab('Today'), tab('Upcoming', selected: true), tab('Past')],
+        children: [
+          tab('Today'),
+          tab('Upcoming', selected: true),
+          tab('Past'),
+        ],
       ),
     );
   }
@@ -197,18 +220,24 @@ class MyScheduleScreen extends StatelessWidget {
     required String time,
     required String subtitle,
     required String badge,
+    required VoidCallback onTap,
     bool filledBadge = false,
   }) {
     return InkWell(
-      onTap: () => _open(context, const RescheduleCheckInScreen()),
+      onTap: onTap,
       borderRadius: BorderRadius.circular(17),
       child: Container(
         height: 104,
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 13,
+          vertical: 12,
+        ),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(17),
-          border: Border.all(color: const Color(0x6693CFC4)),
+          border: Border.all(
+            color: const Color(0x6693CFC4),
+          ),
           boxShadow: const [
             BoxShadow(
               color: Color(0x09000000),
@@ -219,7 +248,10 @@ class MyScheduleScreen extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const ElderAvatar(asset: ElderAssets.nethmiAvatar, size: 48),
+            const ElderAvatar(
+              asset: ElderAssets.nethmiAvatar,
+              size: 48,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -247,7 +279,10 @@ class MyScheduleScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            ElderStatusPill(badge, filled: filledBadge),
+            ElderStatusPill(
+              badge,
+              filled: filledBadge,
+            ),
           ],
         ),
       ),
@@ -258,11 +293,16 @@ class MyScheduleScreen extends StatelessWidget {
     return Container(
       width: double.infinity,
       height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 10,
+      ),
       decoration: BoxDecoration(
         color: const Color(0x66A7EEE0),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0x6693CFC4)),
+        border: Border.all(
+          color: const Color(0x6693CFC4),
+        ),
       ),
       child: const Row(
         children: [

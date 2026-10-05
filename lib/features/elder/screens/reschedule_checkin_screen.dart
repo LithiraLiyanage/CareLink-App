@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
-import 'my_schedule_screen.dart';
+import 'nethmi_ready_screen.dart';
 
 class RescheduleCheckInScreen extends StatefulWidget {
   const RescheduleCheckInScreen({super.key});
@@ -335,9 +335,9 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
           label: 'Save new time',
           height: 54,
           onPressed: () {
-            Navigator.of(context).pushReplacement(
+            Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => const MyScheduleScreen(),
+                builder: (_) => const NethmiReadyScreen(),
               ),
             );
           },

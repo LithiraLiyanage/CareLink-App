@@ -5,13 +5,14 @@ import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
 import 'memory_lane_screen.dart';
 import 'my_schedule_screen.dart';
-import 'nethmi_ready_screen.dart';
 
 class ElderHomeScreen extends StatelessWidget {
   const ElderHomeScreen({super.key});
 
   void _open(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => screen),
+    );
   }
 
   @override
@@ -58,7 +59,9 @@ class ElderHomeScreen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(18, 10, 14, 14),
       decoration: const BoxDecoration(
         color: ElderColors.darkTeal,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(28),
+        ),
       ),
       child: Column(
         children: [
@@ -129,12 +132,18 @@ class ElderHomeScreen extends StatelessWidget {
                     SizedBox(height: 6),
                     Text(
                       'Your next check-in is ready',
-                      style: TextStyle(color: Color(0xFFD7EBE8), fontSize: 10),
+                      style: TextStyle(
+                        color: Color(0xFFD7EBE8),
+                        fontSize: 10,
+                      ),
                     ),
                   ],
                 ),
               ),
-              ElderAvatar(asset: ElderAssets.kamalaAvatar, size: 66),
+              ElderAvatar(
+                asset: ElderAssets.kamalaAvatar,
+                size: 66,
+              ),
             ],
           ),
         ],
@@ -245,7 +254,8 @@ class ElderHomeScreen extends StatelessWidget {
                     label: 'Find a Companion',
                     color: ElderColors.coral,
                     height: 52,
-                    onPressed: () => _open(context, const NethmiReadyScreen()),
+                    onPressed: () =>
+                        _open(context, const MyScheduleScreen()),
                   ),
                 ],
               ),
@@ -272,7 +282,11 @@ class ElderHomeScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: ElderColors.textDark, size: 27),
+                Icon(
+                  icon,
+                  color: ElderColors.textDark,
+                  size: 27,
+                ),
                 const SizedBox(height: 7),
                 Text(
                   label,
@@ -310,7 +324,9 @@ class ElderHomeScreen extends StatelessWidget {
             Icons.help_outline_rounded,
             'Need Help',
             () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Help options will open here.')),
+              const SnackBar(
+                content: Text('Help options will open here.'),
+              ),
             ),
           ),
         ],
@@ -321,7 +337,10 @@ class ElderHomeScreen extends StatelessWidget {
   Widget _reminder() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 18),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 18,
+      ),
       decoration: BoxDecoration(
         color: ElderColors.success,
         borderRadius: BorderRadius.circular(13),
