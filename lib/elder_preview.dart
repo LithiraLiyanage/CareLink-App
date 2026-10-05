@@ -1,3 +1,7 @@
+import 'package:firebase_core/firebase_core.dart';
+
+import 'firebase_options.dart';
+
 import 'package:flutter/material.dart';
 
 import 'features/elder/screens/active_video_call_kamala_screen.dart';
@@ -12,8 +16,15 @@ import 'features/elder/screens/my_schedule_screen.dart';
 import 'features/elder/screens/nethmi_ready_screen.dart';
 import 'features/elder/screens/new_recurring_checkin_screen.dart';
 import 'features/elder/screens/reschedule_checkin_screen.dart';
+import 'features/elder/services/firebase_elder_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  await FirebaseElderService.instance.seedDemoDataIfEmpty();
+
   runApp(const ElderPreviewApp());
 }
 
@@ -79,9 +90,8 @@ class ElderPreviewMenu extends StatelessWidget {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => ElderScaledPreview(
-                          initialScreen: item.$2,
-                        ),
+                        builder: (_) =>
+                            ElderScaledPreview(initialScreen: item.$2),
                       ),
                     );
                   },
@@ -108,10 +118,7 @@ class ElderScaledPreview extends StatelessWidget {
 
   final Widget initialScreen;
 
-  const ElderScaledPreview({
-    super.key,
-    required this.initialScreen,
-  });
+  const ElderScaledPreview({super.key, required this.initialScreen});
 
   @override
   Widget build(BuildContext context) {
@@ -134,9 +141,7 @@ class ElderScaledPreview extends StatelessWidget {
                     height: phoneHeight,
                     child: Navigator(
                       onGenerateRoute: (_) {
-                        return MaterialPageRoute(
-                          builder: (_) => initialScreen,
-                        );
+                        return MaterialPageRoute(builder: (_) => initialScreen);
                       },
                     ),
                   ),
@@ -156,10 +161,7 @@ class ElderScaledPreview extends StatelessWidget {
                   onTap: () => Navigator.of(context).maybePop(),
                   borderRadius: BorderRadius.circular(22),
                   child: const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 9,
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
