@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/memory_item.dart';
-import '../services/mock_elder_service.dart';
+import '../services/firebase_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
@@ -17,7 +17,7 @@ class MemoryLaneScreen extends StatefulWidget {
 }
 
 class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
-  final MockElderService _service = MockElderService.instance;
+  final FirebaseElderService _service = FirebaseElderService.instance;
 
   int filter = 0;
   bool _loading = true;
@@ -41,18 +41,14 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
   }
 
   Future<void> _openAndRefresh(Widget screen) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
     if (!mounted) return;
     await _loadMemories();
   }
 
   void _open(Widget screen) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 
   @override
@@ -88,9 +84,8 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                           label: '+  Add a memory',
                           color: ElderColors.coral,
                           height: 54,
-                          onPressed: () => _openAndRefresh(
-                            const AddMemoryScreen(),
-                          ),
+                          onPressed: () =>
+                              _openAndRefresh(const AddMemoryScreen()),
                         ),
                       ],
                     ),
@@ -116,9 +111,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
       decoration: const BoxDecoration(
         color: ElderColors.darkTeal,
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(26),
-        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
       ),
       child: Column(
         children: [
@@ -175,10 +168,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
             alignment: Alignment.centerLeft,
             child: Text(
               'Stories, photos and moments you love',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 9.5,
-              ),
+              style: TextStyle(color: Colors.white70, fontSize: 9.5),
             ),
           ),
           const SizedBox(height: 12),
@@ -196,10 +186,12 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                     child: OutlinedButton(
                       onPressed: () => setState(() => filter = index),
                       style: OutlinedButton.styleFrom(
-                        backgroundColor:
-                            selected ? Colors.white : Colors.transparent,
-                        foregroundColor:
-                            selected ? ElderColors.darkTeal : Colors.white,
+                        backgroundColor: selected
+                            ? Colors.white
+                            : Colors.transparent,
+                        foregroundColor: selected
+                            ? ElderColors.darkTeal
+                            : Colors.white,
                         side: const BorderSide(color: Colors.white70),
                         padding: EdgeInsets.zero,
                         shape: RoundedRectangleBorder(
@@ -237,9 +229,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       child: Column(
         children: [
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(15),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
             child: Image.asset(
               memory?.mediaPath ?? ElderAssets.familyMemory,
               height: 174,
@@ -249,10 +239,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
           ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
                   const CircleAvatar(
@@ -353,10 +340,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
           const SizedBox(width: 8),
           Text(
             memory?.caption ?? '02:45',
-            style: const TextStyle(
-              color: ElderColors.textMuted,
-              fontSize: 8,
-            ),
+            style: const TextStyle(color: ElderColors.textMuted, fontSize: 8),
           ),
         ],
       ),

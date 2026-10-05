@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/memory_item.dart';
-import '../services/mock_elder_service.dart';
+import '../services/firebase_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
@@ -14,11 +14,9 @@ class AddMemoryScreen extends StatefulWidget {
 }
 
 class _AddMemoryScreenState extends State<AddMemoryScreen> {
-  final MockElderService _service = MockElderService.instance;
+  final FirebaseElderService _service = FirebaseElderService.instance;
 
-  final titleController = TextEditingController(
-    text: 'Family New Year',
-  );
+  final titleController = TextEditingController(text: 'Family New Year');
 
   int visibility = 0;
   bool _saving = false;
@@ -36,20 +34,14 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
 
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a memory title.'),
-        ),
+        const SnackBar(content: Text('Please enter a memory title.')),
       );
       return;
     }
 
     setState(() => _saving = true);
 
-    const visibilityLabels = [
-      'Only me',
-      'Family',
-      'Companion',
-    ];
+    const visibilityLabels = ['Only me', 'Family', 'Companion'];
 
     await _service.addMemory(
       MemoryItem(
@@ -123,9 +115,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ElderBackButton(
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
+        ElderBackButton(onPressed: () => Navigator.of(context).maybePop()),
         const SizedBox(height: 10),
         const Text(
           'Add a memory',
@@ -195,10 +185,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
                 SizedBox(height: 3),
                 Text(
                   'Tap to replace',
-                  style: TextStyle(
-                    color: ElderColors.textMuted,
-                    fontSize: 8.5,
-                  ),
+                  style: TextStyle(color: ElderColors.textMuted, fontSize: 8.5),
                 ),
               ],
             ),
@@ -318,10 +305,12 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
                   child: OutlinedButton(
                     onPressed: () => setState(() => visibility = index),
                     style: OutlinedButton.styleFrom(
-                      backgroundColor:
-                          selected ? ElderColors.darkTeal : Colors.white,
-                      foregroundColor:
-                          selected ? Colors.white : ElderColors.deepTeal,
+                      backgroundColor: selected
+                          ? ElderColors.darkTeal
+                          : Colors.white,
+                      foregroundColor: selected
+                          ? Colors.white
+                          : ElderColors.deepTeal,
                       side: BorderSide(
                         color: selected
                             ? ElderColors.darkTeal
@@ -372,10 +361,7 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
             ),
             child: const Text(
               'Delete memory',
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
             ),
           ),
         ),
@@ -436,10 +422,7 @@ class _PrivacyCard extends StatelessWidget {
                 SizedBox(height: 3),
                 Text(
                   'You choose who can see it.',
-                  style: TextStyle(
-                    color: ElderColors.textMuted,
-                    fontSize: 9,
-                  ),
+                  style: TextStyle(color: ElderColors.textMuted, fontSize: 9),
                 ),
               ],
             ),
