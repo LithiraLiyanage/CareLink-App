@@ -363,13 +363,43 @@ class ManageConnectionScreen extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () => Navigator.of(context).push(
-                  CompanionRoute<void>(
-                    context: context,
-                    builder: (_) => EndConnectionConfirmationScreen(
+                  PageRouteBuilder<void>(
+                    opaque: false,
+                    barrierDismissible: false,
+                    barrierColor: Colors.black.withValues(alpha: 0.38),
+                    barrierLabel: strings.keepConnection,
+                    transitionDuration: MediaQuery.of(context).disableAnimations
+                        ? Duration.zero
+                        : const Duration(milliseconds: 240),
+                    reverseTransitionDuration:
+                        MediaQuery.of(context).disableAnimations
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
+                    pageBuilder: (_, _, _) => EndConnectionConfirmationScreen(
                       profile: profile,
                       selectedLanguage: selectedLanguage,
                       connectionStatus: connectionStatus,
                     ),
+                    transitionsBuilder: (context, animation, _, child) {
+                      if (MediaQuery.of(context).disableAnimations) {
+                        return child;
+                      }
+                      final curved = CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                        reverseCurve: Curves.easeInCubic,
+                      );
+                      return FadeTransition(
+                        opacity: curved,
+                        child: ScaleTransition(
+                          scale: Tween<double>(
+                            begin: 0.97,
+                            end: 1,
+                          ).animate(curved),
+                          child: child,
+                        ),
+                      );
+                    },
                   ),
                 ),
                 style: OutlinedButton.styleFrom(

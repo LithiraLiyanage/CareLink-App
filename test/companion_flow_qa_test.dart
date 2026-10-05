@@ -78,7 +78,15 @@ void main() {
           await _tapVisible(tester, find.text(strings.keepConnection));
           expect(find.byType(ManageConnectionScreen), findsOneWidget);
           await _tapVisible(tester, find.text(strings.reviewEndConnection));
-          await _tapVisible(tester, find.text(strings.endConnection));
+          // W08 remains visible behind the confirmation modal, so scope this
+          // action to W08B instead of its background section heading.
+          await _tapVisible(
+            tester,
+            find.descendant(
+              of: find.byType(EndConnectionConfirmationScreen),
+              matching: find.text(strings.endConnection),
+            ),
+          );
           expect(find.byType(RecommendedCompanionsScreen), findsOneWidget);
           expect(find.text(strings.currentConnectionActive), findsNothing);
 
