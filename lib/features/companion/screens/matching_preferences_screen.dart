@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/companion_controller.dart';
 import '../models/companion_language.dart';
 import '../models/match_preferences.dart';
+import '../services/mock_companion_service.dart';
 import '../widgets/companion_bottom_navigation.dart';
 import '../widgets/companion_entrance.dart';
 import '../widgets/companion_option_chip.dart';
@@ -10,7 +12,19 @@ import '../widgets/companion_scaffold.dart';
 import 'recommended_companions_screen.dart';
 
 class MatchingPreferencesScreen extends StatefulWidget {
-  const MatchingPreferencesScreen({super.key});
+  const MatchingPreferencesScreen({
+    super.key,
+    this.controller,
+    this.initialPreferences,
+    this.uiLanguage,
+  });
+
+  final CompanionController? controller;
+  final MatchPreferences? initialPreferences;
+
+  /// Optional app/interface language. The W01 language chips remain a separate
+  /// preferred-companion-language choice.
+  final CompanionLanguage? uiLanguage;
 
   @override
   State<MatchingPreferencesScreen> createState() =>
@@ -38,12 +52,56 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
 
   static const List<String> _checkInTypeOptions = ['Voice', 'Video'];
 
+  late final CompanionController _controller;
+  late final bool _ownsController;
   CompanionLanguage _selectedLanguage = CompanionLanguage.english;
+  CompanionLanguage _preferredCompanionLanguage = CompanionLanguage.english;
   final Set<String> _selectedInterests = {};
   String? _selectedAvailability;
   String? _selectedPreferredTime;
   String? _selectedCheckInType;
   bool _findButtonPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsController = widget.controller == null;
+    _controller =
+        widget.controller ??
+        CompanionController(service: MockCompanionService());
+    _controller.addListener(_onControllerChanged);
+    final initial = widget.initialPreferences;
+    if (initial != null) {
+      _preferredCompanionLanguage = CompanionLanguage.values.firstWhere(
+        (language) => language.storedValue == initial.preferredLanguage,
+        orElse: () => CompanionLanguage.english,
+      );
+      _selectedInterests.addAll(initial.interests);
+      _selectedAvailability = initial.availability.isEmpty
+          ? null
+          : initial.availability;
+      _selectedPreferredTime = initial.preferredTime.isEmpty
+          ? null
+          : initial.preferredTime;
+      _selectedCheckInType = (initial.checkInType?.isEmpty ?? true)
+          ? null
+          : initial.checkInType;
+    }
+    // Preserve the existing chip-driven W01→W02 language flow when no
+    // independent CareLink interface language is supplied.
+    _selectedLanguage = widget.uiLanguage ?? _preferredCompanionLanguage;
+  }
+
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onControllerChanged);
+    if (_ownsController) _controller.dispose();
+    super.dispose();
+  }
 
   void _setFindButtonPressed(bool pressed) {
     if (_findButtonPressed == pressed) return;
@@ -66,14 +124,21 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _onFindCompanions() {
+  Future<void> _onFindCompanions() async {
+    if (_controller.isLoading) return;
     final preferences = MatchPreferences(
-      preferredLanguage: _selectedLanguage.storedValue,
+      preferredLanguage: _preferredCompanionLanguage.storedValue,
       interests: List.unmodifiable(_selectedInterests),
       availability: _selectedAvailability ?? '',
       preferredTime: _selectedPreferredTime ?? '',
-      checkInType: _selectedCheckInType ?? '',
+      checkInType: _selectedCheckInType,
     );
+    await _controller.loadRecommendations(preferences);
+    if (!mounted) return;
+    if (_controller.errorMessage != null) {
+      _showPlaceholderMessage('We couldn’t load companions. Please try again.');
+      return;
+    }
     Navigator.of(context).push(
       CompanionRoute<void>(
         context: context,
@@ -81,6 +146,8 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
         builder: (_) => RecommendedCompanionsScreen(
           selectedLanguage: _selectedLanguage,
           preferences: preferences,
+          controller: _controller,
+          fromPreferences: true,
         ),
       ),
     );
@@ -161,7 +228,7 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
                                 ) {
                                   final displayLabel = language.displayLabel;
                                   final isSelected =
-                                      _selectedLanguage == language;
+                                      _preferredCompanionLanguage == language;
 
                                   return _buildChoiceChip(
                                     label: displayLabel,
@@ -170,7 +237,10 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
                                     isSelected: isSelected,
                                     onSelected: (_) {
                                       setState(() {
-                                        _selectedLanguage = language;
+                                        _preferredCompanionLanguage = language;
+                                        if (widget.uiLanguage == null) {
+                                          _selectedLanguage = language;
+                                        }
                                       });
                                     },
                                   );
@@ -274,13 +344,33 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
                               duration: animationDuration,
                               curve: Curves.easeOut,
                               child: ElevatedButton(
-                                onPressed: _onFindCompanions,
+                                onPressed: _controller.isLoading
+                                    ? null
+                                    : _onFindCompanions,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: CompanionPalette.teal,
                                   foregroundColor: Colors.white,
                                   minimumSize: const Size(double.infinity, 54),
                                 ),
-                                child: const Text('Find Companions'),
+                                child: _controller.isLoading
+                                    ? const Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          SizedBox(width: 10),
+                                          Text('Finding Companions…'),
+                                        ],
+                                      )
+                                    : const Text('Find Companions'),
                               ),
                             ),
                           ),

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/companion_controller.dart';
 import '../models/companion_language.dart';
-import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
 import '../models/match_preferences.dart';
-import '../services/companion_recommendations.dart';
+import '../models/match_recommendation.dart';
+import '../services/mock_companion_service.dart';
 import '../widgets/companion_avatar.dart';
 import '../widgets/companion_bottom_navigation.dart';
 import '../widgets/companion_entrance.dart';
@@ -12,29 +13,93 @@ import '../widgets/companion_interest_icon.dart';
 import '../widgets/companion_route.dart';
 import '../widgets/companion_scaffold.dart';
 import 'companion_profile_screen.dart';
+import 'matching_preferences_screen.dart';
 import 'send_match_request_screen.dart';
 
-class RecommendedCompanionsScreen extends StatelessWidget {
+class RecommendedCompanionsScreen extends StatefulWidget {
   const RecommendedCompanionsScreen({
     super.key,
     required this.selectedLanguage,
     this.preferences,
+    this.controller,
+    this.fromPreferences = false,
   });
 
   final CompanionLanguage selectedLanguage;
   final MatchPreferences? preferences;
+  final CompanionController? controller;
+  final bool fromPreferences;
+
+  @override
+  State<RecommendedCompanionsScreen> createState() =>
+      _RecommendedCompanionsScreenState();
+}
+
+class _RecommendedCompanionsScreenState
+    extends State<RecommendedCompanionsScreen> {
+  late final CompanionController _controller;
+  late final bool _ownsController;
+  CompanionLanguage get selectedLanguage => widget.selectedLanguage;
 
   MatchPreferences get _effectivePreferences =>
-      preferences ??
+      widget.preferences ??
+      _controller.currentPreferences ??
       MatchPreferences(
-        preferredLanguage: selectedLanguage.storedValue,
+        // The UI language is not a matching preference for direct W02 entry.
+        preferredLanguage: '',
         interests: const [],
         availability: '',
         preferredTime: '',
-        checkInType: '',
       );
 
-  void _openProfile(BuildContext context, CompanionProfile profile) {
+  @override
+  void initState() {
+    super.initState();
+    _ownsController = widget.controller == null;
+    _controller =
+        widget.controller ??
+        CompanionController(service: MockCompanionService());
+    _controller.addListener(_onControllerChanged);
+    if (_ownsController ||
+        _controller.currentPreferences == null ||
+        (widget.preferences != null &&
+            !identical(_controller.currentPreferences, widget.preferences))) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _controller.loadRecommendations(_effectivePreferences);
+      });
+    }
+  }
+
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onControllerChanged);
+    if (_ownsController) _controller.dispose();
+    super.dispose();
+  }
+
+  void _adjustPreferences(BuildContext context) {
+    if (widget.fromPreferences && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    Navigator.of(context).pushReplacement(
+      CompanionRoute<void>(
+        context: context,
+        builder: (_) => MatchingPreferencesScreen(
+          initialPreferences: _effectivePreferences,
+          uiLanguage: selectedLanguage,
+        ),
+      ),
+    );
+  }
+
+  void _openProfile(BuildContext context, MatchRecommendation recommendation) {
+    final profile = recommendation.companion;
+    _controller.selectCompanion(profile);
     Navigator.of(context).push(
       CompanionRoute<void>(
         context: context,
@@ -47,7 +112,9 @@ class RecommendedCompanionsScreen extends StatelessWidget {
     );
   }
 
-  void _openRequest(BuildContext context, CompanionProfile profile) {
+  void _openRequest(BuildContext context, MatchRecommendation recommendation) {
+    final profile = recommendation.companion;
+    _controller.selectCompanion(profile);
     Navigator.of(context).push(
       CompanionRoute<void>(
         context: context,
@@ -69,8 +136,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
-    final profiles = CompanionRecommendations.ordered(_effectivePreferences);
-    final featuredProfile = profiles.first;
+    final recommendations = _controller.recommendations;
 
     return CompanionScaffold(
       body: CompanionEntrance(
@@ -116,7 +182,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                           child: Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
-                              onPressed: () => Navigator.of(context).maybePop(),
+                              onPressed: () => _adjustPreferences(context),
                               style: TextButton.styleFrom(
                                 foregroundColor: CompanionPalette.teal,
                                 minimumSize: const Size(0, 48),
@@ -135,23 +201,54 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    CompanionEntrance(
-                      child: _buildFeaturedCard(
+                    if (_controller.isLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else if (_controller.errorMessage != null)
+                      _buildMessageCard(
                         context,
-                        strings,
-                        featuredProfile,
-                      ),
-                    ),
-                    for (var index = 1; index < profiles.length; index++) ...[
-                      const SizedBox(height: 12),
+                        title: strings.recommendationsLoadError,
+                        detail: strings.recommendationsRetryHelper,
+                        action: strings.retry,
+                        onPressed: () => _controller.loadRecommendations(
+                          _effectivePreferences,
+                        ),
+                      )
+                    else if (recommendations.isEmpty)
+                      _buildMessageCard(
+                        context,
+                        title: strings.noSuitableCompanions,
+                        detail: strings.adjustPreferencesHelper,
+                        action: strings.adjustPreferences,
+                        onPressed: () => _adjustPreferences(context),
+                      )
+                    else ...[
                       CompanionEntrance(
-                        delay: Duration(milliseconds: 55 * index),
-                        child: _buildSmallCard(
+                        child: _buildFeaturedCard(
                           context,
                           strings,
-                          profile: profiles[index],
+                          recommendations.first,
                         ),
                       ),
+                      for (
+                        var index = 1;
+                        index < recommendations.length;
+                        index++
+                      ) ...[
+                        const SizedBox(height: 12),
+                        CompanionEntrance(
+                          delay: Duration(milliseconds: 55 * index),
+                          child: _buildSmallCard(
+                            context,
+                            strings,
+                            recommendation: recommendations[index],
+                          ),
+                        ),
+                      ],
                     ],
                   ],
                 ),
@@ -181,7 +278,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
     return Row(
       children: [
         IconButton(
-          onPressed: () => Navigator.of(context).maybePop(),
+          onPressed: () => _adjustPreferences(context),
           tooltip: strings.adjustPreferences,
           icon: const Icon(Icons.chevron_left),
           color: CompanionPalette.teal,
@@ -263,23 +360,43 @@ class RecommendedCompanionsScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildMessageCard(
+    BuildContext context, {
+    required String title,
+    required String detail,
+    required String action,
+    required VoidCallback onPressed,
+  }) {
+    final textTheme = Theme.of(context).textTheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(detail, style: textTheme.bodyMedium),
+            const SizedBox(height: 14),
+            OutlinedButton(onPressed: onPressed, child: Text(action)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFeaturedCard(
     BuildContext context,
     CompanionStrings strings,
-    CompanionProfile profile,
+    MatchRecommendation recommendation,
   ) {
+    final profile = recommendation.companion;
     final textTheme = Theme.of(context).textTheme;
     final compactEnglish =
         selectedLanguage == CompanionLanguage.english &&
         MediaQuery.textScalerOf(context).scale(1) <= 1.2;
-    final reasons = CompanionRecommendations.reasonsFor(
-      profile,
-      _effectivePreferences,
-    );
-    final sharedCount = CompanionRecommendations.sharedInterestCount(
-      profile,
-      _effectivePreferences,
-    );
+    final reasons = recommendation.reasons;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -380,12 +497,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                           )
                         else
                           for (final reason in reasons)
-                            _buildReason(
-                              strings.recommendationReason(
-                                reason,
-                                sharedCount: sharedCount,
-                              ),
-                            ),
+                            _buildReason(strings.matchReasonText(reason)),
                       ],
                     ),
                   ),
@@ -393,7 +505,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final profileButton = OutlinedButton(
-                        onPressed: () => _openProfile(context, profile),
+                        onPressed: () => _openProfile(context, recommendation),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: CompanionPalette.teal,
                           side: const BorderSide(
@@ -408,7 +520,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                         ),
                       );
                       final requestButton = ElevatedButton(
-                        onPressed: () => _openRequest(context, profile),
+                        onPressed: () => _openRequest(context, recommendation),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: CompanionPalette.teal,
                           foregroundColor: Colors.white,
@@ -452,8 +564,9 @@ class RecommendedCompanionsScreen extends StatelessWidget {
   Widget _buildSmallCard(
     BuildContext context,
     CompanionStrings strings, {
-    required CompanionProfile profile,
+    required MatchRecommendation recommendation,
   }) {
+    final profile = recommendation.companion;
     final textTheme = Theme.of(context).textTheme;
     final metadata = [
       if (profile.languages.isNotEmpty) profile.languages.first,
@@ -469,7 +582,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
         button: true,
         label: '${strings.viewProfile}: ${profile.name}',
         child: InkWell(
-          onTap: () => _openProfile(context, profile),
+          onTap: () => _openProfile(context, recommendation),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(

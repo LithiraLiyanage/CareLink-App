@@ -868,7 +868,7 @@ class CompanionStrings {
 
   String profileAbout(CompanionProfile profile) {
     if (language == CompanionLanguage.english) return profile.about;
-    return switch (profile.id) {
+    return switch (_profileKey(profile)) {
       'nethmi' => volunteerAbout,
       'amaya' =>
         language == CompanionLanguage.sinhala
@@ -888,10 +888,10 @@ class CompanionStrings {
           ? profile.shortAvailability
           : profile.availability;
     }
-    if (profile.id == 'nethmi') {
+    if (_profileKey(profile) == 'nethmi') {
       return short ? sundayEvenings : sundayAvailability;
     }
-    if (profile.id == 'amaya') {
+    if (_profileKey(profile) == 'amaya') {
       return switch (language) {
         CompanionLanguage.sinhala =>
           short ? 'සති අන්ත උදෑසන' : 'සති අන්ත උදෑසන කාලය',
@@ -900,7 +900,7 @@ class CompanionStrings {
         _ => profile.availability,
       };
     }
-    if (profile.id == 'kavindu') {
+    if (_profileKey(profile) == 'kavindu') {
       return switch (language) {
         CompanionLanguage.sinhala =>
           short ? 'සතියේ දින සවස' : 'සතියේ දින සවස් කාලය',
@@ -935,6 +935,68 @@ class CompanionStrings {
       CompanionLanguage.tamil => 'நீங்கள் விரும்பும் நாட்களில் கிடைக்கிறார்',
     },
     RecommendationReason.preferredTime => availableAtPreferredTime,
+  };
+
+  // The service has stable companion_* IDs; older companion screens still use
+  // short mock IDs. Both resolve to the same approved localized profile copy.
+  String _profileKey(CompanionProfile profile) =>
+      profile.id.startsWith('companion_')
+      ? profile.id.substring('companion_'.length)
+      : profile.id;
+
+  String matchReasonText(String reason) {
+    if (language == CompanionLanguage.english) return reason;
+    if (reason.startsWith('Speaks ')) {
+      return recommendationReason(RecommendationReason.sameLanguage);
+    }
+    final shared = RegExp(r'^(\d+) shared interests?$').firstMatch(reason);
+    if (shared != null) {
+      return recommendationReason(
+        RecommendationReason.sharedInterests,
+        sharedCount: int.parse(shared.group(1)!),
+      );
+    }
+    if (reason == 'Available on your preferred days') {
+      return recommendationReason(RecommendationReason.preferredDay);
+    }
+    if (reason == 'Available at your preferred time' ||
+        reason == 'Available at your preferred time of day') {
+      return recommendationReason(RecommendationReason.preferredTime);
+    }
+    return reason;
+  }
+
+  String get noSuitableCompanions => switch (language) {
+    CompanionLanguage.english => 'No suitable companions found yet.',
+    CompanionLanguage.sinhala => 'තවමත් සුදුසු සහචරයන් හමු වී නැත.',
+    CompanionLanguage.tamil => 'இன்னும் பொருத்தமான துணையாளர்கள் கிடைக்கவில்லை.',
+  };
+
+  String get adjustPreferencesHelper => switch (language) {
+    CompanionLanguage.english =>
+      'Try adjusting your language, interests or availability.',
+    CompanionLanguage.sinhala =>
+      'ඔබ කැමති භාෂාව, රුචිකත්වයන් හෝ නිදහස් වේලාව වෙනස් කර බලන්න.',
+    CompanionLanguage.tamil =>
+      'மொழி, விருப்பங்கள் அல்லது கிடைக்கும் நேரத்தை மாற்றிப் பாருங்கள்.',
+  };
+
+  String get recommendationsLoadError => switch (language) {
+    CompanionLanguage.english => 'Recommendations could not be loaded.',
+    CompanionLanguage.sinhala => 'නිර්දේශ ලබා ගැනීමට නොහැකි විය.',
+    CompanionLanguage.tamil => 'பரிந்துரைகளை ஏற்ற முடியவில்லை.',
+  };
+
+  String get recommendationsRetryHelper => switch (language) {
+    CompanionLanguage.english => 'Please try again.',
+    CompanionLanguage.sinhala => 'කරුණාකර නැවත උත්සාහ කරන්න.',
+    CompanionLanguage.tamil => 'மீண்டும் முயற்சிக்கவும்.',
+  };
+
+  String get retry => switch (language) {
+    CompanionLanguage.english => 'Try Again',
+    CompanionLanguage.sinhala => 'නැවත උත්සාහ කරන්න',
+    CompanionLanguage.tamil => 'மீண்டும் முயற்சிக்கவும்',
   };
 
   String get noPreferenceOverlap => switch (language) {
