@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/companion_route.dart';
-
-import '../widgets/companion_scaffold.dart';
-import '../widgets/companion_entrance.dart';
-import '../widgets/companion_avatar.dart';
-
-import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import '../widgets/companion_entrance.dart';
+import '../widgets/companion_avatar.dart';
+import '../widgets/companion_flow_header.dart';
+import '../widgets/companion_route.dart';
+import '../widgets/companion_scaffold.dart';
 import 'current_connection_screen.dart';
 
 /// H01: a companion-owned hand-off, not a scheduling form.
@@ -37,9 +35,6 @@ class SchedulingHandoffScreen extends StatelessWidget {
     companionName: profile.name,
     language: selectedLanguage,
   );
-
-  static const Color _teal = Color(0xFF087F83);
-  static const Color _border = Color(0xFFE7E0EC);
 
   void _backToConnection(BuildContext context) {
     final navigator = Navigator.of(context);
@@ -76,151 +71,136 @@ class SchedulingHandoffScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
-    final firstName = profile.name.trim().split(RegExp(r'\s+')).first;
+    final firstName = profile.firstName;
 
     return CompanionScaffold(
-      appBar: AppBar(title: const Text('CareLink')),
-      body: CompanionEntrance(
-        child: SafeArea(
+      body: SafeArea(
+        child: CompanionEntrance(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    CompanionFlowHeader(
+                      onBack: () => _backToConnection(context),
+                      backTooltip: strings.backToConnection,
+                      trailingIcon: null,
+                      showCoralDot: true,
+                    ),
+                    const SizedBox(height: 20),
                     Semantics(
                       header: true,
                       child: Text(
                         strings.scheduleCheckIn,
-                        style: textTheme.headlineMedium,
+                        style: textTheme.headlineMedium?.copyWith(
+                          fontSize: 27,
+                          letterSpacing: -0.5,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 5),
                     Text(
                       strings.schedulingHandoffSubtitle,
                       style: textTheme.bodyMedium,
                     ),
-                    const SizedBox(height: 24),
-                    Card(
-                      margin: EdgeInsets.zero,
-                      color: CompanionPalette.mint,
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.sync_alt,
-                                  color: _teal,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Semantics(
-                                    header: true,
-                                    child: Text(
-                                      strings.systemHandoff,
-                                      style: textTheme.titleMedium,
+                    const SizedBox(height: 6),
+                    Container(
+                      width: 32,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: CompanionPalette.coral,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Center(
+                      child: ExcludeSemantics(
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 160,
+                          child: profile.id == 'nethmi'
+                              ? Image.asset(
+                                  'assets/images/companion_scheduling_illustration.png',
+                                  fit: BoxFit.contain,
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    CompanionAvatar(
+                                      name: profile.name,
+                                      size: 96,
+                                      imagePath: profile.imagePath,
                                     ),
-                                  ),
+                                    const SizedBox(width: 20),
+                                    const Icon(
+                                      Icons.calendar_month_outlined,
+                                      color: CompanionPalette.coral,
+                                      size: 74,
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 18),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                CompanionAvatar(
-                                  name: profile.name,
-                                  size: 50,
-                                  imagePath: profile.imagePath,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        profile.name,
-                                        style: textTheme.titleMedium,
-                                      ),
-                                      const SizedBox(height: 5),
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.check_circle,
-                                            color: CareLinkTheme.successColor,
-                                            size: 18,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Flexible(
-                                            child: Text(
-                                              strings.currentConnectionActive,
-                                              style: textTheme.bodySmall,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 18),
-                            Text(
-                              strings.readyToSchedule(firstName),
-                              style: textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              strings.acceptedConnectionHandoffDescription,
-                              style: textTheme.bodyMedium,
-                            ),
-                          ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Card(
-                      margin: EdgeInsets.zero,
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.event_available_outlined,
-                                  color: _teal,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Semantics(
-                                    header: true,
-                                    child: Text(
-                                      strings.nextModule,
-                                      style: textTheme.titleMedium,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: CompanionPalette.coral.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: Semantics(
+                          header: true,
+                          child: Text(
+                            strings.systemHandoff,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: CompanionPalette.coral,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
                             ),
-                            const SizedBox(height: 12),
-                            Text(
-                              strings.schedulingNextSteps,
-                              style: textTheme.bodyMedium,
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    Center(
+                      child: Text(
+                        profile.name,
+                        textAlign: TextAlign.center,
+                        style: textTheme.bodySmall,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: Text(
+                        strings.readyToSchedule(firstName),
+                        textAlign: TextAlign.center,
+                        style: textTheme.titleLarge?.copyWith(
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 310),
+                        child: Text(
+                          strings.acceptedConnectionHandoffDescription,
+                          textAlign: TextAlign.center,
+                          style: textTheme.bodyMedium?.copyWith(fontSize: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    _buildNextModuleCard(context, strings),
                   ],
                 ),
               ),
@@ -230,13 +210,8 @@ class SchedulingHandoffScreen extends StatelessWidget {
       ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: const BoxDecoration(
-            color: CareLinkTheme.surfaceColor,
-            border: Border(top: BorderSide(color: _border)),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           child: Center(
             heightFactor: 1,
             child: ConstrainedBox(
@@ -247,24 +222,14 @@ class SchedulingHandoffScreen extends StatelessWidget {
                 children: [
                   ElevatedButton(
                     onPressed: () => _continueToScheduling(context, strings),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _teal,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 52),
-                    ),
                     child: Text(
                       strings.continueToScheduling,
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 18),
                   OutlinedButton(
                     onPressed: () => _backToConnection(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _teal,
-                      side: const BorderSide(color: _teal),
-                      minimumSize: const Size(double.infinity, 52),
-                    ),
                     child: Text(
                       strings.backToConnection,
                       textAlign: TextAlign.center,
@@ -275,6 +240,72 @@ class SchedulingHandoffScreen extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildNextModuleCard(BuildContext context, CompanionStrings strings) {
+    final textTheme = CompanionScaffold.textTheme(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: CompanionPalette.border),
+        boxShadow: [
+          BoxShadow(
+            color: CompanionPalette.ink.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: CompanionPalette.coral.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.calendar_month_outlined,
+              color: CompanionPalette.coral,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Semantics(
+                  header: true,
+                  child: Text(
+                    strings.nextModule,
+                    style: textTheme.titleMedium?.copyWith(
+                      color: CompanionPalette.coral,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  strings.schedulingNextSteps,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: CompanionPalette.ink,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
