@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/companion_controller.dart';
+import '../models/companion_connection.dart';
 import '../models/companion_language.dart';
 import '../models/companion_match.dart';
 import '../models/companion_profile.dart';
@@ -20,6 +22,7 @@ class ManageConnectionScreen extends StatelessWidget {
     required this.profile,
     required this.selectedLanguage,
     this.connectionStatus = MatchStatus.accepted,
+    this.controller,
   }) : assert(
          connectionStatus == MatchStatus.accepted ||
              connectionStatus == MatchStatus.paused,
@@ -28,6 +31,11 @@ class ManageConnectionScreen extends StatelessWidget {
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
   final MatchStatus connectionStatus;
+  final CompanionController? controller;
+
+  bool get _isPaused => controller == null
+      ? connectionStatus == MatchStatus.paused
+      : controller?.currentConnection?.status == ConnectionStatus.paused;
 
   static const Color _danger = Color(0xFFB43F42);
 
@@ -39,9 +47,18 @@ class ManageConnectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentController = controller;
+    if (currentController == null) return _build(context);
+    return ListenableBuilder(
+      listenable: currentController,
+      builder: (context, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
-    final isPaused = connectionStatus == MatchStatus.paused;
+    final isPaused = _isPaused;
 
     return CompanionScaffold(
       body: SafeArea(
@@ -284,16 +301,35 @@ class ManageConnectionScreen extends StatelessWidget {
             child: SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () => Navigator.of(context).pushReplacement(
-                  CompanionRoute<void>(
-                    context: context,
-                    builder: (_) => ConnectionPausedScreen(
-                      profile: profile,
-                      selectedLanguage: selectedLanguage,
-                      connectionStatus: MatchStatus.paused,
-                    ),
-                  ),
-                ),
+                onPressed: controller?.isLoading == true
+                    ? null
+                    : () async {
+                        if (!isPaused && controller != null) {
+                          await controller!.pauseCurrentConnection();
+                          if (!context.mounted) return;
+                          if (controller!.errorMessage != null ||
+                              controller!.currentConnection?.status !=
+                                  ConnectionStatus.paused) {
+                            _showPlaceholder(
+                              context,
+                              strings.connectionUpdateError,
+                            );
+                            return;
+                          }
+                        }
+                        if (!context.mounted) return;
+                        Navigator.of(context).pushReplacement(
+                          CompanionRoute<void>(
+                            context: context,
+                            builder: (_) => ConnectionPausedScreen(
+                              profile: profile,
+                              selectedLanguage: selectedLanguage,
+                              connectionStatus: MatchStatus.paused,
+                              controller: controller,
+                            ),
+                          ),
+                        );
+                      },
                 child: Text(
                   isPaused ? strings.resumeConnection : strings.pauseConnection,
                   textAlign: TextAlign.center,
@@ -378,7 +414,10 @@ class ManageConnectionScreen extends StatelessWidget {
                     pageBuilder: (_, _, _) => EndConnectionConfirmationScreen(
                       profile: profile,
                       selectedLanguage: selectedLanguage,
-                      connectionStatus: connectionStatus,
+                      connectionStatus: _isPaused
+                          ? MatchStatus.paused
+                          : MatchStatus.accepted,
+                      controller: controller,
                     ),
                     transitionsBuilder: (context, animation, _, child) {
                       if (MediaQuery.of(context).disableAnimations) {

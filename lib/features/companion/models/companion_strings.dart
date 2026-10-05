@@ -848,6 +848,21 @@ class CompanionStrings {
     'Gardening' => gardening,
     'Music' => music,
     'Traditional Food' => traditionalFood,
+    'General' => switch (language) {
+      CompanionLanguage.english => 'General',
+      CompanionLanguage.sinhala => 'සාමාන්‍ය',
+      CompanionLanguage.tamil => 'பொது',
+    },
+    'Cooking' => switch (language) {
+      CompanionLanguage.english => 'Cooking',
+      CompanionLanguage.sinhala => 'ඉවුම් පිහුම්',
+      CompanionLanguage.tamil => 'சமையல்',
+    },
+    'Travel' => switch (language) {
+      CompanionLanguage.english => 'Travel',
+      CompanionLanguage.sinhala => 'සංචාර',
+      CompanionLanguage.tamil => 'பயணம்',
+    },
     'Books' => switch (language) {
       CompanionLanguage.english => 'Books',
       CompanionLanguage.sinhala => 'පොත්',
@@ -864,6 +879,21 @@ class CompanionStrings {
       CompanionLanguage.tamil => 'கலாசாரம்',
     },
     _ => interest,
+  };
+
+  String get noConversationIdeas => switch (language) {
+    CompanionLanguage.english => 'No conversation ideas are available yet.',
+    CompanionLanguage.sinhala => 'කතාබස් අදහස් තවම ලබා ගත නොහැක.',
+    CompanionLanguage.tamil => 'உரையாடல் யோசனைகள் இன்னும் கிடைக்கவில்லை.',
+  };
+
+  String get conversationIdeasLoadError => switch (language) {
+    CompanionLanguage.english =>
+      'Could not load conversation ideas. Please try again.',
+    CompanionLanguage.sinhala =>
+      'කතාබස් අදහස් ලබා ගත නොහැකි විය. නැවත උත්සාහ කරන්න.',
+    CompanionLanguage.tamil =>
+      'உரையாடல் யோசனைகளை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
   };
 
   String profileAbout(CompanionProfile profile) {
@@ -965,6 +995,63 @@ class CompanionStrings {
     }
     return reason;
   }
+
+  String connectionRequestTo(String name) => switch (language) {
+    CompanionLanguage.english =>
+      'You are about to send a connection request to $name.',
+    CompanionLanguage.sinhala =>
+      'ඔබ $name වෙත සම්බන්ධතා ඉල්ලීමක් යැවීමට සූදානම් වේ.',
+    CompanionLanguage.tamil =>
+      'நீங்கள் $name-க்கு இணைப்பு கோரிக்கை அனுப்ப உள்ளீர்கள்.',
+  };
+
+  String get requestSendError => switch (language) {
+    CompanionLanguage.english =>
+      'Could not send the request. Please try again.',
+    CompanionLanguage.sinhala =>
+      'ඉල්ලීම යැවීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.',
+    CompanionLanguage.tamil =>
+      'கோரிக்கையை அனுப்ப முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+  };
+
+  String get requestUpdateError => switch (language) {
+    CompanionLanguage.english =>
+      'Could not update the request. Please try again.',
+    CompanionLanguage.sinhala =>
+      'ඉල්ලීම යාවත්කාලීන කිරීමට නොහැකි විය. නැවත උත්සාහ කරන්න.',
+    CompanionLanguage.tamil =>
+      'கோரிக்கையை புதுப்பிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+  };
+
+  String get connectionUpdateError => switch (language) {
+    CompanionLanguage.english =>
+      'Could not update the connection. Please try again.',
+    CompanionLanguage.sinhala =>
+      'සම්බන්ධතාව යාවත්කාලීන කිරීමට නොහැකි විය. නැවත උත්සාහ කරන්න.',
+    CompanionLanguage.tamil =>
+      'இணைப்பை புதுப்பிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+  };
+
+  String get connectionNotActive => switch (language) {
+    CompanionLanguage.english =>
+      'Scheduling is available for active connections only.',
+    CompanionLanguage.sinhala =>
+      'හමුවීමක් සැලසුම් කළ හැක්කේ සක්‍රිය සම්බන්ධතා සඳහා පමණි.',
+    CompanionLanguage.tamil =>
+      'செயலில் உள்ள இணைப்புகளுக்கு மட்டுமே சந்திப்பை திட்டமிடலாம்.',
+  };
+
+  String get sendingRequest => switch (language) {
+    CompanionLanguage.english => 'Sending request…',
+    CompanionLanguage.sinhala => 'ඉල්ලීම යවමින්…',
+    CompanionLanguage.tamil => 'கோரிக்கை அனுப்பப்படுகிறது…',
+  };
+
+  String get updatingRequest => switch (language) {
+    CompanionLanguage.english => 'Updating request…',
+    CompanionLanguage.sinhala => 'ඉල්ලීම යාවත්කාලීන කරමින්…',
+    CompanionLanguage.tamil => 'கோரிக்கை புதுப்பிக்கப்படுகிறது…',
+  };
 
   String get noSuitableCompanions => switch (language) {
     CompanionLanguage.english => 'No suitable companions found yet.',

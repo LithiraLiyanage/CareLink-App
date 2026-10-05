@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/companion_controller.dart';
+import '../models/companion_connection.dart';
 import '../models/companion_language.dart';
 import '../models/companion_match.dart';
 import '../models/companion_profile.dart';
@@ -18,15 +20,36 @@ class ConnectionPausedScreen extends StatelessWidget {
     required this.profile,
     required this.selectedLanguage,
     required this.connectionStatus,
+    this.controller,
   }) : assert(connectionStatus == MatchStatus.paused);
 
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
   final MatchStatus connectionStatus;
+  final CompanionController? controller;
 
   static const Color _amberInk = Color(0xFF9A6200);
 
-  void _openConnection(BuildContext context, MatchStatus nextStatus) {
+  Future<void> _openConnection(
+    BuildContext context,
+    MatchStatus nextStatus,
+  ) async {
+    if (nextStatus == MatchStatus.accepted && controller != null) {
+      if (controller!.isLoading) return;
+      await controller!.resumeCurrentConnection();
+      if (!context.mounted) return;
+      if (controller!.errorMessage != null ||
+          controller!.currentConnection?.status != ConnectionStatus.active) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              CompanionStrings(selectedLanguage).connectionUpdateError,
+            ),
+          ),
+        );
+        return;
+      }
+    }
     Navigator.of(context).pushAndRemoveUntil(
       CompanionRoute<void>(
         context: context,
@@ -34,6 +57,7 @@ class ConnectionPausedScreen extends StatelessWidget {
           profile: profile,
           selectedLanguage: selectedLanguage,
           connectionStatus: nextStatus,
+          controller: controller,
         ),
       ),
       // Discard older Active screens. W02 remains as the companion-flow base.
@@ -43,6 +67,15 @@ class ConnectionPausedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentController = controller;
+    if (currentController == null) return _build(context);
+    return ListenableBuilder(
+      listenable: currentController,
+      builder: (context, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
     final motionDuration = MediaQuery.of(context).disableAnimations
@@ -152,8 +185,12 @@ class ConnectionPausedScreen extends StatelessWidget {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: () =>
-                              _openConnection(context, MatchStatus.accepted),
+                          onPressed: controller?.isLoading == true
+                              ? null
+                              : () => _openConnection(
+                                  context,
+                                  MatchStatus.accepted,
+                                ),
                           child: Text(
                             strings.resumeConnection,
                             textAlign: TextAlign.center,
@@ -203,7 +240,7 @@ class ConnectionPausedScreen extends StatelessWidget {
           children: [
             Positioned.fill(
               child: ExcludeSemantics(
-                child: profile.id == 'nethmi'
+                child: profile.id.endsWith('nethmi')
                     ? Image.asset(
                         'assets/images/companion_paused_illustration.png',
                         fit: BoxFit.contain,

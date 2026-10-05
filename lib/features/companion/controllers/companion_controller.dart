@@ -12,6 +12,8 @@ import '../services/companion_service.dart';
 class CompanionController extends ChangeNotifier {
   CompanionController({required this.service});
 
+  static const String mockCurrentElderId = 'mock_elder_001';
+
   final CompanionService service;
 
   MatchPreferences? currentPreferences;
@@ -22,6 +24,28 @@ class CompanionController extends ChangeNotifier {
   List<ConversationIdea> conversationIdeas = const [];
   bool isLoading = false;
   String? errorMessage;
+
+  MatchRecommendation? get selectedRecommendation {
+    final id = selectedCompanion?.id;
+    if (id == null) return null;
+    for (final recommendation in recommendations) {
+      if (recommendation.companion.id == id) return recommendation;
+    }
+    return null;
+  }
+
+  List<String> get sharedInterests {
+    final preferences = currentPreferences;
+    final companion = selectedCompanion;
+    if (preferences == null || companion == null) return const [];
+    return List.unmodifiable(
+      companion.interests.where(
+        (interest) => preferences.interests.any(
+          (selected) => selected.toLowerCase() == interest.toLowerCase(),
+        ),
+      ),
+    );
+  }
 
   Future<void> _run(Future<void> Function() operation) async {
     if (isLoading) {
@@ -57,6 +81,10 @@ class CompanionController extends ChangeNotifier {
     selectedCompanion = companion;
     errorMessage = null;
     notifyListeners();
+  }
+
+  void selectRecommendation(MatchRecommendation recommendation) {
+    selectCompanion(recommendation.companion);
   }
 
   Future<void> sendRequest(String elderId) => _run(() async {

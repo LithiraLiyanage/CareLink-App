@@ -119,9 +119,7 @@ void main() {
         expect(find.text(profile.name), findsOneWidget);
         expect(find.text(strings.myConnection), findsOneWidget);
         expect(find.text(strings.currentConnectionActive), findsOneWidget);
-        for (final interest in profile.interests.take(2)) {
-          expect(find.text(strings.interestLabel(interest)), findsWidgets);
-        }
+        // W01 selected no interests, so W07 must not invent shared ones.
         expect(tester.takeException(), isNull);
       });
     }

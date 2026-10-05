@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/companion_controller.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
@@ -17,10 +18,12 @@ class ConnectionAcceptedScreen extends StatelessWidget {
     super.key,
     required this.profile,
     required this.selectedLanguage,
+    this.controller,
   });
 
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
+  final CompanionController? controller;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +34,7 @@ class ConnectionAcceptedScreen extends StatelessWidget {
     return CompanionScaffold(
       body: Stack(
         children: [
-          if (profile.id == 'nethmi')
+          if (profile.id.endsWith('nethmi'))
             Positioned(
               left: 0,
               right: 0,
@@ -163,6 +166,7 @@ class ConnectionAcceptedScreen extends StatelessWidget {
                         builder: (_) => CurrentConnectionScreen(
                           profile: profile,
                           selectedLanguage: selectedLanguage,
+                          controller: controller,
                         ),
                       ),
                     ),
@@ -179,6 +183,7 @@ class ConnectionAcceptedScreen extends StatelessWidget {
                         builder: (_) => SchedulingHandoffScreen(
                           profile: profile,
                           selectedLanguage: selectedLanguage,
+                          controller: controller,
                         ),
                       ),
                     ),
@@ -199,7 +204,8 @@ class ConnectionAcceptedScreen extends StatelessWidget {
 
   Widget _buildCompanionCard(BuildContext context, CompanionStrings strings) {
     final textTheme = Theme.of(context).textTheme;
-    final interests = profile.interests.take(2).toList();
+    final interests =
+        controller?.sharedInterests ?? profile.interests.take(2).toList();
 
     return Card(
       margin: EdgeInsets.zero,

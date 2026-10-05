@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/companion_controller.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
@@ -15,18 +16,39 @@ class SendMatchRequestScreen extends StatelessWidget {
     super.key,
     required this.profile,
     required this.selectedLanguage,
+    this.controller,
   });
 
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
+  final CompanionController? controller;
 
-  void _onSendRequest(BuildContext context) {
+  Future<void> _onSendRequest(BuildContext context) async {
+    final flow = controller;
+    if (flow != null) {
+      if (flow.isLoading) return;
+      await flow.sendRequest(CompanionController.mockCurrentElderId);
+      if (!context.mounted) return;
+      if (flow.errorMessage != null || flow.currentRequest == null) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                CompanionStrings(selectedLanguage).requestSendError,
+              ),
+            ),
+          );
+        return;
+      }
+    }
     Navigator.of(context).pushReplacement(
       CompanionRoute<void>(
         context: context,
         builder: (_) => RequestPendingScreen(
           profile: profile,
           selectedLanguage: selectedLanguage,
+          controller: controller,
         ),
       ),
     );
@@ -34,6 +56,15 @@ class SendMatchRequestScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final flow = controller;
+    if (flow == null) return _build(context);
+    return ListenableBuilder(
+      listenable: flow,
+      builder: (context, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
 
@@ -82,7 +113,7 @@ class SendMatchRequestScreen extends StatelessWidget {
                     _buildCompanionCard(context, strings),
                     const SizedBox(height: 14),
                     Text(
-                      strings.connectionRequestMessage,
+                      strings.connectionRequestTo(profile.name),
                       style: textTheme.titleMedium?.copyWith(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -131,9 +162,13 @@ class SendMatchRequestScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ElevatedButton(
-                    onPressed: () => _onSendRequest(context),
+                    onPressed: controller?.isLoading == true
+                        ? null
+                        : () => _onSendRequest(context),
                     child: Text(
-                      strings.reviewSendRequest,
+                      controller?.isLoading == true
+                          ? strings.sendingRequest
+                          : strings.reviewSendRequest,
                       textAlign: TextAlign.center,
                     ),
                   ),

@@ -1,8 +1,11 @@
 import 'package:carelink_app/app/theme.dart';
+import 'package:carelink_app/features/companion/controllers/companion_controller.dart';
 import 'package:carelink_app/features/companion/models/companion_language.dart';
 import 'package:carelink_app/features/companion/models/companion_profile.dart';
 import 'package:carelink_app/features/companion/models/companion_strings.dart';
+import 'package:carelink_app/features/companion/models/match_preferences.dart';
 import 'package:carelink_app/features/companion/screens/conversation_ideas_screen.dart';
+import 'package:carelink_app/features/companion/services/mock_companion_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,6 +21,69 @@ const _profile = CompanionProfile(
 );
 
 void main() {
+  for (final language in CompanionLanguage.values) {
+    testWidgets(
+      'W09 prioritizes Books and Movies for Amaya in ${language.name}',
+      (tester) async {
+        tester.view.physicalSize = const Size(393, 852);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final controller = CompanionController(service: MockCompanionService());
+        addTearDown(controller.dispose);
+        await controller.loadRecommendations(
+          const MatchPreferences(
+            preferredLanguage: 'English',
+            interests: ['Books', 'Movies'],
+            availability: 'Weekends',
+            preferredTime: 'Morning',
+          ),
+        );
+        controller.selectRecommendation(controller.recommendations.first);
+        final profile = controller.selectedCompanion!;
+        expect(profile.name, 'Amaya Perera');
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: CareLinkTheme.lightTheme,
+            home: ConversationIdeasScreen(
+              profile: profile,
+              selectedLanguage: language,
+              controller: controller,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('conversation-idea-books')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('conversation-idea-movies')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('conversation-idea-gardening')),
+          findsNothing,
+        );
+        final book = controller.conversationIdeas.first;
+        final expected = switch (language) {
+          CompanionLanguage.english => book.textEn,
+          CompanionLanguage.sinhala => book.textSi,
+          CompanionLanguage.tamil => book.textTa,
+        };
+        expect(find.text(expected), findsOneWidget);
+        await tester.tap(find.text(CompanionStrings(language).showAnotherIdea));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('conversation-idea-movies')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final language in CompanionLanguage.values) {
     testWidgets('W09 ideas are optional and selectable in $language', (
       tester,

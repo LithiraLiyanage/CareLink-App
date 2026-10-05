@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/theme.dart';
+import '../controllers/companion_controller.dart';
+import '../models/companion_connection.dart';
 import '../models/companion_language.dart';
 import '../models/companion_match.dart';
 import '../models/companion_profile.dart';
@@ -16,6 +18,7 @@ class EndConnectionConfirmationScreen extends StatelessWidget {
     required this.profile,
     required this.selectedLanguage,
     this.connectionStatus = MatchStatus.accepted,
+    this.controller,
   }) : assert(
          connectionStatus == MatchStatus.accepted ||
              connectionStatus == MatchStatus.paused,
@@ -24,14 +27,33 @@ class EndConnectionConfirmationScreen extends StatelessWidget {
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
   final MatchStatus connectionStatus;
+  final CompanionController? controller;
 
-  void _endConnection(BuildContext context, CompanionStrings strings) {
+  bool get _isPaused => controller == null
+      ? connectionStatus == MatchStatus.paused
+      : controller?.currentConnection?.status == ConnectionStatus.paused;
+
+  Future<void> _endConnection(
+    BuildContext context,
+    CompanionStrings strings,
+  ) async {
+    if (controller != null) {
+      if (controller!.isLoading) return;
+      await controller!.endCurrentConnection();
+      if (!context.mounted) return;
+      if (controller!.errorMessage != null ||
+          controller!.currentConnection?.status != ConnectionStatus.ended) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(strings.connectionUpdateError)));
+        return;
+      }
+    }
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     var foundRecommendations = false;
 
-    // This mock flow has no backend state. Remove every connection screen from
-    // the stack and return to the existing W02 route, preserving its language.
+    // Remove stale connection routes so Back cannot reveal a former Active UI.
     navigator.popUntil((route) {
       if (route.settings.name == '/companion-recommendations') {
         foundRecommendations = true;
@@ -60,6 +82,15 @@ class EndConnectionConfirmationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentController = controller;
+    if (currentController == null) return _build(context);
+    return ListenableBuilder(
+      listenable: currentController,
+      builder: (context, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
     final firstName = profile.firstName;
@@ -97,7 +128,9 @@ class EndConnectionConfirmationScreen extends StatelessWidget {
                             Align(
                               alignment: Alignment.centerRight,
                               child: IconButton(
-                                onPressed: () => Navigator.of(context).pop(),
+                                onPressed: controller?.isLoading == true
+                                    ? null
+                                    : () => Navigator.of(context).pop(),
                                 tooltip: strings.keepConnection,
                                 icon: const Icon(Icons.close, size: 18),
                                 style: IconButton.styleFrom(
@@ -159,7 +192,7 @@ class EndConnectionConfirmationScreen extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    connectionStatus == MatchStatus.paused
+                                    _isPaused
                                         ? Icons.pause_circle_outline
                                         : Icons.check_circle_outline,
                                     color: CompanionPalette.teal,
@@ -168,7 +201,7 @@ class EndConnectionConfirmationScreen extends StatelessWidget {
                                   const SizedBox(width: 5),
                                   Flexible(
                                     child: Text(
-                                      connectionStatus == MatchStatus.paused
+                                      _isPaused
                                           ? strings.paused
                                           : strings.currentConnectionActive,
                                       style: textTheme.bodySmall,
@@ -187,7 +220,9 @@ class EndConnectionConfirmationScreen extends StatelessWidget {
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
-                                onPressed: () => Navigator.of(context).pop(),
+                                onPressed: controller?.isLoading == true
+                                    ? null
+                                    : () => Navigator.of(context).pop(),
                                 style: ElevatedButton.styleFrom(
                                   minimumSize: const Size(double.infinity, 50),
                                   backgroundColor: CompanionPalette.teal,
@@ -210,8 +245,9 @@ class EndConnectionConfirmationScreen extends StatelessWidget {
                               child: Semantics(
                                 hint: strings.endThisConnection,
                                 child: OutlinedButton.icon(
-                                  onPressed: () =>
-                                      _endConnection(context, strings),
+                                  onPressed: controller?.isLoading == true
+                                      ? null
+                                      : () => _endConnection(context, strings),
                                   icon: const Icon(Icons.link_off, size: 18),
                                   label: Text(
                                     strings.endConnection,

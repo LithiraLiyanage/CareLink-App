@@ -122,6 +122,13 @@ class MockCompanionService implements CompanionService {
       textSi: 'ඔබ සතුටු මතකයක් බෙදා ගැනීමට කැමතිද?',
       textTa: 'ஒரு மகிழ்ச்சியான நினைவை பகிர விரும்புகிறீர்களா?',
     ),
+    ConversationIdea(
+      id: 'general-weekend',
+      interest: 'General',
+      textEn: 'What did you enjoy doing on weekends?',
+      textSi: 'සති අන්තයේ ඔබ කිරීමට කැමති වූයේ කුමක්ද?',
+      textTa: 'வார இறுதியில் நீங்கள் என்ன செய்ய விரும்பினீர்கள்?',
+    ),
   ];
 
   @override

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/companion_controller.dart';
+import '../models/companion_connection.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
@@ -19,21 +21,31 @@ class SchedulingHandoffScreen extends StatelessWidget {
     required this.profile,
     required this.selectedLanguage,
     this.fromCurrentConnection = false,
+    this.controller,
   });
 
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
+  final CompanionController? controller;
 
   /// True when W07 is directly underneath H01 on the navigation stack.
   final bool fromCurrentConnection;
 
   /// Minimum data a future, agreed scheduling route would need. Nothing is
   /// sent until that route exists; the full profile stays in this module.
-  ({String companionId, String companionName, CompanionLanguage language})
+  ({
+    String companionId,
+    String companionName,
+    CompanionLanguage language,
+    String? connectionId,
+    String? elderId,
+  })
   get schedulingDetails => (
     companionId: profile.id,
     companionName: profile.name,
     language: selectedLanguage,
+    connectionId: controller?.currentConnection?.id,
+    elderId: controller?.currentConnection?.elderId,
   );
 
   void _backToConnection(BuildContext context) {
@@ -51,12 +63,19 @@ class SchedulingHandoffScreen extends StatelessWidget {
         builder: (_) => CurrentConnectionScreen(
           profile: profile,
           selectedLanguage: selectedLanguage,
+          controller: controller,
         ),
       ),
     );
   }
 
   void _continueToScheduling(BuildContext context, CompanionStrings strings) {
+    if (controller != null &&
+        controller?.currentConnection?.status != ConnectionStatus.active) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(strings.connectionNotActive)));
+      return;
+    }
     // TODO: When the team's scheduling route is registered, pass only
     // schedulingDetails (ID, display name, language) after confirming the
     // connection is still active. Never pass private conversation content.
@@ -121,7 +140,7 @@ class SchedulingHandoffScreen extends StatelessWidget {
                         child: SizedBox(
                           width: double.infinity,
                           height: 160,
-                          child: profile.id == 'nethmi'
+                          child: profile.id.endsWith('nethmi')
                               ? Image.asset(
                                   'assets/images/companion_scheduling_illustration.png',
                                   fit: BoxFit.contain,

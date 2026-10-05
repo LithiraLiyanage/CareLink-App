@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/companion_controller.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
@@ -16,10 +17,12 @@ class ConversationIdeasScreen extends StatefulWidget {
     required this.profile,
     required this.selectedLanguage,
     this.openedFromCheckIn = false,
+    this.controller,
   });
 
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
+  final CompanionController? controller;
 
   /// Set to true only when an agreed check-in flow pushes this screen.
   final bool openedFromCheckIn;
@@ -63,13 +66,44 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
   int _firstIdeaIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.controller?.loadConversationIdeas();
+    });
+  }
+
+  List<ConversationIdea> get _availableIdeas {
+    final controller = widget.controller;
+    if (controller == null) return _ideas;
+    final interests =
+        controller.currentPreferences?.interests ?? const <String>[];
+    final matching = controller.conversationIdeas
+        .where(
+          (idea) =>
+              idea.active &&
+              interests.any(
+                (interest) =>
+                    interest.toLowerCase() == idea.interest.toLowerCase(),
+              ),
+        )
+        .toList();
+    if (matching.isNotEmpty) return matching;
+    return controller.conversationIdeas
+        .where((idea) => idea.active && idea.interest == 'General')
+        .toList();
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
   }
 
   void _showAnotherIdea() {
-    setState(() => _firstIdeaIndex = (_firstIdeaIndex + 1) % _ideas.length);
+    final count = _availableIdeas.length;
+    if (count < 2) return;
+    setState(() => _firstIdeaIndex = (_firstIdeaIndex + 1) % count);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _scrollController.hasClients) {
         if (MediaQuery.of(context).disableAnimations) {
@@ -103,11 +137,21 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    if (controller == null) return _build(context);
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final strings = CompanionStrings(widget.selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
+    final ideas = _availableIdeas;
     final orderedIdeas = [
-      for (var offset = 0; offset < _ideas.length; offset++)
-        _ideas[(_firstIdeaIndex + offset) % _ideas.length],
+      for (var offset = 0; offset < ideas.length; offset++)
+        ideas[(_firstIdeaIndex + offset) % ideas.length],
     ];
 
     return CompanionScaffold(
@@ -191,6 +235,25 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
+                    if (widget.controller?.isLoading == true && ideas.isEmpty)
+                      const Center(child: CircularProgressIndicator()),
+                    if (widget.controller != null &&
+                        widget.controller?.isLoading == false &&
+                        ideas.isEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Text(
+                          widget.controller?.errorMessage == null
+                              ? strings.noConversationIdeas
+                              : strings.conversationIdeasLoadError,
+                        ),
+                      ),
+                      if (widget.controller?.errorMessage != null)
+                        OutlinedButton(
+                          onPressed: widget.controller?.loadConversationIdeas,
+                          child: Text(strings.retry),
+                        ),
+                    ],
                     for (final idea in orderedIdeas) ...[
                       _buildIdeaCard(context, strings, idea),
                       const SizedBox(height: 11),
@@ -226,7 +289,9 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
                           LayoutBuilder(
                             builder: (context, constraints) {
                               final anotherButton = OutlinedButton(
-                                onPressed: _showAnotherIdea,
+                                onPressed: ideas.length > 1
+                                    ? _showAnotherIdea
+                                    : null,
                                 child: Text(
                                   strings.showAnotherIdea,
                                   textAlign: TextAlign.center,
@@ -303,12 +368,27 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
     ConversationIdea idea,
   ) {
     final selected = _selectedIdeaId == idea.id;
-    final category = strings.conversationIdeaCategory(idea);
+    final category = widget.controller == null
+        ? strings.conversationIdeaCategory(idea)
+        : strings.interestLabel(idea.interest);
+    final prompt = widget.controller == null
+        ? strings.conversationIdeaPrompt(idea)
+        : switch (widget.selectedLanguage) {
+            CompanionLanguage.english => idea.textEn,
+            CompanionLanguage.sinhala =>
+              idea.textSi.isEmpty ? idea.textEn : idea.textSi,
+            CompanionLanguage.tamil =>
+              idea.textTa.isEmpty ? idea.textEn : idea.textTa,
+          };
     final textTheme = Theme.of(context).textTheme;
-    final (accent, icon) = switch (idea.id) {
-      'gardening' => (const Color(0xFF2F855F), Icons.local_florist_rounded),
-      'music' => (CompanionPalette.coral, Icons.music_note_rounded),
-      'food-traditions' => (_amber, Icons.ramen_dining_rounded),
+    final (accent, icon) = switch (idea.interest) {
+      'Gardening' => (const Color(0xFF2F855F), Icons.local_florist_rounded),
+      'Music' => (CompanionPalette.coral, Icons.music_note_rounded),
+      'Cooking' || 'Food & Traditions' => (_amber, Icons.ramen_dining_rounded),
+      'Books' => (CompanionPalette.teal, Icons.menu_book_rounded),
+      'Movies' => (CompanionPalette.coral, Icons.movie_rounded),
+      'Culture' => (_amber, Icons.groups_rounded),
+      'Travel' => (CompanionPalette.teal, Icons.place_rounded),
       _ => (CompanionPalette.coral, Icons.photo_library_rounded),
     };
     final compactEnglish =
@@ -393,7 +473,7 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  strings.conversationIdeaPrompt(idea),
+                                  prompt,
                                   style: textTheme.bodyMedium?.copyWith(
                                     color: CompanionPalette.ink,
                                     fontSize: 13,
@@ -407,7 +487,7 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
                           )
                         else ...[
                           Text(
-                            strings.conversationIdeaPrompt(idea),
+                            prompt,
                             style: textTheme.bodyMedium?.copyWith(
                               color: CompanionPalette.ink,
                               fontSize: 13,

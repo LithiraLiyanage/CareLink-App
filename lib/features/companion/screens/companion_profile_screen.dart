@@ -7,6 +7,7 @@ import '../widgets/companion_entrance.dart';
 import '../widgets/companion_avatar.dart';
 
 import '../../../app/theme.dart';
+import '../controllers/companion_controller.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
@@ -21,16 +22,19 @@ class CompanionProfileScreen extends StatelessWidget {
     required this.profile,
     required this.selectedLanguage,
     this.preferences,
+    this.controller,
   });
 
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
   final MatchPreferences? preferences;
+  final CompanionController? controller;
 
   MatchPreferences get _effectivePreferences =>
+      controller?.currentPreferences ??
       preferences ??
       MatchPreferences(
-        preferredLanguage: selectedLanguage.storedValue,
+        preferredLanguage: '',
         interests: const [],
         availability: '',
         preferredTime: '',
@@ -45,7 +49,7 @@ class CompanionProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
-    final reasons = CompanionRecommendations.reasonsFor(
+    final legacyReasons = CompanionRecommendations.reasonsFor(
       profile,
       _effectivePreferences,
     );
@@ -53,6 +57,17 @@ class CompanionProfileScreen extends StatelessWidget {
       profile,
       _effectivePreferences,
     );
+    final reasons =
+        controller?.selectedRecommendation?.reasons ??
+        legacyReasons
+            .map(
+              (reason) => strings.recommendationReason(
+                reason,
+                sharedCount: sharedCount,
+                forProfile: true,
+              ),
+            )
+            .toList();
 
     return CompanionScaffold(
       body: CompanionEntrance(
@@ -158,13 +173,7 @@ class CompanionProfileScreen extends StatelessWidget {
                           : Column(
                               children: [
                                 for (final reason in reasons)
-                                  _buildReason(
-                                    strings.recommendationReason(
-                                      reason,
-                                      sharedCount: sharedCount,
-                                      forProfile: true,
-                                    ),
-                                  ),
+                                  _buildReason(strings.matchReasonText(reason)),
                               ],
                             ),
                     ),
@@ -199,6 +208,7 @@ class CompanionProfileScreen extends StatelessWidget {
                           builder: (_) => SendMatchRequestScreen(
                             profile: profile,
                             selectedLanguage: selectedLanguage,
+                            controller: controller,
                           ),
                         ),
                       );

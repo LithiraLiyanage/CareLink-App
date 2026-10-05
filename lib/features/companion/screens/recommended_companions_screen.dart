@@ -99,7 +99,7 @@ class _RecommendedCompanionsScreenState
 
   void _openProfile(BuildContext context, MatchRecommendation recommendation) {
     final profile = recommendation.companion;
-    _controller.selectCompanion(profile);
+    _controller.selectRecommendation(recommendation);
     Navigator.of(context).push(
       CompanionRoute<void>(
         context: context,
@@ -107,6 +107,7 @@ class _RecommendedCompanionsScreenState
           profile: profile,
           selectedLanguage: selectedLanguage,
           preferences: _effectivePreferences,
+          controller: _controller,
         ),
       ),
     );
@@ -114,13 +115,14 @@ class _RecommendedCompanionsScreenState
 
   void _openRequest(BuildContext context, MatchRecommendation recommendation) {
     final profile = recommendation.companion;
-    _controller.selectCompanion(profile);
+    _controller.selectRecommendation(recommendation);
     Navigator.of(context).push(
       CompanionRoute<void>(
         context: context,
         builder: (_) => SendMatchRequestScreen(
           profile: profile,
           selectedLanguage: selectedLanguage,
+          controller: _controller,
         ),
       ),
     );

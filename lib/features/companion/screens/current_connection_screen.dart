@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/companion_controller.dart';
+import '../models/companion_connection.dart';
 import '../models/companion_language.dart';
 import '../models/companion_match.dart';
 import '../models/companion_profile.dart';
@@ -12,6 +14,7 @@ import '../widgets/companion_interest_icon.dart';
 import '../widgets/companion_route.dart';
 import '../widgets/companion_scaffold.dart';
 import 'manage_connection_screen.dart';
+import 'conversation_ideas_screen.dart';
 import 'scheduling_handoff_screen.dart';
 
 class CurrentConnectionScreen extends StatelessWidget {
@@ -20,6 +23,7 @@ class CurrentConnectionScreen extends StatelessWidget {
     required this.profile,
     required this.selectedLanguage,
     this.connectionStatus = MatchStatus.accepted,
+    this.controller,
   }) : assert(
          connectionStatus == MatchStatus.accepted ||
              connectionStatus == MatchStatus.paused,
@@ -28,6 +32,11 @@ class CurrentConnectionScreen extends StatelessWidget {
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
   final MatchStatus connectionStatus;
+  final CompanionController? controller;
+
+  bool get _isPaused => controller == null
+      ? connectionStatus == MatchStatus.paused
+      : controller?.currentConnection?.status == ConnectionStatus.paused;
 
   void _showPlaceholder(BuildContext context, String message) {
     ScaffoldMessenger.of(context)
@@ -37,9 +46,41 @@ class CurrentConnectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentController = controller;
+    if (currentController == null) return _build(context);
+    return ListenableBuilder(
+      listenable: currentController,
+      builder: (context, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
-    final isPaused = connectionStatus == MatchStatus.paused;
+    if (controller != null &&
+        controller?.currentConnection?.status != ConnectionStatus.active &&
+        controller?.currentConnection?.status != ConnectionStatus.paused) {
+      return CompanionScaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                controller?.currentConnection?.status == ConnectionStatus.ended
+                    ? strings.connectionEnded
+                    : strings.backToMatches,
+                textAlign: TextAlign.center,
+                style: textTheme.titleLarge,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    final isPaused = _isPaused;
+    final isActive =
+        controller == null ||
+        controller?.currentConnection?.status == ConnectionStatus.active;
 
     return CompanionScaffold(
       body: SafeArea(
@@ -94,7 +135,7 @@ class CurrentConnectionScreen extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: isPaused
+                        onPressed: !isActive
                             ? null
                             : () => Navigator.of(context).push(
                                 CompanionRoute<void>(
@@ -103,6 +144,7 @@ class CurrentConnectionScreen extends StatelessWidget {
                                     profile: profile,
                                     selectedLanguage: selectedLanguage,
                                     fromCurrentConnection: true,
+                                    controller: controller,
                                   ),
                                 ),
                               ),
@@ -113,6 +155,22 @@ class CurrentConnectionScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 26),
+                    TextButton.icon(
+                      onPressed: !isActive
+                          ? null
+                          : () => Navigator.of(context).push(
+                              CompanionRoute<void>(
+                                context: context,
+                                builder: (_) => ConversationIdeasScreen(
+                                  profile: profile,
+                                  selectedLanguage: selectedLanguage,
+                                  controller: controller,
+                                ),
+                              ),
+                            ),
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      label: Text(strings.conversationIdeas),
+                    ),
                     TextButton(
                       onPressed: () => Navigator.of(context).push(
                         CompanionRoute<void>(
@@ -120,7 +178,10 @@ class CurrentConnectionScreen extends StatelessWidget {
                           builder: (_) => ManageConnectionScreen(
                             profile: profile,
                             selectedLanguage: selectedLanguage,
-                            connectionStatus: connectionStatus,
+                            connectionStatus: isPaused
+                                ? MatchStatus.paused
+                                : MatchStatus.accepted,
+                            controller: controller,
                           ),
                         ),
                       ),
@@ -167,7 +228,8 @@ class CurrentConnectionScreen extends StatelessWidget {
     bool isPaused,
   ) {
     final textTheme = Theme.of(context).textTheme;
-    final interests = profile.interests.take(2).toList();
+    final interests =
+        controller?.sharedInterests ?? profile.interests.take(2).toList();
 
     return Card(
       margin: EdgeInsets.zero,
@@ -362,7 +424,7 @@ class CurrentConnectionScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  profile.id == 'nethmi'
+                  controller == null && profile.id == 'nethmi'
                       ? strings.nextCheckInTime
                       : strings.checkInNotScheduled,
                   style: textTheme.titleLarge?.copyWith(

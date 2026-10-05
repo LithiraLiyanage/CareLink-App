@@ -1,25 +1,40 @@
 import 'package:flutter/material.dart';
 
+import '../controllers/companion_controller.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import '../models/match_request.dart';
 import '../widgets/companion_avatar.dart';
 import '../widgets/companion_entrance.dart';
 import '../widgets/companion_flow_header.dart';
 import '../widgets/companion_route.dart';
 import '../widgets/companion_scaffold.dart';
 import 'connection_accepted_screen.dart';
-import 'request_declined_screen.dart';
+import 'recommended_companions_screen.dart';
 
-class RequestPendingScreen extends StatelessWidget {
+class RequestPendingScreen extends StatefulWidget {
   const RequestPendingScreen({
     super.key,
     required this.profile,
     required this.selectedLanguage,
+    this.controller,
   });
 
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
+  final CompanionController? controller;
+
+  @override
+  State<RequestPendingScreen> createState() => _RequestPendingScreenState();
+}
+
+class _RequestPendingScreenState extends State<RequestPendingScreen> {
+  CompanionProfile get profile =>
+      widget.controller?.selectedCompanion ?? widget.profile;
+  CompanionLanguage get selectedLanguage => widget.selectedLanguage;
+  CompanionController? get controller => widget.controller;
+  bool _previewDeclined = false;
 
   static const Color _amber = Color(0xFFEC9E00);
   static const Color _amberInk = Color(0xFF9A6200);
@@ -27,39 +42,108 @@ class RequestPendingScreen extends StatelessWidget {
   static const Color _mutedStep = Color(0xFF8DB0B1);
 
   void _backToMatches(BuildContext context) {
-    Navigator.of(context).popUntil(
-      (route) =>
-          route.settings.name == '/companion-recommendations' || route.isFirst,
-    );
+    final navigator = Navigator.of(context);
+    var found = false;
+    navigator.popUntil((route) {
+      if (route.settings.name == '/companion-recommendations') {
+        found = true;
+        return true;
+      }
+      return route.isFirst;
+    });
+    if (!found) {
+      navigator.pushAndRemoveUntil(
+        CompanionRoute<void>(
+          context: context,
+          settings: const RouteSettings(name: '/companion-recommendations'),
+          builder: (_) => RecommendedCompanionsScreen(
+            selectedLanguage: selectedLanguage,
+            preferences: controller?.currentPreferences,
+          ),
+        ),
+        (_) => false,
+      );
+    }
   }
 
-  void _simulateAccept(BuildContext context) {
+  Future<void> _simulateAccept(BuildContext context) async {
+    final flow = controller;
+    if (flow != null) {
+      if (flow.isLoading) return;
+      await flow.acceptCurrentRequest();
+      if (!context.mounted) return;
+      if (flow.errorMessage != null || flow.currentConnection == null) {
+        _showError(context);
+        return;
+      }
+    }
     Navigator.of(context).pushReplacement(
       CompanionRoute<void>(
         context: context,
         builder: (_) => ConnectionAcceptedScreen(
           profile: profile,
           selectedLanguage: selectedLanguage,
+          controller: controller,
         ),
       ),
     );
   }
 
-  void _simulateDecline(BuildContext context) {
-    Navigator.of(context).pushReplacement(
-      CompanionRoute<void>(
-        context: context,
-        builder: (_) => RequestDeclinedScreen(
-          profile: profile,
-          selectedLanguage: selectedLanguage,
+  Future<void> _simulateDecline(BuildContext context) async {
+    final flow = controller;
+    if (flow != null) {
+      if (flow.isLoading) return;
+      await flow.declineCurrentRequest();
+      if (!context.mounted) return;
+      if (flow.errorMessage != null) {
+        _showError(context);
+        return;
+      }
+    } else {
+      setState(() => _previewDeclined = true);
+    }
+  }
+
+  Future<void> _cancelRequest(BuildContext context) async {
+    final flow = controller;
+    if (flow != null) {
+      if (flow.isLoading) return;
+      await flow.cancelCurrentRequest();
+      if (!context.mounted) return;
+      if (flow.errorMessage != null) {
+        _showError(context);
+        return;
+      }
+    }
+    _backToMatches(context);
+  }
+
+  void _showError(BuildContext context) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(CompanionStrings(selectedLanguage).requestUpdateError),
         ),
-      ),
-    );
+      );
   }
 
   @override
   Widget build(BuildContext context) {
+    final flow = controller;
+    if (flow == null) return _build(context);
+    return ListenableBuilder(
+      listenable: flow,
+      builder: (context, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
+    if (_previewDeclined ||
+        controller?.currentRequest?.status == MatchRequestStatus.declined) {
+      return _buildDeclined(context, strings);
+    }
     final textTheme = CompanionScaffold.textTheme(context);
     final firstName = profile.firstName;
 
@@ -76,7 +160,7 @@ class RequestPendingScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     CompanionFlowHeader(
-                      onBack: () => Navigator.of(context).maybePop(),
+                      onBack: () => _backToMatches(context),
                       backTooltip: strings.backToMatches,
                     ),
                     const SizedBox(height: 20),
@@ -139,14 +223,109 @@ class RequestPendingScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   ElevatedButton(
-                    onPressed: () => _simulateAccept(context),
+                    onPressed: controller?.isLoading == true
+                        ? null
+                        : () => _simulateAccept(context),
                     child: Text(
-                      strings.simulateAccept,
+                      controller?.isLoading == true
+                          ? strings.updatingRequest
+                          : strings.simulateAccept,
                       textAlign: TextAlign.center,
                     ),
                   ),
                   const SizedBox(height: 8),
                   _buildBottomActions(context, strings),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeclined(BuildContext context, CompanionStrings strings) {
+    final textTheme = CompanionScaffold.textTheme(context);
+    return CompanionScaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CompanionFlowHeader(
+                    onBack: () => _backToMatches(context),
+                    backTooltip: strings.backToMatches,
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    strings.requestNotAccepted,
+                    style: textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Column(
+                      children: [
+                        CompanionAvatar(
+                          name: profile.name,
+                          imagePath: profile.imagePath,
+                          size: 76,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(profile.name, style: textTheme.titleLarge),
+                        const SizedBox(height: 8),
+                        Chip(
+                          avatar: const Icon(Icons.close, size: 17),
+                          label: Text(strings.declined),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    strings.requestDeclinedMessage,
+                    style: textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 16),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.lock_outline,
+                            color: CompanionPalette.teal,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              strings.declinedPrivacyMessage,
+                              style: textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => _backToMatches(context),
+                      child: Text(strings.findAnotherCompanion),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _backToMatches(context),
+                      child: Text(strings.backToMatches),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -302,7 +481,9 @@ class RequestPendingScreen extends StatelessWidget {
             color: _mutedStep,
             trailing: TextButton.icon(
               // Development-only declined response preview.
-              onPressed: () => _simulateDecline(context),
+              onPressed: controller?.isLoading == true
+                  ? null
+                  : () => _simulateDecline(context),
               style: TextButton.styleFrom(
                 foregroundColor: CompanionPalette.coral,
                 minimumSize: const Size(0, 44),
@@ -401,7 +582,9 @@ class RequestPendingScreen extends StatelessWidget {
 
   Widget _buildBottomActions(BuildContext context, CompanionStrings strings) {
     final cancelButton = OutlinedButton(
-      onPressed: () => Navigator.of(context).maybePop(),
+      onPressed: controller?.isLoading == true
+          ? null
+          : () => _cancelRequest(context),
       style: OutlinedButton.styleFrom(
         foregroundColor: const Color(0xFFB43F42),
         side: const BorderSide(color: Color(0xFFB43F42), width: 1.5),

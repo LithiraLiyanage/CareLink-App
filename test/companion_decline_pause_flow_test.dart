@@ -64,7 +64,8 @@ void main() {
 
       await _openPending(tester, language, strings);
       await _tapVisible(tester, find.text(strings.simulateDecline));
-      expect(find.byType(RequestDeclinedScreen), findsOneWidget);
+      expect(find.byType(RequestPendingScreen), findsOneWidget);
+      expect(find.byType(RequestDeclinedScreen), findsNothing);
       expect(find.text(strings.requestNotAccepted), findsOneWidget);
       expect(find.text(strings.declined), findsOneWidget);
       expect(find.byType(CurrentConnectionScreen), findsNothing);
