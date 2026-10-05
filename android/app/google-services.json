@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "895413760421",
+    "project_id": "carelink-hci",
+    "storage_bucket": "carelink-hci.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:895413760421:android:700fc1a6cf34f6556fb84c",
+        "android_client_info": {
+          "package_name": "com.example.carelink_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCy6WFo3FI80PYoaEjJ78YjE1THrZHKTRQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
