@@ -1,5 +1,7 @@
 import 'companion_language.dart';
+import 'companion_profile.dart';
 import 'conversation_idea.dart';
+import '../services/companion_recommendations.dart';
 
 /// Text used only by the companion matching flow.
 class CompanionStrings {
@@ -840,5 +842,111 @@ class CompanionStrings {
     CompanionLanguage.sinhala =>
       'නව සහචර ක්‍රියාකාරකම් තාවකාලිකව නවතී. ඔබට පසුව නැවත ආරම්භ කළ හැක.',
     CompanionLanguage.tamil => 'புதிய துணையாளர் செயல்பாடு தற்காலிகமாக நிறுத்தப்படும். பின்னர் மீண்டும் தொடங்கலாம்.',
+  };
+
+  String interestLabel(String interest) => switch (interest) {
+    'Gardening' => gardening,
+    'Music' => music,
+    'Traditional Food' => traditionalFood,
+    'Books' => switch (language) {
+      CompanionLanguage.english => 'Books',
+      CompanionLanguage.sinhala => 'පොත්',
+      CompanionLanguage.tamil => 'புத்தகங்கள்',
+    },
+    'Movies' => switch (language) {
+      CompanionLanguage.english => 'Movies',
+      CompanionLanguage.sinhala => 'චිත්‍රපට',
+      CompanionLanguage.tamil => 'திரைப்படங்கள்',
+    },
+    'Culture' => switch (language) {
+      CompanionLanguage.english => 'Culture',
+      CompanionLanguage.sinhala => 'සංස්කෘතිය',
+      CompanionLanguage.tamil => 'கலாசாரம்',
+    },
+    _ => interest,
+  };
+
+  String profileAbout(CompanionProfile profile) {
+    if (language == CompanionLanguage.english) return profile.about;
+    return switch (profile.id) {
+      'nethmi' => volunteerAbout,
+      'amaya' =>
+        language == CompanionLanguage.sinhala
+            ? 'පොත්, චිත්‍රපට සහ මිත්‍රශීලී සංවාදවලට කැමති විශ්වවිද්‍යාල ශිෂ්‍ය ස්වේච්ඡා සේවිකාවකි.'
+            : 'புத்தகங்கள், திரைப்படங்கள் மற்றும் நட்பான உரையாடல்களை விரும்பும் பல்கலைக்கழக மாணவர் தன்னார்வலர்.',
+      'kavindu' =>
+        language == CompanionLanguage.sinhala
+            ? 'සංගීතය, සංස්කෘතිය සහ අර්ථවත් සංවාද කෙරෙහි උනන්දුවක් දක්වන විශ්වවිද්‍යාල ශිෂ්‍ය ස්වේච්ඡා සේවකයෙකි.'
+            : 'இசை, கலாசாரம் மற்றும் அர்த்தமுள்ள உரையாடல்களில் ஆர்வமுள்ள பல்கலைக்கழக மாணவர் தன்னார்வலர்.',
+      _ => profile.about,
+    };
+  }
+
+  String profileAvailability(CompanionProfile profile, {bool short = false}) {
+    if (language == CompanionLanguage.english) {
+      return short && profile.shortAvailability.isNotEmpty
+          ? profile.shortAvailability
+          : profile.availability;
+    }
+    if (profile.id == 'nethmi') {
+      return short ? sundayEvenings : sundayAvailability;
+    }
+    if (profile.id == 'amaya') {
+      return switch (language) {
+        CompanionLanguage.sinhala =>
+          short ? 'සති අන්ත උදෑසන' : 'සති අන්ත උදෑසන කාලය',
+        CompanionLanguage.tamil =>
+          short ? 'வார இறுதி காலை' : 'வார இறுதி காலைகள்',
+        _ => profile.availability,
+      };
+    }
+    if (profile.id == 'kavindu') {
+      return switch (language) {
+        CompanionLanguage.sinhala =>
+          short ? 'සතියේ දින සවස' : 'සතියේ දින සවස් කාලය',
+        CompanionLanguage.tamil => short ? 'வாரநாள் மாலை' : 'வாரநாள் மாலைகள்',
+        _ => profile.availability,
+      };
+    }
+    return short && profile.shortAvailability.isNotEmpty
+        ? profile.shortAvailability
+        : profile.availability;
+  }
+
+  String recommendationReason(
+    RecommendationReason reason, {
+    int sharedCount = 0,
+    bool forProfile = false,
+  }) => switch (reason) {
+    RecommendationReason.sameLanguage =>
+      forProfile ? samePreferredLanguage : sameLanguage,
+    RecommendationReason.sharedInterests =>
+      sharedCount == 2
+          ? twoSharedInterests
+          : switch (language) {
+              CompanionLanguage.english =>
+                '$sharedCount shared interest${sharedCount == 1 ? '' : 's'}',
+              CompanionLanguage.sinhala => 'සමාන රුචිකත්වයන් $sharedCountක්',
+              CompanionLanguage.tamil => '$sharedCount பொதுவான விருப்பங்கள்',
+            },
+    RecommendationReason.preferredDay => switch (language) {
+      CompanionLanguage.english => 'Available on your preferred days',
+      CompanionLanguage.sinhala => 'ඔබ කැමති දිනවල ලබාගත හැක',
+      CompanionLanguage.tamil => 'நீங்கள் விரும்பும் நாட்களில் கிடைக்கிறார்',
+    },
+    RecommendationReason.preferredTime => availableAtPreferredTime,
+  };
+
+  String get noPreferenceOverlap => switch (language) {
+    CompanionLanguage.english => 'Explore this verified companion.',
+    CompanionLanguage.sinhala => 'මෙම තහවුරු කළ සහචරයා ගැන සොයා බලන්න.',
+    CompanionLanguage.tamil =>
+      'இந்த சரிபார்க்கப்பட்ட துணையாளரை பற்றி அறியுங்கள்.',
+  };
+
+  String get checkInNotScheduled => switch (language) {
+    CompanionLanguage.english => 'Not scheduled yet',
+    CompanionLanguage.sinhala => 'තවම සැලසුම් කර නැත',
+    CompanionLanguage.tamil => 'இன்னும் திட்டமிடப்படவில்லை',
   };
 }

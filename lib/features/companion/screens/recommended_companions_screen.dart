@@ -3,20 +3,61 @@ import 'package:flutter/material.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import '../models/match_preferences.dart';
+import '../services/companion_recommendations.dart';
 import '../widgets/companion_avatar.dart';
 import '../widgets/companion_bottom_navigation.dart';
 import '../widgets/companion_entrance.dart';
+import '../widgets/companion_interest_icon.dart';
 import '../widgets/companion_route.dart';
 import '../widgets/companion_scaffold.dart';
 import 'companion_profile_screen.dart';
+import 'send_match_request_screen.dart';
 
 class RecommendedCompanionsScreen extends StatelessWidget {
   const RecommendedCompanionsScreen({
     super.key,
     required this.selectedLanguage,
+    this.preferences,
   });
 
   final CompanionLanguage selectedLanguage;
+  final MatchPreferences? preferences;
+
+  MatchPreferences get _effectivePreferences =>
+      preferences ??
+      MatchPreferences(
+        preferredLanguage: selectedLanguage.storedValue,
+        interests: const [],
+        availability: '',
+        preferredTime: '',
+        checkInType: '',
+      );
+
+  void _openProfile(BuildContext context, CompanionProfile profile) {
+    Navigator.of(context).push(
+      CompanionRoute<void>(
+        context: context,
+        builder: (_) => CompanionProfileScreen(
+          profile: profile,
+          selectedLanguage: selectedLanguage,
+          preferences: _effectivePreferences,
+        ),
+      ),
+    );
+  }
+
+  void _openRequest(BuildContext context, CompanionProfile profile) {
+    Navigator.of(context).push(
+      CompanionRoute<void>(
+        context: context,
+        builder: (_) => SendMatchRequestScreen(
+          profile: profile,
+          selectedLanguage: selectedLanguage,
+        ),
+      ),
+    );
+  }
 
   void _showPlaceholder(BuildContext context, String message) {
     ScaffoldMessenger.of(context)
@@ -28,16 +69,8 @@ class RecommendedCompanionsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
-    final featuredProfile = CompanionProfile(
-      id: 'nethmi-jayasooriya',
-      name: 'Nethmi Jayasooriya',
-      imagePath: 'assets/images/companion_nethmi.png',
-      verified: true,
-      languages: const ['Sinhala', 'English', 'Tamil'],
-      interests: [strings.gardening, strings.music, strings.traditionalFood],
-      availability: strings.sundayAvailability,
-      about: strings.volunteerAbout,
-    );
+    final profiles = CompanionRecommendations.ordered(_effectivePreferences);
+    final featuredProfile = profiles.first;
 
     return CompanionScaffold(
       body: CompanionEntrance(
@@ -109,28 +142,17 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                         featuredProfile,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    CompanionEntrance(
-                      delay: const Duration(milliseconds: 55),
-                      child: _buildSmallCard(
-                        context,
-                        strings,
-                        name: 'Amaya Perera',
-                        imagePath: 'assets/images/companion_amaya.png',
-                        metadata: strings.amayaRecommendationDetails,
+                    for (var index = 1; index < profiles.length; index++) ...[
+                      const SizedBox(height: 12),
+                      CompanionEntrance(
+                        delay: Duration(milliseconds: 55 * index),
+                        child: _buildSmallCard(
+                          context,
+                          strings,
+                          profile: profiles[index],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    CompanionEntrance(
-                      delay: const Duration(milliseconds: 110),
-                      child: _buildSmallCard(
-                        context,
-                        strings,
-                        name: 'Kavindu Silva',
-                        imagePath: 'assets/images/companion_kavindu.png',
-                        metadata: strings.kavinduRecommendationDetails,
-                      ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -250,6 +272,14 @@ class RecommendedCompanionsScreen extends StatelessWidget {
     final compactEnglish =
         selectedLanguage == CompanionLanguage.english &&
         MediaQuery.textScalerOf(context).scale(1) <= 1.2;
+    final reasons = CompanionRecommendations.reasonsFor(
+      profile,
+      _effectivePreferences,
+    );
+    final sharedCount = CompanionRecommendations.sharedInterestCount(
+      profile,
+      _effectivePreferences,
+    );
 
     return Card(
       margin: EdgeInsets.zero,
@@ -275,7 +305,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                         name: profile.name,
                         size: 58,
                         imagePath: profile.imagePath,
-                        heroTag: 'companion-${profile.id}',
+                        heroTag: 'companion-avatar-${profile.id}',
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -300,7 +330,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${strings.spokenLanguages} • ${strings.sundayEvenings}',
+                    '${profile.languages.join(', ')} • ${strings.profileAvailability(profile, short: true)}',
                     style: textTheme.bodySmall?.copyWith(
                       color: CompanionPalette.muted,
                       fontSize: 12.5,
@@ -310,10 +340,15 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: [
-                      _buildInterestChip(strings.gardening, Icons.spa_outlined),
-                      _buildInterestChip(strings.music, Icons.music_note),
-                    ],
+                    children: profile.interests
+                        .take(2)
+                        .map(
+                          (interest) => _buildInterestChip(
+                            strings.interestLabel(interest),
+                            companionInterestIcon(interest),
+                          ),
+                        )
+                        .toList(),
                   ),
                   const SizedBox(height: 8),
                   Container(
@@ -338,20 +373,19 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 5),
-                        if (compactEnglish)
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 4,
-                            children: [
-                              _buildCompactReason(strings.sameLanguage),
-                              _buildCompactReason(strings.twoSharedInterests),
-                            ],
+                        if (reasons.isEmpty)
+                          Text(
+                            strings.noPreferenceOverlap,
+                            style: textTheme.bodySmall,
                           )
-                        else ...[
-                          _buildReason(strings.sameLanguage),
-                          _buildReason(strings.twoSharedInterests),
-                        ],
-                        _buildReason(strings.availableAtPreferredTime),
+                        else
+                          for (final reason in reasons)
+                            _buildReason(
+                              strings.recommendationReason(
+                                reason,
+                                sharedCount: sharedCount,
+                              ),
+                            ),
                       ],
                     ),
                   ),
@@ -359,17 +393,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final profileButton = OutlinedButton(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            CompanionRoute<void>(
-                              context: context,
-                              builder: (_) => CompanionProfileScreen(
-                                profile: profile,
-                                selectedLanguage: selectedLanguage,
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: () => _openProfile(context, profile),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: CompanionPalette.teal,
                           side: const BorderSide(
@@ -384,10 +408,7 @@ class RecommendedCompanionsScreen extends StatelessWidget {
                         ),
                       );
                       final requestButton = ElevatedButton(
-                        onPressed: () => _showPlaceholder(
-                          context,
-                          strings.requestComingSoon,
-                        ),
+                        onPressed: () => _openRequest(context, profile),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: CompanionPalette.teal,
                           foregroundColor: Colors.white,
@@ -431,47 +452,72 @@ class RecommendedCompanionsScreen extends StatelessWidget {
   Widget _buildSmallCard(
     BuildContext context,
     CompanionStrings strings, {
-    required String name,
-    required String imagePath,
-    required String metadata,
+    required CompanionProfile profile,
   }) {
     final textTheme = Theme.of(context).textTheme;
+    final metadata = [
+      if (profile.languages.isNotEmpty) profile.languages.first,
+      if (profile.interests.isNotEmpty)
+        strings.interestLabel(profile.interests.first),
+      strings.profileAvailability(profile, short: true),
+    ].join(' • ');
 
     return Card(
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            CompanionAvatar(name: name, size: 48, imagePath: imagePath),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: textTheme.titleMedium?.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
+      clipBehavior: Clip.antiAlias,
+      child: Semantics(
+        button: true,
+        label: '${strings.viewProfile}: ${profile.name}',
+        child: InkWell(
+          onTap: () => _openProfile(context, profile),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                CompanionAvatar(
+                  name: profile.name,
+                  size: 48,
+                  imagePath: profile.imagePath,
+                  heroTag: 'companion-avatar-${profile.id}',
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        profile.name,
+                        style: textTheme.titleMedium?.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (profile.verified) ...[
+                        const SizedBox(height: 4),
+                        _buildVerifiedBadge(strings.verified),
+                      ],
+                      const SizedBox(height: 5),
+                      Text(
+                        metadata,
+                        softWrap: true,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: CompanionPalette.muted,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  _buildVerifiedBadge(strings.verified),
-                  const SizedBox(height: 5),
-                  Text(
-                    metadata,
-                    softWrap: true,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: CompanionPalette.muted,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.chevron_right,
+                  color: CompanionPalette.muted,
+                  size: 20,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -530,20 +576,6 @@ class RecommendedCompanionsScreen extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCompactReason(String reason) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.check, size: 15, color: CompanionPalette.teal),
-        const SizedBox(width: 3),
-        Text(
-          reason,
-          style: const TextStyle(fontSize: 12.5, color: CompanionPalette.teal),
-        ),
-      ],
     );
   }
 

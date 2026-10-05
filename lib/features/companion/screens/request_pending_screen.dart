@@ -61,7 +61,7 @@ class RequestPendingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
-    final firstName = profile.name.split(' ').first;
+    final firstName = profile.firstName;
 
     return CompanionScaffold(
       body: SafeArea(

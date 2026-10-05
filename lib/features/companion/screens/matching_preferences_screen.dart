@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/companion_language.dart';
+import '../models/match_preferences.dart';
 import '../widgets/companion_bottom_navigation.dart';
 import '../widgets/companion_entrance.dart';
 import '../widgets/companion_option_chip.dart';
@@ -66,12 +67,21 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
   }
 
   void _onFindCompanions() {
+    final preferences = MatchPreferences(
+      preferredLanguage: _selectedLanguage.storedValue,
+      interests: List.unmodifiable(_selectedInterests),
+      availability: _selectedAvailability ?? '',
+      preferredTime: _selectedPreferredTime ?? '',
+      checkInType: _selectedCheckInType ?? '',
+    );
     Navigator.of(context).push(
       CompanionRoute<void>(
         context: context,
         settings: const RouteSettings(name: '/companion-recommendations'),
-        builder: (_) =>
-            RecommendedCompanionsScreen(selectedLanguage: _selectedLanguage),
+        builder: (_) => RecommendedCompanionsScreen(
+          selectedLanguage: _selectedLanguage,
+          preferences: preferences,
+        ),
       ),
     );
   }

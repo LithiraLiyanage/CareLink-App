@@ -6,6 +6,7 @@ import '../models/companion_strings.dart';
 import '../widgets/companion_avatar.dart';
 import '../widgets/companion_entrance.dart';
 import '../widgets/companion_flow_header.dart';
+import '../widgets/companion_interest_icon.dart';
 import '../widgets/companion_route.dart';
 import '../widgets/companion_scaffold.dart';
 import 'current_connection_screen.dart';
@@ -25,29 +26,30 @@ class ConnectionAcceptedScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
-    final firstName = profile.name.split(' ').first;
+    final firstName = profile.firstName;
 
     return CompanionScaffold(
       body: Stack(
         children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: -40,
-            height: MediaQuery.sizeOf(context).height * 0.8,
-            child: IgnorePointer(
-              child: ExcludeSemantics(
-                child: Opacity(
-                  opacity: 0.25,
-                  child: Image.asset(
-                    'assets/images/companion_accepted_illustration.png',
-                    fit: BoxFit.cover,
-                    alignment: Alignment.bottomCenter,
+          if (profile.id == 'nethmi')
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: -40,
+              height: MediaQuery.sizeOf(context).height * 0.8,
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: Opacity(
+                    opacity: 0.25,
+                    child: Image.asset(
+                      'assets/images/companion_accepted_illustration.png',
+                      fit: BoxFit.cover,
+                      alignment: Alignment.bottomCenter,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
           SafeArea(
             bottom: false,
             child: CompanionEntrance(
@@ -271,8 +273,8 @@ class ConnectionAcceptedScreen extends StatelessWidget {
                     children: [
                       for (var i = 0; i < interests.length; i++)
                         _buildInterestChip(
-                          interests[i],
-                          i == 0 ? Icons.spa_outlined : Icons.music_note,
+                          strings.interestLabel(interests[i]),
+                          companionInterestIcon(interests[i]),
                         ),
                     ],
                   ),

@@ -6,6 +6,7 @@ class CompanionProfile {
   final List<String> languages;
   final List<String> interests;
   final String availability;
+  final String shortAvailability;
   final String about;
 
   const CompanionProfile({
@@ -16,6 +17,12 @@ class CompanionProfile {
     required this.languages,
     required this.interests,
     required this.availability,
+    this.shortAvailability = '',
     required this.about,
   });
+
+  String get firstName {
+    final words = name.trim().split(RegExp(r'\s+'));
+    return words.first;
+  }
 }

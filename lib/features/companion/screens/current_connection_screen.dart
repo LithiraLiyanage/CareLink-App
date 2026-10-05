@@ -8,6 +8,7 @@ import '../widgets/companion_avatar.dart';
 import '../widgets/companion_bottom_navigation.dart';
 import '../widgets/companion_entrance.dart';
 import '../widgets/companion_flow_header.dart';
+import '../widgets/companion_interest_icon.dart';
 import '../widgets/companion_route.dart';
 import '../widgets/companion_scaffold.dart';
 import 'manage_connection_screen.dart';
@@ -290,8 +291,8 @@ class CurrentConnectionScreen extends StatelessWidget {
                       ),
                       for (var i = 0; i < interests.length; i++)
                         _buildInterestChip(
-                          interests[i],
-                          i == 0 ? Icons.spa_outlined : Icons.music_note,
+                          strings.interestLabel(interests[i]),
+                          companionInterestIcon(interests[i]),
                         ),
                     ],
                   ),
@@ -361,7 +362,9 @@ class CurrentConnectionScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  strings.nextCheckInTime,
+                  profile.id == 'nethmi'
+                      ? strings.nextCheckInTime
+                      : strings.checkInNotScheduled,
                   style: textTheme.titleLarge?.copyWith(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,

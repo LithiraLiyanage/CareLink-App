@@ -10,6 +10,8 @@ import '../../../app/theme.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
+import '../models/match_preferences.dart';
+import '../services/companion_recommendations.dart';
 import '../widgets/carelink_brand_header.dart';
 import 'send_match_request_screen.dart';
 
@@ -18,10 +20,22 @@ class CompanionProfileScreen extends StatelessWidget {
     super.key,
     required this.profile,
     required this.selectedLanguage,
+    this.preferences,
   });
 
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
+  final MatchPreferences? preferences;
+
+  MatchPreferences get _effectivePreferences =>
+      preferences ??
+      MatchPreferences(
+        preferredLanguage: selectedLanguage.storedValue,
+        interests: const [],
+        availability: '',
+        preferredTime: '',
+        checkInType: '',
+      );
 
   static const Color _careLinkTeal = Color(0xFF087F83);
   static const Color _careLinkCoral = Color(0xFFFF625F);
@@ -31,6 +45,14 @@ class CompanionProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
+    final reasons = CompanionRecommendations.reasonsFor(
+      profile,
+      _effectivePreferences,
+    );
+    final sharedCount = CompanionRecommendations.sharedInterestCount(
+      profile,
+      _effectivePreferences,
+    );
 
     return CompanionScaffold(
       body: CompanionEntrance(
@@ -67,7 +89,10 @@ class CompanionProfileScreen extends StatelessWidget {
                     _buildSection(
                       context,
                       title: strings.about,
-                      child: Text(profile.about, style: textTheme.bodyMedium),
+                      child: Text(
+                        strings.profileAbout(profile),
+                        style: textTheme.bodyMedium,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     _buildSection(
@@ -90,8 +115,10 @@ class CompanionProfileScreen extends StatelessWidget {
                         runSpacing: 8,
                         children: profile.interests
                             .map(
-                              (interest) =>
-                                  _buildChip(interest, highlighted: true),
+                              (interest) => _buildChip(
+                                strings.interestLabel(interest),
+                                highlighted: true,
+                              ),
                             )
                             .toList(),
                       ),
@@ -111,7 +138,7 @@ class CompanionProfileScreen extends StatelessWidget {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              profile.availability,
+                              strings.profileAvailability(profile),
                               style: textTheme.bodyMedium,
                             ),
                           ),
@@ -123,13 +150,23 @@ class CompanionProfileScreen extends StatelessWidget {
                       context,
                       title: strings.whyGoodMatch,
                       highlighted: true,
-                      child: Column(
-                        children: [
-                          _buildReason(strings.samePreferredLanguage),
-                          _buildReason(strings.sharedGardeningAndMusic),
-                          _buildReason(strings.matchingSundayAvailability),
-                        ],
-                      ),
+                      child: reasons.isEmpty
+                          ? Text(
+                              strings.noPreferenceOverlap,
+                              style: textTheme.bodyMedium,
+                            )
+                          : Column(
+                              children: [
+                                for (final reason in reasons)
+                                  _buildReason(
+                                    strings.recommendationReason(
+                                      reason,
+                                      sharedCount: sharedCount,
+                                      forProfile: true,
+                                    ),
+                                  ),
+                              ],
+                            ),
                     ),
                   ],
                 ),
@@ -211,7 +248,7 @@ class CompanionProfileScreen extends StatelessWidget {
                 name: profile.name,
                 size: 84,
                 imagePath: profile.imagePath,
-                heroTag: 'companion-${profile.id}',
+                heroTag: 'companion-avatar-${profile.id}',
               ),
               const SizedBox(height: 12),
               Semantics(

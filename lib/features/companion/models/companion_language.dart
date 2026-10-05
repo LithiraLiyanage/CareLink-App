@@ -6,4 +6,10 @@ enum CompanionLanguage {
   const CompanionLanguage(this.displayLabel);
 
   final String displayLabel;
+
+  String get storedValue => switch (this) {
+    CompanionLanguage.english => 'English',
+    CompanionLanguage.sinhala => 'Sinhala',
+    CompanionLanguage.tamil => 'Tamil',
+  };
 }
