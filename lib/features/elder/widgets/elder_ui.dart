@@ -25,20 +25,22 @@ class ElderPhoneScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final content = scrollable
-        ? SingleChildScrollView(padding: padding, child: child)
-        : Padding(padding: padding, child: child);
+        ? SingleChildScrollView(
+            padding: padding,
+            child: child,
+          )
+        : Padding(
+            padding: padding,
+            child: child,
+          );
 
     return Scaffold(
       backgroundColor: const Color(0xFF151110),
       body: Center(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final width = constraints.maxWidth < 393
-                ? constraints.maxWidth
-                : 393.0;
-            final height = constraints.maxHeight < 852
-                ? constraints.maxHeight
-                : 852.0;
+            final width = constraints.maxWidth < 393 ? constraints.maxWidth : 393.0;
+            final height = constraints.maxHeight < 852 ? constraints.maxHeight : 852.0;
 
             return Container(
               width: width,
@@ -48,15 +50,39 @@ class ElderPhoneScaffold extends StatelessWidget {
                 color: backgroundColor,
                 borderRadius: BorderRadius.circular(width < 393 ? 0 : 32),
               ),
-              child: Column(
+              child: Stack(
                 children: [
-                  ElderIosStatusBar(
-                    backgroundColor: statusBarColor ?? backgroundColor,
-                    darkIcons: darkStatusBar,
+                  Positioned.fill(
+                    child: Column(
+                      children: [
+                        ElderIosStatusBar(
+                          backgroundColor: statusBarColor ?? backgroundColor,
+                          darkIcons: darkStatusBar,
+                        ),
+                        Expanded(
+                          child: content,
+                        ),
+                        ?bottomNavigationBar,
+                        const ElderHomeIndicator(),
+                      ],
+                    ),
                   ),
-                  Expanded(child: content),
-                  ?bottomNavigationBar,
-                  const ElderHomeIndicator(),
+
+                  // Preview scaling can create a 1-pixel hairline exactly
+                  // between the mock iOS status bar and the first screen
+                  // section. Paint a tiny overlap using the same status-bar
+                  // colour so that seam is never visible.
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 25,
+                    height: 3,
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                        color: statusBarColor ?? backgroundColor,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             );
@@ -303,7 +329,10 @@ class ElderAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: border ? Border.all(color: Colors.white, width: 2) : null,
-        image: DecorationImage(image: AssetImage(asset), fit: BoxFit.cover),
+        image: DecorationImage(
+          image: AssetImage(asset),
+          fit: BoxFit.cover,
+        ),
       ),
     );
   }
@@ -340,7 +369,10 @@ class ElderPrimaryButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
     );
@@ -379,7 +411,10 @@ class ElderOutlineButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
@@ -490,7 +525,11 @@ class ElderStatusPill extends StatelessWidget {
   final String label;
   final bool filled;
 
-  const ElderStatusPill(this.label, {super.key, this.filled = false});
+  const ElderStatusPill(
+    this.label, {
+    super.key,
+    this.filled = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -532,9 +571,8 @@ Future<bool> elderConfirm(
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: destructive
-                    ? ElderColors.coral
-                    : ElderColors.darkTeal,
+                backgroundColor:
+                    destructive ? ElderColors.coral : ElderColors.darkTeal,
               ),
               onPressed: () => Navigator.pop(context, true),
               child: Text(confirmLabel),
