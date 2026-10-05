@@ -6,6 +6,7 @@ import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
 import '../widgets/companion_avatar.dart';
 import '../widgets/companion_entrance.dart';
+import '../widgets/companion_flow_header.dart';
 import '../widgets/companion_route.dart';
 import '../widgets/companion_scaffold.dart';
 import 'current_connection_screen.dart';
@@ -22,6 +23,8 @@ class ConnectionPausedScreen extends StatelessWidget {
   final CompanionProfile profile;
   final CompanionLanguage selectedLanguage;
   final MatchStatus connectionStatus;
+
+  static const Color _amberInk = Color(0xFF9A6200);
 
   void _openConnection(BuildContext context, MatchStatus nextStatus) {
     Navigator.of(context).pushAndRemoveUntil(
@@ -47,128 +50,125 @@ class ConnectionPausedScreen extends StatelessWidget {
         : const Duration(milliseconds: 220);
 
     // System Back cannot uncover the older Active route underneath W08C.
-    // The two visible actions explicitly carry the chosen status to W07.
+    // The visible actions explicitly carry the chosen status to W07.
     return PopScope(
       canPop: false,
       child: CompanionScaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: const Text('CareLink'),
-        ),
-        body: CompanionEntrance(
-          child: SafeArea(
+        body: SafeArea(
+          child: CompanionEntrance(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 600),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      CompanionFlowHeader(
+                        onBack: () =>
+                            _openConnection(context, MatchStatus.paused),
+                        backTooltip: strings.backToConnection,
+                        trailingIcon: null,
+                        showCoralDot: true,
+                      ),
+                      const SizedBox(height: 18),
                       Semantics(
                         header: true,
                         child: Text(
                           strings.connectionPaused,
-                          style: textTheme.headlineMedium,
+                          style: textTheme.headlineMedium?.copyWith(
+                            fontSize: 27,
+                            letterSpacing: -0.5,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 5),
                       Text(
                         strings.pausedActivitySubtitle,
                         style: textTheme.bodyMedium,
                       ),
-                      const SizedBox(height: 24),
-                      Card(
-                        margin: EdgeInsets.zero,
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            children: [
-                              CompanionAvatar(
-                                name: profile.name,
-                                size: 76,
-                                imagePath: profile.imagePath,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                profile.name,
-                                style: textTheme.titleLarge,
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 14),
-                              AnimatedContainer(
-                                duration: motionDuration,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 9,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: CompanionPalette.mint,
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: CompanionPalette.teal.withValues(
-                                      alpha: 0.4,
-                                    ),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.pause_circle_outline,
-                                      size: 20,
-                                      color: CompanionPalette.teal,
-                                    ),
-                                    const SizedBox(width: 7),
-                                    Flexible(
-                                      child: Text(
-                                        strings.paused,
-                                        style: const TextStyle(
-                                          color: CompanionPalette.ink,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                      const SizedBox(height: 6),
+                      Container(
+                        width: 32,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: CompanionPalette.coral,
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Card(
-                        margin: EdgeInsets.zero,
-                        child: Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                      const SizedBox(height: 14),
+                      Center(
+                        child: Column(
+                          children: [
+                            _buildPausedIllustration(context),
+                            const SizedBox(height: 6),
+                            Text(
+                              profile.name,
+                              textAlign: TextAlign.center,
+                              style: textTheme.titleLarge?.copyWith(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 7),
+                            AnimatedContainer(
+                              duration: motionDuration,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: CompanionPalette.amber,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const Icon(
-                                    Icons.info_outline,
-                                    color: CompanionPalette.teal,
-                                    size: 22,
+                                    Icons.circle,
+                                    size: 9,
+                                    color: _amberInk,
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Semantics(
-                                      header: true,
-                                      child: Text(
-                                        strings.whatThisMeans,
-                                        style: textTheme.titleMedium,
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      strings.paused,
+                                      style: const TextStyle(
+                                        color: _amberInk,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
-                              Text(
-                                strings.pausedMeaning,
-                                style: textTheme.bodyMedium,
-                              ),
-                            ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 34),
+                      _buildMeaningCard(context, strings),
+                      const SizedBox(height: 38),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () =>
+                              _openConnection(context, MatchStatus.accepted),
+                          child: Text(
+                            strings.resumeConnection,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () =>
+                              _openConnection(context, MatchStatus.paused),
+                          child: Text(
+                            strings.backToConnection,
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ),
@@ -179,39 +179,108 @@ class ConnectionPausedScreen extends StatelessWidget {
             ),
           ),
         ),
-        bottomNavigationBar: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-            child: Center(
-              heightFactor: 1,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () =>
-                          _openConnection(context, MatchStatus.accepted),
-                      child: Text(
-                        strings.resumeConnection,
-                        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  Widget _buildPausedIllustration(BuildContext context) {
+    final duration = MediaQuery.of(context).disableAnimations
+        ? Duration.zero
+        : const Duration(milliseconds: 260);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.94, end: 1),
+      duration: duration,
+      curve: Curves.easeOut,
+      builder: (context, scale, child) => Transform.scale(
+        scale: scale,
+        child: Opacity(opacity: scale, child: child),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 166,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            Positioned.fill(
+              child: ExcludeSemantics(
+                child: profile.id == 'nethmi'
+                    ? Image.asset(
+                        'assets/images/companion_paused_illustration.png',
+                        fit: BoxFit.contain,
+                        alignment: Alignment.bottomCenter,
+                      )
+                    : Center(
+                        child: CompanionAvatar(
+                          name: profile.name,
+                          size: 116,
+                          imagePath: profile.imagePath,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    OutlinedButton(
-                      onPressed: () =>
-                          _openConnection(context, MatchStatus.paused),
-                      child: Text(
-                        strings.backToConnection,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
+              ),
+            ),
+            Positioned(
+              top: 0,
+              child: ExcludeSemantics(
+                child: Container(
+                  width: 58,
+                  height: 58,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFD16E),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.pause_rounded,
+                    color: _amberInk,
+                    size: 35,
+                  ),
                 ),
               ),
             ),
+            const Positioned(
+              right: 13,
+              top: 65,
+              child: ExcludeSemantics(
+                child: Icon(
+                  Icons.favorite,
+                  color: CompanionPalette.coral,
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeaningCard(BuildContext context, CompanionStrings strings) {
+    final textTheme = Theme.of(context).textTheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: SizedBox(
+        width: double.infinity,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                header: true,
+                child: Text(
+                  strings.whatThisMeans,
+                  style: textTheme.titleMedium?.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                strings.pausedMeaning,
+                style: textTheme.bodyMedium?.copyWith(fontSize: 14),
+              ),
+            ],
           ),
         ),
       ),
