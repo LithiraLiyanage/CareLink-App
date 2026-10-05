@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../services/mock_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
+import 'my_schedule_screen.dart';
 import 'nethmi_ready_screen.dart';
 
 class RescheduleCheckInScreen extends StatefulWidget {
-  const RescheduleCheckInScreen({super.key});
+  final String checkInId;
+
+  const RescheduleCheckInScreen({
+    super.key,
+    this.checkInId = 'checkin-001',
+  });
 
   @override
   State<RescheduleCheckInScreen> createState() =>
@@ -14,8 +21,11 @@ class RescheduleCheckInScreen extends StatefulWidget {
 }
 
 class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
+  final MockElderService _service = MockElderService.instance;
+
   int selectedDate = 1;
   int selectedTime = 2;
+  bool _saving = false;
 
   static const dates = [
     ('Wed', '16'),
@@ -31,6 +41,57 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
     '7:00 PM',
     '7:30 PM',
   ];
+
+  Future<void> _saveNewTime() async {
+    if (_saving) return;
+
+    setState(() => _saving = true);
+
+    final day = 16 + selectedDate;
+    final selectedHours = [17, 18, 19, 19];
+    final selectedMinutes = [30, 30, 0, 30];
+
+    await _service.rescheduleCheckIn(
+      widget.checkInId,
+      DateTime(
+        2026,
+        10,
+        day,
+        selectedHours[selectedTime],
+        selectedMinutes[selectedTime],
+      ),
+    );
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const NethmiReadyScreen(),
+      ),
+    );
+  }
+
+  Future<void> _cancelCheckIn() async {
+    final ok = await elderConfirm(
+      context,
+      title: 'Cancel this check-in?',
+      message: 'Nethmi will be notified if you cancel this check-in.',
+      confirmLabel: 'Cancel check-in',
+      destructive: true,
+    );
+
+    if (!ok || !mounted) return;
+
+    await _service.cancelCheckIn(widget.checkInId);
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const MyScheduleScreen(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +114,7 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
                   _dateSection(),
                   _timeSection(),
                   _notificationCard(),
-                  _actions(context),
+                  _actions(),
                 ],
               ),
             ),
@@ -104,13 +165,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
           width: 1.1,
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x09000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
       ),
       child: const Row(
         children: [
@@ -139,7 +193,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
                   style: TextStyle(
                     color: ElderColors.textMuted,
                     fontSize: 9.5,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -180,9 +233,7 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
                     duration: const Duration(milliseconds: 160),
                     height: 72,
                     decoration: BoxDecoration(
-                      color: selected
-                          ? ElderColors.darkTeal
-                          : Colors.white,
+                      color: selected ? ElderColors.darkTeal : Colors.white,
                       border: Border.all(
                         color: selected
                             ? ElderColors.darkTeal
@@ -200,7 +251,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
                                 ? Colors.white70
                                 : ElderColors.textMuted,
                             fontSize: 9,
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -328,38 +378,20 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
     );
   }
 
-  Widget _actions(BuildContext context) {
+  Widget _actions() {
     return Column(
       children: [
         ElderPrimaryButton(
-          label: 'Save new time',
+          label: _saving ? 'Saving...' : 'Save new time',
           height: 54,
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const NethmiReadyScreen(),
-              ),
-            );
-          },
+          onPressed: _saveNewTime,
         ),
         const SizedBox(height: 10),
         SizedBox(
           width: double.infinity,
           height: 50,
           child: OutlinedButton(
-            onPressed: () async {
-              final ok = await elderConfirm(
-                context,
-                title: 'Cancel this check-in?',
-                message:
-                    'Nethmi will be notified if you cancel this check-in.',
-                confirmLabel: 'Cancel check-in',
-                destructive: true,
-              );
-
-              if (!ok || !context.mounted) return;
-              Navigator.of(context).maybePop();
-            },
+            onPressed: _cancelCheckIn,
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFFC94354),
               backgroundColor: ElderColors.dangerSoft,

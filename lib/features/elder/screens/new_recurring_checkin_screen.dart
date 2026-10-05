@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/recurring_schedule.dart';
+import '../services/mock_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
@@ -15,7 +17,41 @@ class NewRecurringCheckInScreen extends StatefulWidget {
 
 class _NewRecurringCheckInScreenState
     extends State<NewRecurringCheckInScreen> {
+  final MockElderService _service = MockElderService.instance;
+
   final Set<int> selectedDays = {0, 2, 4};
+  bool _saving = false;
+
+  Future<void> _createSchedule() async {
+    if (_saving) return;
+
+    setState(() => _saving = true);
+
+    await _service.createRecurringSchedule(
+      RecurringSchedule(
+        id: '',
+        elderId: 'elder-kamala',
+        elderName: 'Kamala Perera',
+        companionId: 'companion-nethmi',
+        companionName: 'Nethmi Jayasooriya',
+        weekdays: selectedDays.map((index) => index + 1).toList()..sort(),
+        hour: 18,
+        minute: 30,
+        durationMinutes: 30,
+        isActive: true,
+      ),
+    );
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const RescheduleCheckInScreen(
+          checkInId: 'checkin-001',
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +79,7 @@ class _NewRecurringCheckInScreenState
               value: '30 minutes',
             ),
             _elderSection(),
-            _actions(context),
+            _actions(),
           ],
         ),
       ),
@@ -83,29 +119,11 @@ class _NewRecurringCheckInScreenState
   Widget _stepIndicator() {
     return Row(
       children: const [
-        Expanded(
-          child: _Step(
-            number: '1',
-            label: 'Schedule',
-            active: true,
-          ),
-        ),
+        Expanded(child: _Step(number: '1', label: 'Schedule', active: true)),
         SizedBox(width: 8),
-        Expanded(
-          child: _Step(
-            number: '2',
-            label: 'Companion',
-            active: false,
-          ),
-        ),
+        Expanded(child: _Step(number: '2', label: 'Companion', active: false)),
         SizedBox(width: 8),
-        Expanded(
-          child: _Step(
-            number: '3',
-            label: 'Confirm',
-            active: false,
-          ),
-        ),
+        Expanded(child: _Step(number: '3', label: 'Confirm', active: false)),
       ],
     );
   }
@@ -154,15 +172,6 @@ class _NewRecurringCheckInScreenState
                         ? ElderColors.darkTeal
                         : const Color(0xFFDCE9E7),
                   ),
-                  boxShadow: selected
-                      ? const [
-                          BoxShadow(
-                            color: Color(0x14005B59),
-                            blurRadius: 8,
-                            offset: Offset(0, 3),
-                          ),
-                        ]
-                      : null,
                 ),
                 child: Text(
                   days[index],
@@ -202,17 +211,8 @@ class _NewRecurringCheckInScreenState
           padding: const EdgeInsets.symmetric(horizontal: 13),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(
-              color: const Color(0xFFDCE9E7),
-            ),
+            border: Border.all(color: const Color(0xFFDCE9E7)),
             borderRadius: BorderRadius.circular(15),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x08000000),
-                blurRadius: 8,
-                offset: Offset(0, 3),
-              ),
-            ],
           ),
           child: Row(
             children: [
@@ -276,13 +276,6 @@ class _NewRecurringCheckInScreenState
               width: 1.1,
             ),
             borderRadius: BorderRadius.circular(16),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x09000000),
-                blurRadius: 10,
-                offset: Offset(0, 4),
-              ),
-            ],
           ),
           child: const Row(
             children: [
@@ -311,16 +304,12 @@ class _NewRecurringCheckInScreenState
                       style: TextStyle(
                         color: ElderColors.textMuted,
                         fontSize: 9.5,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              ElderStatusPill(
-                'SELECTED',
-                filled: true,
-              ),
+              ElderStatusPill('SELECTED', filled: true),
             ],
           ),
         ),
@@ -328,20 +317,14 @@ class _NewRecurringCheckInScreenState
     );
   }
 
-  Widget _actions(BuildContext context) {
+  Widget _actions() {
     return Column(
       children: [
         ElderPrimaryButton(
-          label: 'Create schedule',
+          label: _saving ? 'Creating...' : 'Create schedule',
           color: ElderColors.coral,
           height: 54,
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const RescheduleCheckInScreen(),
-              ),
-            );
-          },
+          onPressed: _createSchedule,
         ),
         const SizedBox(height: 9),
         const Row(
@@ -358,7 +341,6 @@ class _NewRecurringCheckInScreenState
               style: TextStyle(
                 color: ElderColors.textMuted,
                 fontSize: 9,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
