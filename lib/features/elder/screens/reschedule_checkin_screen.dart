@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../services/mock_elder_service.dart';
+import '../services/firebase_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
@@ -10,10 +10,7 @@ import 'nethmi_ready_screen.dart';
 class RescheduleCheckInScreen extends StatefulWidget {
   final String checkInId;
 
-  const RescheduleCheckInScreen({
-    super.key,
-    this.checkInId = 'checkin-001',
-  });
+  const RescheduleCheckInScreen({super.key, this.checkInId = 'checkin-001'});
 
   @override
   State<RescheduleCheckInScreen> createState() =>
@@ -21,7 +18,7 @@ class RescheduleCheckInScreen extends StatefulWidget {
 }
 
 class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
-  final MockElderService _service = MockElderService.instance;
+  final FirebaseElderService _service = FirebaseElderService.instance;
 
   int selectedDate = 1;
   int selectedTime = 2;
@@ -35,12 +32,7 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
     ('Sun', '20'),
   ];
 
-  static const times = [
-    '5:30 PM',
-    '6:30 PM',
-    '7:00 PM',
-    '7:30 PM',
-  ];
+  static const times = ['5:30 PM', '6:30 PM', '7:00 PM', '7:30 PM'];
 
   Future<void> _saveNewTime() async {
     if (_saving) return;
@@ -65,9 +57,7 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
     if (!mounted) return;
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const NethmiReadyScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const NethmiReadyScreen()),
     );
   }
 
@@ -87,9 +77,7 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
     if (!mounted) return;
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const MyScheduleScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const MyScheduleScreen()),
     );
   }
 
@@ -128,9 +116,7 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ElderBackButton(
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
+        ElderBackButton(onPressed: () => Navigator.of(context).maybePop()),
         const SizedBox(height: 10),
         const Text(
           'Reschedule check-in',
@@ -160,19 +146,12 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 13),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(
-          color: ElderColors.deepTeal,
-          width: 1.1,
-        ),
+        border: Border.all(color: ElderColors.deepTeal, width: 1.1),
         borderRadius: BorderRadius.circular(16),
       ),
       child: const Row(
         children: [
-          ElderAvatar(
-            asset: ElderAssets.nethmiAvatar,
-            size: 54,
-            border: false,
-          ),
+          ElderAvatar(asset: ElderAssets.nethmiAvatar, size: 54, border: false),
           SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -190,10 +169,7 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
                 SizedBox(height: 5),
                 Text(
                   'Wednesday • 6:30 PM',
-                  style: TextStyle(
-                    color: ElderColors.textMuted,
-                    fontSize: 9.5,
-                  ),
+                  style: TextStyle(color: ElderColors.textMuted, fontSize: 9.5),
                 ),
               ],
             ),
@@ -316,14 +292,10 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       child: OutlinedButton(
         onPressed: () => setState(() => selectedTime = index),
         style: OutlinedButton.styleFrom(
-          backgroundColor:
-              selected ? ElderColors.darkTeal : Colors.white,
-          foregroundColor:
-              selected ? Colors.white : ElderColors.deepTeal,
+          backgroundColor: selected ? ElderColors.darkTeal : Colors.white,
+          foregroundColor: selected ? Colors.white : ElderColors.deepTeal,
           side: BorderSide(
-            color: selected
-                ? ElderColors.darkTeal
-                : ElderColors.border,
+            color: selected ? ElderColors.darkTeal : ElderColors.border,
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -331,10 +303,7 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
         ),
         child: Text(
           times[index],
-          style: const TextStyle(
-            fontSize: 10.5,
-            fontWeight: FontWeight.w700,
-          ),
+          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -402,10 +371,7 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
             ),
             child: const Text(
               'Cancel this check-in',
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
             ),
           ),
         ),

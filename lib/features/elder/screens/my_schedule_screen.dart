@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/check_in.dart';
-import '../services/mock_elder_service.dart';
+import '../services/firebase_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
@@ -18,7 +18,7 @@ class MyScheduleScreen extends StatefulWidget {
 }
 
 class _MyScheduleScreenState extends State<MyScheduleScreen> {
-  final MockElderService _service = MockElderService.instance;
+  final FirebaseElderService _service = FirebaseElderService.instance;
 
   List<CheckIn> _checkIns = [];
   bool _loading = true;
@@ -43,18 +43,14 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
   }
 
   Future<void> _openAndRefresh(Widget screen) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
     if (!mounted) return;
     await _loadCheckIns();
   }
 
   void _open(BuildContext context, Widget screen) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 
   @override
@@ -96,9 +92,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
             const SizedBox(height: 14),
             _tabs(),
             const SizedBox(height: 16),
-            Expanded(
-              child: _loading ? _loadingView() : _scheduleContent(),
-            ),
+            Expanded(child: _loading ? _loadingView() : _scheduleContent()),
           ],
         ),
       ),
@@ -107,9 +101,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
 
   Widget _loadingView() {
     return const Center(
-      child: CircularProgressIndicator(
-        color: ElderColors.darkTeal,
-      ),
+      child: CircularProgressIndicator(color: ElderColors.darkTeal),
     );
   }
 
@@ -128,15 +120,12 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
                 _openAndRefresh(const NethmiReadyScreen());
               } else {
                 _openAndRefresh(
-                  RescheduleCheckInScreen(
-                    checkInId: visible[index].id,
-                  ),
+                  RescheduleCheckInScreen(checkInId: visible[index].id),
                 );
               }
             },
           ),
-          if (index != visible.length - 1)
-            const SizedBox(height: 13),
+          if (index != visible.length - 1) const SizedBox(height: 13),
         ],
         if (visible.isEmpty) _emptySchedule(),
         const Spacer(),
@@ -144,9 +133,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
           label: '+  Create recurring check-in',
           color: ElderColors.darkTeal,
           height: 54,
-          onPressed: () => _openAndRefresh(
-            const NewRecurringCheckInScreen(),
-          ),
+          onPressed: () => _openAndRefresh(const NewRecurringCheckInScreen()),
         ),
         const SizedBox(height: 10),
         _infoCard(),
@@ -266,11 +253,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
         borderRadius: BorderRadius.circular(15),
       ),
       child: Row(
-        children: [
-          tab('Today'),
-          tab('Upcoming', selected: true),
-          tab('Past'),
-        ],
+        children: [tab('Today'), tab('Upcoming', selected: true), tab('Past')],
       ),
     );
   }
@@ -286,10 +269,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
       borderRadius: BorderRadius.circular(17),
       child: Container(
         height: 104,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 13,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(17),
@@ -304,10 +284,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
         ),
         child: Row(
           children: [
-            const ElderAvatar(
-              asset: ElderAssets.nethmiAvatar,
-              size: 48,
-            ),
+            const ElderAvatar(asset: ElderAssets.nethmiAvatar, size: 48),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -335,10 +312,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            ElderStatusPill(
-              badge,
-              filled: filledBadge,
-            ),
+            ElderStatusPill(badge, filled: filledBadge),
           ],
         ),
       ),

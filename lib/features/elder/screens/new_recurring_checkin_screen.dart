@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/recurring_schedule.dart';
-import '../services/mock_elder_service.dart';
+import '../services/firebase_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
@@ -15,9 +15,8 @@ class NewRecurringCheckInScreen extends StatefulWidget {
       _NewRecurringCheckInScreenState();
 }
 
-class _NewRecurringCheckInScreenState
-    extends State<NewRecurringCheckInScreen> {
-  final MockElderService _service = MockElderService.instance;
+class _NewRecurringCheckInScreenState extends State<NewRecurringCheckInScreen> {
+  final FirebaseElderService _service = FirebaseElderService.instance;
 
   final Set<int> selectedDays = {0, 2, 4};
   bool _saving = false;
@@ -46,9 +45,7 @@ class _NewRecurringCheckInScreenState
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => const RescheduleCheckInScreen(
-          checkInId: 'checkin-001',
-        ),
+        builder: (_) => const RescheduleCheckInScreen(checkInId: 'checkin-001'),
       ),
     );
   }
@@ -90,9 +87,7 @@ class _NewRecurringCheckInScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ElderBackButton(
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
+        ElderBackButton(onPressed: () => Navigator.of(context).maybePop()),
         const SizedBox(height: 10),
         const Text(
           'New recurring check-in',
@@ -119,11 +114,17 @@ class _NewRecurringCheckInScreenState
   Widget _stepIndicator() {
     return Row(
       children: const [
-        Expanded(child: _Step(number: '1', label: 'Schedule', active: true)),
+        Expanded(
+          child: _Step(number: '1', label: 'Schedule', active: true),
+        ),
         SizedBox(width: 8),
-        Expanded(child: _Step(number: '2', label: 'Companion', active: false)),
+        Expanded(
+          child: _Step(number: '2', label: 'Companion', active: false),
+        ),
         SizedBox(width: 8),
-        Expanded(child: _Step(number: '3', label: 'Confirm', active: false)),
+        Expanded(
+          child: _Step(number: '3', label: 'Confirm', active: false),
+        ),
       ],
     );
   }
@@ -224,11 +225,7 @@ class _NewRecurringCheckInScreenState
                   color: ElderColors.mintSoft,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  icon,
-                  color: ElderColors.deepTeal,
-                  size: 18,
-                ),
+                child: Icon(icon, color: ElderColors.deepTeal, size: 18),
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -271,10 +268,7 @@ class _NewRecurringCheckInScreenState
           padding: const EdgeInsets.symmetric(horizontal: 13),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(
-              color: ElderColors.deepTeal,
-              width: 1.1,
-            ),
+            border: Border.all(color: ElderColors.deepTeal, width: 1.1),
             borderRadius: BorderRadius.circular(16),
           ),
           child: const Row(
@@ -338,10 +332,7 @@ class _NewRecurringCheckInScreenState
             SizedBox(width: 5),
             Text(
               'You can edit this anytime from My Schedule.',
-              style: TextStyle(
-                color: ElderColors.textMuted,
-                fontSize: 9,
-              ),
+              style: TextStyle(color: ElderColors.textMuted, fontSize: 9),
             ),
           ],
         ),
