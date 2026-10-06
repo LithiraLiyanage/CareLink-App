@@ -117,23 +117,26 @@ class FamilyLinkingScreen extends StatelessWidget {
                         child: const Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _VisualField(
+                            _InputField(
                               label: "Elder's Name",
                               hint: "Enter elder's full name",
                               icon: Icons.person_outline_rounded,
+                              keyboardType: TextInputType.name,
+                              textCapitalization: TextCapitalization.words,
                             ),
                             SizedBox(height: 12),
-                            _VisualField(
+                            _DropdownField(
                               label: 'Relationship',
                               hint: 'Select relationship',
                               icon: Icons.family_restroom_rounded,
-                              trailing: Icons.keyboard_arrow_down_rounded,
+                              options: ['Daughter', 'Son'],
                             ),
                             SizedBox(height: 12),
-                            _VisualField(
+                            _InputField(
                               label: 'Contact / ID',
                               hint: 'Phone number or ID',
                               icon: Icons.badge_outlined,
+                              textInputAction: TextInputAction.done,
                             ),
                           ],
                         ),
@@ -193,66 +196,132 @@ class FamilyLinkingScreen extends StatelessWidget {
   }
 }
 
-class _VisualField extends StatelessWidget {
-  const _VisualField({
+class _InputField extends StatelessWidget {
+  const _InputField({
     required this.label,
     required this.hint,
     required this.icon,
-    this.trailing,
+    this.keyboardType = TextInputType.text,
+    this.textCapitalization = TextCapitalization.none,
+    this.textInputAction = TextInputAction.next,
   });
 
   final String label;
   final String hint;
   final IconData icon;
-  final IconData? trailing;
+  final TextInputType keyboardType;
+  final TextCapitalization textCapitalization;
+  final TextInputAction textInputAction;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      label: '$label, $hint',
-      readOnly: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: FamilyLinkingScreen._titleInk,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Container(
-            height: 46,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: FamilyLinkingScreen._line),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Row(
-              children: [
-                Icon(icon, size: 19, color: FamilyLinkingScreen._ink),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    hint,
-                    style: const TextStyle(
-                      color: FamilyLinkingScreen._hint,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                if (trailing != null)
-                  Icon(trailing, size: 21, color: FamilyLinkingScreen._ink),
-              ],
-            ),
-          ),
-        ],
+    return _LabeledField(
+      label: label,
+      child: TextField(
+        keyboardType: keyboardType,
+        textCapitalization: textCapitalization,
+        textInputAction: textInputAction,
+        cursorColor: FamilyLinkingScreen._ink,
+        style: _fieldTextStyle,
+        decoration: _fieldDecoration(hint, icon),
       ),
     );
   }
+}
+
+class _DropdownField extends StatelessWidget {
+  const _DropdownField({
+    required this.label,
+    required this.hint,
+    required this.icon,
+    required this.options,
+  });
+
+  final String label;
+  final String hint;
+  final IconData icon;
+  final List<String> options;
+
+  @override
+  Widget build(BuildContext context) {
+    return _LabeledField(
+      label: label,
+      child: DropdownButtonFormField<String>(
+        hint: Text(hint, style: _fieldHintStyle),
+        icon: const Icon(
+          Icons.keyboard_arrow_down_rounded,
+          size: 21,
+          color: FamilyLinkingScreen._ink,
+        ),
+        style: _fieldTextStyle,
+        dropdownColor: Colors.white,
+        borderRadius: BorderRadius.circular(11),
+        decoration: _fieldDecoration(null, icon),
+        items: [
+          for (final option in options)
+            DropdownMenuItem(value: option, child: Text(option)),
+        ],
+        onChanged: (_) {},
+      ),
+    );
+  }
+}
+
+class _LabeledField extends StatelessWidget {
+  const _LabeledField({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: FamilyLinkingScreen._titleInk,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 5),
+        child,
+      ],
+    );
+  }
+}
+
+const _fieldTextStyle = TextStyle(
+  color: FamilyLinkingScreen._titleInk,
+  fontSize: 13,
+);
+
+const _fieldHintStyle = TextStyle(
+  color: FamilyLinkingScreen._hint,
+  fontSize: 13,
+);
+
+InputDecoration _fieldDecoration(String? hint, IconData icon) {
+  OutlineInputBorder border(Color color, [double width = 1]) =>
+      OutlineInputBorder(
+        borderRadius: BorderRadius.circular(11),
+        borderSide: BorderSide(color: color, width: width),
+      );
+
+  return InputDecoration(
+    isDense: true,
+    filled: true,
+    fillColor: Colors.white,
+    hintText: hint,
+    hintStyle: _fieldHintStyle,
+    prefixIcon: Icon(icon, size: 19, color: FamilyLinkingScreen._ink),
+    prefixIconConstraints: const BoxConstraints(minWidth: 41, minHeight: 46),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+    enabledBorder: border(FamilyLinkingScreen._line),
+    focusedBorder: border(FamilyLinkingScreen._ink, 1.5),
+  );
 }
 
 class _FamilyIllustration extends StatelessWidget {
