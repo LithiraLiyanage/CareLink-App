@@ -366,6 +366,18 @@ class CompanionStrings {
     CompanionLanguage.tamil => 'கோரிக்கையை ரத்து செய்',
   };
 
+  String get requestCancelledTitle => switch (language) {
+    CompanionLanguage.english => 'Request Cancelled',
+    CompanionLanguage.sinhala => 'ඉල්ලීම අවලංගු කර ඇත',
+    CompanionLanguage.tamil => 'கோரிக்கை ரத்து செய்யப்பட்டது',
+  };
+
+  String get requestCancelledMessage => switch (language) {
+    CompanionLanguage.english => 'No connection was created.',
+    CompanionLanguage.sinhala => 'සම්බන්ධතාවයක් නිර්මාණය වී නැත.',
+    CompanionLanguage.tamil => 'இணைப்பு உருவாக்கப்படவில்லை.',
+  };
+
   String get backToMatches => switch (language) {
     CompanionLanguage.english => 'Back to Matches',
     CompanionLanguage.sinhala => 'ගැළපීම් වෙත ආපසු යන්න',

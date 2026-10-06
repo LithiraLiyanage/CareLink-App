@@ -1,3 +1,6 @@
+// Keep the existing `profile:` route argument while using controller state.
+// ignore_for_file: prefer_initializing_formals
+
 import 'package:flutter/material.dart';
 
 import '../controllers/companion_controller.dart';
@@ -14,13 +17,14 @@ import '../widgets/companion_scaffold.dart';
 class ConversationIdeasScreen extends StatefulWidget {
   const ConversationIdeasScreen({
     super.key,
-    required this.profile,
+    required CompanionProfile profile,
     required this.selectedLanguage,
     this.openedFromCheckIn = false,
     this.controller,
-  });
+  }) : _profile = profile;
 
-  final CompanionProfile profile;
+  final CompanionProfile _profile;
+  CompanionProfile get profile => controller?.selectedCompanion ?? _profile;
   final CompanionLanguage selectedLanguage;
   final CompanionController? controller;
 

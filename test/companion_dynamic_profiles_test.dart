@@ -417,7 +417,6 @@ void main() {
     );
     expect(handoff.schedulingDetails.companionId, amaya.id);
     expect(handoff.schedulingDetails.companionName, amaya.name);
-    expect(handoff.schedulingDetails.language, language);
     expect(tester.takeException(), isNull);
   });
 }

@@ -1,3 +1,5 @@
+import 'companion_map_values.dart';
+
 enum MatchRequestStatus { pending, accepted, declined, cancelled }
 
 class MatchRequest {
@@ -16,6 +18,24 @@ class MatchRequest {
     required this.createdAt,
     this.respondedAt,
   });
+
+  Map<String, Object?> toMap() => {
+    'id': id,
+    'elderId': elderId,
+    'companionId': companionId,
+    'status': status.name,
+    'createdAt': createdAt.toUtc().toIso8601String(),
+    'respondedAt': respondedAt?.toUtc().toIso8601String(),
+  };
+
+  factory MatchRequest.fromMap(Map<String, dynamic> map) => MatchRequest(
+    id: map['id'] as String,
+    elderId: map['elderId'] as String,
+    companionId: map['companionId'] as String,
+    status: MatchRequestStatus.values.byName(map['status'] as String),
+    createdAt: companionDateTime(map['createdAt']),
+    respondedAt: companionOptionalDateTime(map['respondedAt']),
+  );
 
   MatchRequest copyWith({MatchRequestStatus? status, DateTime? respondedAt}) =>
       MatchRequest(

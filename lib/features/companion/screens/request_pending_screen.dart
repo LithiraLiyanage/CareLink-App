@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/companion_controller.dart';
+import '../models/companion_connection.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
@@ -34,6 +35,8 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
       widget.controller?.selectedCompanion ?? widget.profile;
   CompanionLanguage get selectedLanguage => widget.selectedLanguage;
   CompanionController? get controller => widget.controller;
+  bool get _showSimulationControls =>
+      controller?.supportsSimulatedResponses ?? false;
   bool _previewDeclined = false;
 
   static const Color _amber = Color(0xFFEC9E00);
@@ -144,6 +147,38 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
         controller?.currentRequest?.status == MatchRequestStatus.declined) {
       return _buildDeclined(context, strings);
     }
+    if (controller?.currentRequest?.status == MatchRequestStatus.accepted) {
+      return _buildResolvedState(
+        context,
+        title: strings.connectionAccepted,
+        message: strings.youAndCompanionConnected(profile.firstName),
+        icon: Icons.check_circle_outline,
+        action: strings.viewConnection,
+        onPressed:
+            controller?.currentConnection?.status == ConnectionStatus.active
+            ? () => Navigator.of(context).pushReplacement(
+                CompanionRoute<void>(
+                  context: context,
+                  builder: (_) => ConnectionAcceptedScreen(
+                    profile: profile,
+                    selectedLanguage: selectedLanguage,
+                    controller: controller,
+                  ),
+                ),
+              )
+            : null,
+      );
+    }
+    if (controller?.currentRequest?.status == MatchRequestStatus.cancelled) {
+      return _buildResolvedState(
+        context,
+        title: strings.requestCancelledTitle,
+        message: strings.requestCancelledMessage,
+        icon: Icons.cancel_outlined,
+        action: strings.backToMatches,
+        onPressed: () => _backToMatches(context),
+      );
+    }
     final textTheme = CompanionScaffold.textTheme(context);
     final firstName = profile.firstName;
 
@@ -214,26 +249,29 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Development-only response simulation; no backend request is sent.
-                  Text(
-                    strings.developmentOnly,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(fontSize: 11, color: CompanionPalette.muted),
-                  ),
-                  const SizedBox(height: 4),
-                  ElevatedButton(
-                    onPressed: controller?.isLoading == true
-                        ? null
-                        : () => _simulateAccept(context),
-                    child: Text(
-                      controller?.isLoading == true
-                          ? strings.updatingRequest
-                          : strings.simulateAccept,
+                  if (_showSimulationControls) ...[
+                    Text(
+                      strings.developmentOnly,
                       textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: 11,
+                        color: CompanionPalette.muted,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 4),
+                    ElevatedButton(
+                      onPressed: controller?.isLoading == true
+                          ? null
+                          : () => _simulateAccept(context),
+                      child: Text(
+                        controller?.isLoading == true
+                            ? strings.updatingRequest
+                            : strings.simulateAccept,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   _buildBottomActions(context, strings),
                 ],
               ),
@@ -324,6 +362,50 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
                     child: OutlinedButton(
                       onPressed: () => _backToMatches(context),
                       child: Text(strings.backToMatches),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResolvedState(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required IconData icon,
+    required String action,
+    required VoidCallback? onPressed,
+  }) {
+    return CompanionScaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 52, color: CompanionPalette.teal),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.headlineMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(message, textAlign: TextAlign.center),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: onPressed,
+                      child: Text(action),
                     ),
                   ),
                 ],
@@ -479,21 +561,23 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
             status: strings.pending,
             number: '3',
             color: _mutedStep,
-            trailing: TextButton.icon(
-              // Development-only declined response preview.
-              onPressed: controller?.isLoading == true
-                  ? null
-                  : () => _simulateDecline(context),
-              style: TextButton.styleFrom(
-                foregroundColor: CompanionPalette.coral,
-                minimumSize: const Size(0, 44),
-                padding: EdgeInsets.zero,
-                alignment: Alignment.centerLeft,
-              ),
-              label: Text(strings.simulateDecline),
-              icon: const Icon(Icons.arrow_forward, size: 15),
-              iconAlignment: IconAlignment.end,
-            ),
+            trailing: !_showSimulationControls
+                ? null
+                : TextButton.icon(
+                    // Development-only declined response preview.
+                    onPressed: controller?.isLoading == true
+                        ? null
+                        : () => _simulateDecline(context),
+                    style: TextButton.styleFrom(
+                      foregroundColor: CompanionPalette.coral,
+                      minimumSize: const Size(0, 44),
+                      padding: EdgeInsets.zero,
+                      alignment: Alignment.centerLeft,
+                    ),
+                    label: Text(strings.simulateDecline),
+                    icon: const Icon(Icons.arrow_forward, size: 15),
+                    iconAlignment: IconAlignment.end,
+                  ),
           ),
         ],
       ),

@@ -1,3 +1,6 @@
+// Keep the existing `profile:` route argument while using controller state.
+// ignore_for_file: prefer_initializing_formals
+
 import 'package:flutter/material.dart';
 
 import '../controllers/companion_controller.dart';
@@ -14,12 +17,13 @@ import 'request_pending_screen.dart';
 class SendMatchRequestScreen extends StatelessWidget {
   const SendMatchRequestScreen({
     super.key,
-    required this.profile,
+    required CompanionProfile profile,
     required this.selectedLanguage,
     this.controller,
-  });
+  }) : _profile = profile;
 
-  final CompanionProfile profile;
+  final CompanionProfile _profile;
+  CompanionProfile get profile => controller?.selectedCompanion ?? _profile;
   final CompanionLanguage selectedLanguage;
   final CompanionController? controller;
 
@@ -27,7 +31,7 @@ class SendMatchRequestScreen extends StatelessWidget {
     final flow = controller;
     if (flow != null) {
       if (flow.isLoading) return;
-      await flow.sendRequest(CompanionController.mockCurrentElderId);
+      await flow.sendRequest();
       if (!context.mounted) return;
       if (flow.errorMessage != null || flow.currentRequest == null) {
         ScaffoldMessenger.of(context)

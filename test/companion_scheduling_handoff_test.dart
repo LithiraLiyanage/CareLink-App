@@ -114,7 +114,6 @@ void main() {
     );
     expect(screen.schedulingDetails.companionId, _profile.id);
     expect(screen.schedulingDetails.companionName, _profile.name);
-    expect(screen.schedulingDetails.language, CompanionLanguage.tamil);
 
     await tester.pumpWidget(
       MaterialApp(

@@ -1,3 +1,6 @@
+// Keep the existing `profile:` route argument while using controller state.
+// ignore_for_file: prefer_initializing_formals
+
 import 'package:flutter/material.dart';
 
 import '../controllers/companion_controller.dart';
@@ -20,16 +23,18 @@ import 'scheduling_handoff_screen.dart';
 class CurrentConnectionScreen extends StatelessWidget {
   const CurrentConnectionScreen({
     super.key,
-    required this.profile,
+    required CompanionProfile profile,
     required this.selectedLanguage,
     this.connectionStatus = MatchStatus.accepted,
     this.controller,
-  }) : assert(
+  }) : _profile = profile,
+       assert(
          connectionStatus == MatchStatus.accepted ||
              connectionStatus == MatchStatus.paused,
        );
 
-  final CompanionProfile profile;
+  final CompanionProfile _profile;
+  CompanionProfile get profile => controller?.selectedCompanion ?? _profile;
   final CompanionLanguage selectedLanguage;
   final MatchStatus connectionStatus;
   final CompanionController? controller;
@@ -424,9 +429,7 @@ class CurrentConnectionScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  controller == null && profile.id == 'nethmi'
-                      ? strings.nextCheckInTime
-                      : strings.checkInNotScheduled,
+                  strings.checkInNotScheduled,
                   style: textTheme.titleLarge?.copyWith(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,

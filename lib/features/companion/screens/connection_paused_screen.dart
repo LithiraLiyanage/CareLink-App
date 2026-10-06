@@ -1,3 +1,6 @@
+// Keep the existing `profile:` route argument while using controller state.
+// ignore_for_file: prefer_initializing_formals
+
 import 'package:flutter/material.dart';
 
 import '../controllers/companion_controller.dart';
@@ -17,13 +20,15 @@ import 'current_connection_screen.dart';
 class ConnectionPausedScreen extends StatelessWidget {
   const ConnectionPausedScreen({
     super.key,
-    required this.profile,
+    required CompanionProfile profile,
     required this.selectedLanguage,
     required this.connectionStatus,
     this.controller,
-  }) : assert(connectionStatus == MatchStatus.paused);
+  }) : _profile = profile,
+       assert(connectionStatus == MatchStatus.paused);
 
-  final CompanionProfile profile;
+  final CompanionProfile _profile;
+  CompanionProfile get profile => controller?.selectedCompanion ?? _profile;
   final CompanionLanguage selectedLanguage;
   final MatchStatus connectionStatus;
   final CompanionController? controller;
@@ -240,19 +245,13 @@ class ConnectionPausedScreen extends StatelessWidget {
           children: [
             Positioned.fill(
               child: ExcludeSemantics(
-                child: profile.id.endsWith('nethmi')
-                    ? Image.asset(
-                        'assets/images/companion_paused_illustration.png',
-                        fit: BoxFit.contain,
-                        alignment: Alignment.bottomCenter,
-                      )
-                    : Center(
-                        child: CompanionAvatar(
-                          name: profile.name,
-                          size: 116,
-                          imagePath: profile.imagePath,
-                        ),
-                      ),
+                child: Center(
+                  child: CompanionAvatar(
+                    name: profile.name,
+                    size: 116,
+                    imagePath: profile.imagePath,
+                  ),
+                ),
               ),
             ),
             Positioned(

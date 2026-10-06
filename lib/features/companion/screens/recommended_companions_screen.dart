@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/companion_controller.dart';
+import '../controllers/companion_controller_factory.dart';
 import '../models/companion_language.dart';
 import '../models/companion_strings.dart';
 import '../models/match_preferences.dart';
 import '../models/match_recommendation.dart';
-import '../services/mock_companion_service.dart';
 import '../widgets/companion_avatar.dart';
 import '../widgets/companion_bottom_navigation.dart';
 import '../widgets/companion_entrance.dart';
@@ -56,9 +56,7 @@ class _RecommendedCompanionsScreenState
   void initState() {
     super.initState();
     _ownsController = widget.controller == null;
-    _controller =
-        widget.controller ??
-        CompanionController(service: MockCompanionService());
+    _controller = widget.controller ?? createCompanionController();
     _controller.addListener(_onControllerChanged);
     if (_ownsController ||
         _controller.currentPreferences == null ||
@@ -399,6 +397,11 @@ class _RecommendedCompanionsScreenState
         selectedLanguage == CompanionLanguage.english &&
         MediaQuery.textScalerOf(context).scale(1) <= 1.2;
     final reasons = recommendation.reasons;
+    final availability = strings.profileAvailability(profile, short: true);
+    final metadata = [
+      if (profile.languages.isNotEmpty) profile.languages.join(', '),
+      if (availability.trim().isNotEmpty) availability,
+    ].join(' • ');
 
     return Card(
       margin: EdgeInsets.zero,
@@ -448,19 +451,20 @@ class _RecommendedCompanionsScreenState
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    '${profile.languages.join(', ')} • ${strings.profileAvailability(profile, short: true)}',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: CompanionPalette.muted,
-                      fontSize: 12.5,
+                  if (metadata.isNotEmpty) ...[
+                    Text(
+                      metadata,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: CompanionPalette.muted,
+                        fontSize: 12.5,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 8),
+                  ],
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: profile.interests
-                        .take(2)
                         .map(
                           (interest) => _buildInterestChip(
                             strings.interestLabel(interest),
@@ -570,11 +574,12 @@ class _RecommendedCompanionsScreenState
   }) {
     final profile = recommendation.companion;
     final textTheme = Theme.of(context).textTheme;
+    final availability = strings.profileAvailability(profile, short: true);
     final metadata = [
-      if (profile.languages.isNotEmpty) profile.languages.first,
+      if (profile.languages.isNotEmpty) profile.languages.join(', '),
       if (profile.interests.isNotEmpty)
-        strings.interestLabel(profile.interests.first),
-      strings.profileAvailability(profile, short: true),
+        profile.interests.map(strings.interestLabel).join(', '),
+      if (availability.trim().isNotEmpty) availability,
     ].join(' • ');
 
     return Card(
@@ -612,15 +617,30 @@ class _RecommendedCompanionsScreenState
                         const SizedBox(height: 4),
                         _buildVerifiedBadge(strings.verified),
                       ],
-                      const SizedBox(height: 5),
-                      Text(
-                        metadata,
-                        softWrap: true,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: CompanionPalette.muted,
-                          fontSize: 12.5,
+                      if (metadata.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          metadata,
+                          softWrap: true,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: CompanionPalette.muted,
+                            fontSize: 12.5,
+                          ),
                         ),
-                      ),
+                      ],
+                      if (recommendation.reasons.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          recommendation.reasons
+                              .map(strings.matchReasonText)
+                              .join(' • '),
+                          softWrap: true,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: CompanionPalette.teal,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

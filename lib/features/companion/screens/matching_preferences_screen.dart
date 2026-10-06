@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/companion_controller.dart';
+import '../controllers/companion_controller_factory.dart';
 import '../models/companion_language.dart';
 import '../models/match_preferences.dart';
-import '../services/mock_companion_service.dart';
 import '../widgets/companion_bottom_navigation.dart';
 import '../widgets/companion_entrance.dart';
 import '../widgets/companion_option_chip.dart';
@@ -66,9 +66,7 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
   void initState() {
     super.initState();
     _ownsController = widget.controller == null;
-    _controller =
-        widget.controller ??
-        CompanionController(service: MockCompanionService());
+    _controller = widget.controller ?? createCompanionController();
     _controller.addListener(_onControllerChanged);
     final initial = widget.initialPreferences;
     if (initial != null) {
@@ -387,7 +385,7 @@ class _MatchingPreferencesScreenState extends State<MatchingPreferencesScreen> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: CompanionBottomNavigation(
-          selectedLanguage: CompanionLanguage.english,
+          selectedLanguage: _selectedLanguage,
           selectedIndex: 1,
           onDestinationSelected: _onNavigationSelected,
           matchesIcon: Icons.favorite_border,

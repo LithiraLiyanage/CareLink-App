@@ -1,3 +1,6 @@
+// Keep the existing `profile:` route argument while using controller state.
+// ignore_for_file: prefer_initializing_formals
+
 import 'package:flutter/material.dart';
 
 import '../../../app/theme.dart';
@@ -15,16 +18,18 @@ import 'recommended_companions_screen.dart';
 class EndConnectionConfirmationScreen extends StatelessWidget {
   const EndConnectionConfirmationScreen({
     super.key,
-    required this.profile,
+    required CompanionProfile profile,
     required this.selectedLanguage,
     this.connectionStatus = MatchStatus.accepted,
     this.controller,
-  }) : assert(
+  }) : _profile = profile,
+       assert(
          connectionStatus == MatchStatus.accepted ||
              connectionStatus == MatchStatus.paused,
        );
 
-  final CompanionProfile profile;
+  final CompanionProfile _profile;
+  CompanionProfile get profile => controller?.selectedCompanion ?? _profile;
   final CompanionLanguage selectedLanguage;
   final MatchStatus connectionStatus;
   final CompanionController? controller;

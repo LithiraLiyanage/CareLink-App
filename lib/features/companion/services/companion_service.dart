@@ -7,6 +7,14 @@ import '../models/match_request.dart';
 
 /// Storage-independent contract for companion matching and connection state.
 abstract class CompanionService {
+  /// The current elder identity, resolved by the implementation rather than UI.
+  String get currentElderId;
+
+  /// Only local/mock services may expose response simulation controls.
+  bool get supportsSimulatedResponses;
+
+  Future<void> saveMatchPreferences(MatchPreferences preferences);
+
   Future<List<MatchRecommendation>> getRecommendations(
     MatchPreferences preferences,
   );
@@ -23,11 +31,15 @@ abstract class CompanionService {
     required MatchRequestStatus status,
   });
 
+  Stream<MatchRequest?> watchMatchRequest(String requestId);
+
   Future<CompanionConnection> createConnectionFromAcceptedRequest(
     MatchRequest request,
   );
 
   Future<CompanionConnection?> getCurrentConnection(String elderId);
+
+  Stream<CompanionConnection?> watchCurrentConnection(String elderId);
 
   Future<CompanionConnection> pauseConnection(CompanionConnection connection);
 

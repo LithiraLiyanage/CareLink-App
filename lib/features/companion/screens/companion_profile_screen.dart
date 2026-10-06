@@ -1,3 +1,6 @@
+// The public `profile:` route argument remains stable while controller data wins.
+// ignore_for_file: prefer_initializing_formals
+
 import 'package:flutter/material.dart';
 
 import '../widgets/companion_route.dart';
@@ -19,13 +22,14 @@ import 'send_match_request_screen.dart';
 class CompanionProfileScreen extends StatelessWidget {
   const CompanionProfileScreen({
     super.key,
-    required this.profile,
+    required CompanionProfile profile,
     required this.selectedLanguage,
     this.preferences,
     this.controller,
-  });
+  }) : _profile = profile;
 
-  final CompanionProfile profile;
+  final CompanionProfile _profile;
+  CompanionProfile get profile => controller?.selectedCompanion ?? _profile;
   final CompanionLanguage selectedLanguage;
   final MatchPreferences? preferences;
   final CompanionController? controller;

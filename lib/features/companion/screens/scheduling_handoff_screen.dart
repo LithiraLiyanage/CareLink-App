@@ -28,6 +28,9 @@ class SchedulingHandoffScreen extends StatelessWidget {
   final CompanionLanguage selectedLanguage;
   final CompanionController? controller;
 
+  CompanionProfile get selectedCompanion =>
+      controller?.selectedCompanion ?? profile;
+
   /// True when W07 is directly underneath H01 on the navigation stack.
   final bool fromCurrentConnection;
 
@@ -36,16 +39,16 @@ class SchedulingHandoffScreen extends StatelessWidget {
   ({
     String companionId,
     String companionName,
-    CompanionLanguage language,
     String? connectionId,
     String? elderId,
+    String? preferredCheckInType,
   })
   get schedulingDetails => (
-    companionId: profile.id,
-    companionName: profile.name,
-    language: selectedLanguage,
+    companionId: selectedCompanion.id,
+    companionName: selectedCompanion.name,
     connectionId: controller?.currentConnection?.id,
     elderId: controller?.currentConnection?.elderId,
+    preferredCheckInType: controller?.currentPreferences?.checkInType,
   );
 
   void _backToConnection(BuildContext context) {
@@ -61,7 +64,7 @@ class SchedulingHandoffScreen extends StatelessWidget {
       CompanionRoute<void>(
         context: context,
         builder: (_) => CurrentConnectionScreen(
-          profile: profile,
+          profile: selectedCompanion,
           selectedLanguage: selectedLanguage,
           controller: controller,
         ),
@@ -77,8 +80,8 @@ class SchedulingHandoffScreen extends StatelessWidget {
       return;
     }
     // TODO: When the team's scheduling route is registered, pass only
-    // schedulingDetails (ID, display name, language) after confirming the
-    // connection is still active. Never pass private conversation content.
+    // schedulingDetails after confirming the connection is still active.
+    // Never pass private conversation content.
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -90,7 +93,7 @@ class SchedulingHandoffScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
-    final firstName = profile.firstName;
+    final firstName = selectedCompanion.firstName;
 
     return CompanionScaffold(
       body: SafeArea(
@@ -140,27 +143,22 @@ class SchedulingHandoffScreen extends StatelessWidget {
                         child: SizedBox(
                           width: double.infinity,
                           height: 160,
-                          child: profile.id.endsWith('nethmi')
-                              ? Image.asset(
-                                  'assets/images/companion_scheduling_illustration.png',
-                                  fit: BoxFit.contain,
-                                )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    CompanionAvatar(
-                                      name: profile.name,
-                                      size: 96,
-                                      imagePath: profile.imagePath,
-                                    ),
-                                    const SizedBox(width: 20),
-                                    const Icon(
-                                      Icons.calendar_month_outlined,
-                                      color: CompanionPalette.coral,
-                                      size: 74,
-                                    ),
-                                  ],
-                                ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CompanionAvatar(
+                                name: selectedCompanion.name,
+                                size: 96,
+                                imagePath: selectedCompanion.imagePath,
+                              ),
+                              const SizedBox(width: 20),
+                              const Icon(
+                                Icons.calendar_month_outlined,
+                                color: CompanionPalette.coral,
+                                size: 74,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -191,7 +189,7 @@ class SchedulingHandoffScreen extends StatelessWidget {
                     const SizedBox(height: 10),
                     Center(
                       child: Text(
-                        profile.name,
+                        selectedCompanion.name,
                         textAlign: TextAlign.center,
                         style: textTheme.bodySmall,
                       ),

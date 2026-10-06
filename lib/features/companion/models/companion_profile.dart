@@ -1,8 +1,11 @@
+import 'companion_map_values.dart';
+
 class CompanionProfile {
   final String id;
   final String userId;
   final String name;
   final String imagePath;
+  final String? profileImageUrl;
   final bool verified;
   final List<String> languages;
   final List<String> interests;
@@ -17,6 +20,7 @@ class CompanionProfile {
     String? userId,
     required this.name,
     required this.imagePath,
+    this.profileImageUrl,
     required this.verified,
     required this.languages,
     required this.interests,
@@ -26,6 +30,39 @@ class CompanionProfile {
     required this.about,
     this.active = true,
   }) : userId = userId ?? 'user_$id';
+
+  Map<String, Object?> toMap() => {
+    'id': id,
+    'userId': userId,
+    'name': name,
+    'bio': about,
+    'verified': verified,
+    'languages': languages,
+    'interests': interests,
+    'availability': availability,
+    'availabilitySlots': availabilitySlots,
+    'shortAvailability': shortAvailability,
+    'profileImagePath': imagePath,
+    'profileImageUrl': profileImageUrl,
+    'active': active,
+  };
+
+  factory CompanionProfile.fromMap(Map<String, dynamic> map) =>
+      CompanionProfile(
+        id: map['id'] as String,
+        userId: map['userId'] as String?,
+        name: map['name'] as String,
+        about: map['bio'] as String? ?? '',
+        verified: map['verified'] == true,
+        languages: companionStringList(map['languages']),
+        interests: companionStringList(map['interests']),
+        availability: map['availability'] as String? ?? '',
+        availabilitySlots: companionStringList(map['availabilitySlots']),
+        shortAvailability: map['shortAvailability'] as String? ?? '',
+        imagePath: map['profileImagePath'] as String? ?? '',
+        profileImageUrl: map['profileImageUrl'] as String?,
+        active: map['active'] != false,
+      );
 
   /// Compatibility names used by the future data service. Existing screens
   /// continue to use [about], [imagePath], and the display [availability].

@@ -1,3 +1,5 @@
+import 'companion_map_values.dart';
+
 enum ConnectionStatus { active, paused, ended }
 
 class CompanionConnection {
@@ -20,6 +22,29 @@ class CompanionConnection {
     this.pausedAt,
     this.endedAt,
   });
+
+  Map<String, Object?> toMap() => {
+    'id': id,
+    'elderId': elderId,
+    'companionId': companionId,
+    'matchRequestId': matchRequestId,
+    'status': status.name,
+    'startedAt': startedAt.toUtc().toIso8601String(),
+    'pausedAt': pausedAt?.toUtc().toIso8601String(),
+    'endedAt': endedAt?.toUtc().toIso8601String(),
+  };
+
+  factory CompanionConnection.fromMap(Map<String, dynamic> map) =>
+      CompanionConnection(
+        id: map['id'] as String,
+        elderId: map['elderId'] as String,
+        companionId: map['companionId'] as String,
+        matchRequestId: map['matchRequestId'] as String?,
+        status: ConnectionStatus.values.byName(map['status'] as String),
+        startedAt: companionDateTime(map['startedAt']),
+        pausedAt: companionOptionalDateTime(map['pausedAt']),
+        endedAt: companionOptionalDateTime(map['endedAt']),
+      );
 
   CompanionConnection copyWith({
     ConnectionStatus? status,

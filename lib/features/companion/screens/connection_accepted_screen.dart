@@ -1,3 +1,6 @@
+// Keep the existing `profile:` route argument while using controller state.
+// ignore_for_file: prefer_initializing_formals
+
 import 'package:flutter/material.dart';
 
 import '../controllers/companion_controller.dart';
@@ -16,12 +19,13 @@ import 'scheduling_handoff_screen.dart';
 class ConnectionAcceptedScreen extends StatelessWidget {
   const ConnectionAcceptedScreen({
     super.key,
-    required this.profile,
+    required CompanionProfile profile,
     required this.selectedLanguage,
     this.controller,
-  });
+  }) : _profile = profile;
 
-  final CompanionProfile profile;
+  final CompanionProfile _profile;
+  CompanionProfile get profile => controller?.selectedCompanion ?? _profile;
   final CompanionLanguage selectedLanguage;
   final CompanionController? controller;
 
@@ -32,119 +36,94 @@ class ConnectionAcceptedScreen extends StatelessWidget {
     final firstName = profile.firstName;
 
     return CompanionScaffold(
-      body: Stack(
-        children: [
-          if (profile.id.endsWith('nethmi'))
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: -40,
-              height: MediaQuery.sizeOf(context).height * 0.8,
-              child: IgnorePointer(
-                child: ExcludeSemantics(
-                  child: Opacity(
-                    opacity: 0.25,
-                    child: Image.asset(
-                      'assets/images/companion_accepted_illustration.png',
-                      fit: BoxFit.cover,
-                      alignment: Alignment.bottomCenter,
+      body: SafeArea(
+        bottom: false,
+        child: CompanionEntrance(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CompanionFlowHeader(
+                      onBack: () => Navigator.of(context).maybePop(),
+                      backTooltip: strings.backToMatches,
+                      trailingIcon: Icons.celebration_outlined,
+                      trailingColor: CompanionPalette.coral,
                     ),
-                  ),
-                ),
-              ),
-            ),
-          SafeArea(
-            bottom: false,
-            child: CompanionEntrance(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 600),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 24),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 290),
+                      child: Semantics(
+                        header: true,
+                        child: Text(
+                          strings.connectionAccepted,
+                          style: textTheme.headlineMedium?.copyWith(
+                            fontSize: 29,
+                            letterSpacing: -0.6,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Container(
+                      width: 34,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: CompanionPalette.coral,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 14,
+                      runSpacing: 8,
                       children: [
-                        CompanionFlowHeader(
-                          onBack: () => Navigator.of(context).maybePop(),
-                          backTooltip: strings.backToMatches,
-                          trailingIcon: Icons.celebration_outlined,
-                          trailingColor: CompanionPalette.coral,
-                        ),
-                        const SizedBox(height: 24),
                         ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 290),
-                          child: Semantics(
-                            header: true,
-                            child: Text(
-                              strings.connectionAccepted,
-                              style: textTheme.headlineMedium?.copyWith(
-                                fontSize: 29,
-                                letterSpacing: -0.6,
-                              ),
-                            ),
+                          constraints: const BoxConstraints(maxWidth: 170),
+                          child: Text(
+                            strings.youAndCompanionConnected(firstName),
+                            style: textTheme.bodyMedium,
                           ),
                         ),
-                        const SizedBox(height: 7),
                         Container(
-                          width: 34,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: CompanionPalette.coral,
-                            borderRadius: BorderRadius.circular(4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          alignment: WrapAlignment.spaceBetween,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 14,
-                          runSpacing: 8,
-                          children: [
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 170),
-                              child: Text(
-                                strings.youAndCompanionConnected(firstName),
-                                style: textTheme.bodyMedium,
-                              ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF8F4),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: CompanionPalette.coral),
+                          ),
+                          child: Text(
+                            strings.greatConnection,
+                            style: const TextStyle(
+                              color: CompanionPalette.coral,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF8F4),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: CompanionPalette.coral,
-                                ),
-                              ),
-                              child: Text(
-                                strings.greatConnection,
-                                style: const TextStyle(
-                                  color: CompanionPalette.coral,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 30),
-                        _buildCompanionCard(context, strings),
-                        const SizedBox(height: 18),
-                        CompanionEntrance(
-                          delay: const Duration(milliseconds: 70),
-                          child: _buildAgreementPanel(context, strings),
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 30),
+                    _buildCompanionCard(context, strings),
+                    const SizedBox(height: 18),
+                    CompanionEntrance(
+                      delay: const Duration(milliseconds: 70),
+                      child: _buildAgreementPanel(context, strings),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         top: false,

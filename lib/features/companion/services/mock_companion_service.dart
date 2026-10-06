@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../models/companion_connection.dart';
 import '../models/companion_profile.dart';
 import '../models/conversation_idea.dart';
@@ -5,14 +7,26 @@ import '../models/match_preferences.dart';
 import '../models/match_recommendation.dart';
 import '../models/match_request.dart';
 import 'companion_service.dart';
+import 'companion_matching.dart';
 
 /// In-memory implementation for development; no personal conversation data.
 class MockCompanionService implements CompanionService {
   MockCompanionService({DateTime Function()? now}) : _now = now ?? DateTime.now;
 
+  @override
+  String get currentElderId => 'mock_elder_001';
+
+  @override
+  bool get supportsSimulatedResponses => true;
+
+  @override
+  Future<void> saveMatchPreferences(MatchPreferences preferences) async {}
+
   final DateTime Function() _now;
   final Map<String, MatchRequest> _requests = {};
   final Map<String, CompanionConnection> _connections = {};
+  final _requestChanges = StreamController<MatchRequest>.broadcast();
+  final _connectionChanges = StreamController<CompanionConnection>.broadcast();
   int _nextRequestId = 0;
   int _nextConnectionId = 0;
 
@@ -134,66 +148,7 @@ class MockCompanionService implements CompanionService {
   @override
   Future<List<MatchRecommendation>> getRecommendations(
     MatchPreferences preferences,
-  ) async {
-    final ranked = <MatchRecommendation>[];
-    for (final companion in _profiles) {
-      if (!companion.verified || !companion.active) continue;
-      final shared = preferences.interests
-          .where(
-            (interest) => companion.interests.any(
-              (other) => other.toLowerCase() == interest.toLowerCase(),
-            ),
-          )
-          .map((interest) => interest.toLowerCase())
-          .toSet();
-      final languageMatch = companion.languages.any(
-        (language) =>
-            language.toLowerCase() ==
-            preferences.preferredLanguage.toLowerCase(),
-      );
-      final availability = companion.availableSlots.join(' ').toLowerCase();
-      final desiredDay = preferences.availability.trim().toLowerCase();
-      final dayMatch = switch (desiredDay) {
-        'weekend' || 'weekends' =>
-          availability.contains('weekend') ||
-              availability.contains('saturday') ||
-              availability.contains('sunday'),
-        'weekday' || 'weekdays' => availability.contains('weekday'),
-        _ => desiredDay.isNotEmpty && availability.contains(desiredDay),
-      };
-      final desiredTime = preferences.preferredTime.trim().toLowerCase();
-      final timeMatch =
-          desiredTime.isNotEmpty && availability.contains(desiredTime);
-      final score =
-          (languageMatch ? 3 : 0) +
-          shared.length * 2 +
-          (dayMatch ? 3 : 0) +
-          (timeMatch ? 2 : 0);
-      ranked.add(
-        MatchRecommendation(
-          companion: companion,
-          score: score,
-          reasons: List.unmodifiable([
-            if (languageMatch) 'Speaks ${preferences.preferredLanguage}',
-            if (shared.isNotEmpty)
-              '${shared.length} shared ${shared.length == 1 ? 'interest' : 'interests'}',
-            if (dayMatch && timeMatch) 'Available at your preferred time',
-            if (dayMatch && !timeMatch) 'Available on your preferred days',
-            if (timeMatch && !dayMatch)
-              'Available at your preferred time of day',
-          ]),
-        ),
-      );
-    }
-    ranked.sort((a, b) {
-      final difference = b.score.compareTo(a.score);
-      if (difference != 0) return difference;
-      return _profiles
-          .indexOf(a.companion)
-          .compareTo(_profiles.indexOf(b.companion));
-    });
-    return List.unmodifiable(ranked);
-  }
+  ) async => rankCompanions(_profiles, preferences);
 
   @override
   Future<CompanionProfile?> getCompanionById(String companionId) async {
@@ -236,6 +191,7 @@ class MockCompanionService implements CompanionService {
       createdAt: _now(),
     );
     _requests[request.id] = request;
+    _requestChanges.add(request);
     return request;
   }
 
@@ -252,7 +208,16 @@ class MockCompanionService implements CompanionService {
     }
     final updated = current.copyWith(status: status, respondedAt: _now());
     _requests[requestId] = updated;
+    _requestChanges.add(updated);
     return updated;
+  }
+
+  @override
+  Stream<MatchRequest?> watchMatchRequest(String requestId) async* {
+    yield _requests[requestId];
+    yield* _requestChanges.stream
+        .where((request) => request.id == requestId)
+        .map((request) => request);
   }
 
   @override
@@ -282,6 +247,7 @@ class MockCompanionService implements CompanionService {
       startedAt: _now(),
     );
     _connections[connection.id] = connection;
+    _connectionChanges.add(connection);
     return connection;
   }
 
@@ -294,6 +260,14 @@ class MockCompanionService implements CompanionService {
       }
     }
     return null;
+  }
+
+  @override
+  Stream<CompanionConnection?> watchCurrentConnection(String elderId) async* {
+    yield await getCurrentConnection(elderId);
+    await for (final change in _connectionChanges.stream) {
+      if (change.elderId == elderId) yield await getCurrentConnection(elderId);
+    }
   }
 
   CompanionConnection _currentStored(CompanionConnection connection) {
@@ -319,6 +293,7 @@ class MockCompanionService implements CompanionService {
       pausedAt: _now(),
     );
     _connections[current.id] = updated;
+    _connectionChanges.add(updated);
     return updated;
   }
 
@@ -335,6 +310,7 @@ class MockCompanionService implements CompanionService {
       clearPausedAt: true,
     );
     _connections[current.id] = updated;
+    _connectionChanges.add(updated);
     return updated;
   }
 
@@ -352,6 +328,7 @@ class MockCompanionService implements CompanionService {
       clearPausedAt: true,
     );
     _connections[current.id] = updated;
+    _connectionChanges.add(updated);
     return updated;
   }
 

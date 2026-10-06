@@ -63,7 +63,8 @@ void main() {
         expect(controller.selectedCompanion?.id, testCase.id);
         expect(controller.sharedInterests, testCase.shared);
 
-        await controller.sendRequest(CompanionController.mockCurrentElderId);
+        await controller.sendRequest();
+        expect(controller.currentRequest?.elderId, service.currentElderId);
         expect(controller.currentRequest?.status, MatchRequestStatus.pending);
         expect(controller.currentRequest?.companionId, testCase.id);
         expect(controller.currentConnection, isNull);
@@ -86,9 +87,7 @@ void main() {
         await controller.endCurrentConnection();
         expect(controller.currentConnection?.status, ConnectionStatus.ended);
         expect(
-          await service.getCurrentConnection(
-            CompanionController.mockCurrentElderId,
-          ),
+          await service.getCurrentConnection(service.currentElderId),
           isNull,
         );
         await controller.resumeCurrentConnection();
@@ -104,16 +103,12 @@ void main() {
     addTearDown(controller.dispose);
     await controller.loadRecommendations(cases.first.preferences);
     controller.selectRecommendation(controller.recommendations.first);
-    await controller.sendRequest(CompanionController.mockCurrentElderId);
+    await controller.sendRequest();
     await controller.declineCurrentRequest();
     expect(controller.currentRequest?.status, MatchRequestStatus.declined);
+    expect(controller.currentRequest?.elderId, service.currentElderId);
     expect(controller.currentConnection, isNull);
-    expect(
-      await service.getCurrentConnection(
-        CompanionController.mockCurrentElderId,
-      ),
-      isNull,
-    );
+    expect(await service.getCurrentConnection(service.currentElderId), isNull);
     await controller.acceptCurrentRequest();
     expect(controller.errorMessage, isNotNull);
     expect(controller.currentConnection, isNull);
@@ -126,11 +121,12 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final controller = CompanionController(service: MockCompanionService());
+      final service = MockCompanionService();
+      final controller = CompanionController(service: service);
       addTearDown(controller.dispose);
       await controller.loadRecommendations(cases[1].preferences);
       controller.selectRecommendation(controller.recommendations.first);
-      await controller.sendRequest(CompanionController.mockCurrentElderId);
+      await controller.sendRequest();
       await controller.acceptCurrentRequest();
       final profile = controller.selectedCompanion!;
       const language = CompanionLanguage.sinhala;
@@ -171,10 +167,7 @@ void main() {
         handoff.schedulingDetails.connectionId,
         controller.currentConnection?.id,
       );
-      expect(
-        handoff.schedulingDetails.elderId,
-        CompanionController.mockCurrentElderId,
-      );
+      expect(handoff.schedulingDetails.elderId, service.currentElderId);
       await tap(find.text(strings.backToConnection));
 
       await tap(find.text(strings.manageConnection));
