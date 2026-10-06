@@ -11,6 +11,7 @@ class CompanionProfile {
   final List<String> interests;
   final String availability;
   final List<String> availabilitySlots;
+  final List<String> preferredTimes;
   final String shortAvailability;
   final String about;
   final bool active;
@@ -26,6 +27,7 @@ class CompanionProfile {
     required this.interests,
     required this.availability,
     this.availabilitySlots = const [],
+    this.preferredTimes = const [],
     this.shortAvailability = '',
     required this.about,
     this.active = true,
@@ -41,6 +43,7 @@ class CompanionProfile {
     'interests': interests,
     'availability': availability,
     'availabilitySlots': availabilitySlots,
+    'preferredTimes': preferredTimes,
     'shortAvailability': shortAvailability,
     'profileImagePath': imagePath,
     'profileImageUrl': profileImageUrl,
@@ -51,13 +54,14 @@ class CompanionProfile {
       CompanionProfile(
         id: map['id'] as String,
         userId: map['userId'] as String?,
-        name: map['name'] as String,
+        name: map['name'] as String? ?? map['fullName'] as String? ?? '',
         about: map['bio'] as String? ?? '',
         verified: map['verified'] == true,
         languages: companionStringList(map['languages']),
         interests: companionStringList(map['interests']),
         availability: map['availability'] as String? ?? '',
         availabilitySlots: companionStringList(map['availabilitySlots']),
+        preferredTimes: companionStringList(map['preferredTimes']),
         shortAvailability: map['shortAvailability'] as String? ?? '',
         imagePath: map['profileImagePath'] as String? ?? '',
         profileImageUrl: map['profileImageUrl'] as String?,

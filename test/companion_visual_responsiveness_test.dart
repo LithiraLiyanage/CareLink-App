@@ -1,4 +1,5 @@
 import 'package:carelink_app/app/theme.dart';
+import 'package:carelink_app/features/companion/controllers/companion_controller.dart';
 import 'package:carelink_app/features/companion/models/companion_language.dart';
 import 'package:carelink_app/features/companion/models/companion_match.dart';
 import 'package:carelink_app/features/companion/models/companion_profile.dart';
@@ -16,6 +17,7 @@ import 'package:carelink_app/features/companion/screens/request_pending_screen.d
 import 'package:carelink_app/features/companion/screens/request_declined_screen.dart';
 import 'package:carelink_app/features/companion/screens/scheduling_handoff_screen.dart';
 import 'package:carelink_app/features/companion/screens/send_match_request_screen.dart';
+import 'package:carelink_app/features/companion/services/mock_companion_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,6 +38,10 @@ void main() {
             addTearDown(tester.view.resetDevicePixelRatio);
 
             final strings = CompanionStrings(language);
+            final controller = CompanionController(
+              service: MockCompanionService(),
+            );
+            addTearDown(controller.dispose);
             final profile = CompanionProfile(
               id: 'nethmi-jayasooriya',
               name: 'Nethmi Jayasooriya',
@@ -51,8 +57,11 @@ void main() {
               about: strings.volunteerAbout,
             );
             final screens = <Widget>[
-              const MatchingPreferencesScreen(),
-              RecommendedCompanionsScreen(selectedLanguage: language),
+              MatchingPreferencesScreen(controller: controller),
+              RecommendedCompanionsScreen(
+                selectedLanguage: language,
+                controller: controller,
+              ),
               CompanionProfileScreen(
                 profile: profile,
                 selectedLanguage: language,

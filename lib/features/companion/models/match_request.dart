@@ -9,6 +9,10 @@ class MatchRequest {
   final MatchRequestStatus status;
   final DateTime createdAt;
   final DateTime? respondedAt;
+  final String elderDisplayName;
+  final String preferredLanguage;
+  final List<String> sharedInterests;
+  final String compatibleAvailability;
 
   const MatchRequest({
     required this.id,
@@ -17,6 +21,10 @@ class MatchRequest {
     required this.status,
     required this.createdAt,
     this.respondedAt,
+    this.elderDisplayName = '',
+    this.preferredLanguage = '',
+    this.sharedInterests = const [],
+    this.compatibleAvailability = '',
   });
 
   Map<String, Object?> toMap() => {
@@ -26,6 +34,10 @@ class MatchRequest {
     'status': status.name,
     'createdAt': createdAt.toUtc().toIso8601String(),
     'respondedAt': respondedAt?.toUtc().toIso8601String(),
+    'elderDisplayName': elderDisplayName,
+    'preferredLanguage': preferredLanguage,
+    'sharedInterests': sharedInterests,
+    'compatibleAvailability': compatibleAvailability,
   };
 
   factory MatchRequest.fromMap(Map<String, dynamic> map) => MatchRequest(
@@ -35,6 +47,10 @@ class MatchRequest {
     status: MatchRequestStatus.values.byName(map['status'] as String),
     createdAt: companionDateTime(map['createdAt']),
     respondedAt: companionOptionalDateTime(map['respondedAt']),
+    elderDisplayName: map['elderDisplayName'] as String? ?? '',
+    preferredLanguage: map['preferredLanguage'] as String? ?? '',
+    sharedInterests: companionStringList(map['sharedInterests']),
+    compatibleAvailability: map['compatibleAvailability'] as String? ?? '',
   );
 
   MatchRequest copyWith({MatchRequestStatus? status, DateTime? respondedAt}) =>
@@ -45,5 +61,9 @@ class MatchRequest {
         status: status ?? this.status,
         createdAt: createdAt,
         respondedAt: respondedAt ?? this.respondedAt,
+        elderDisplayName: elderDisplayName,
+        preferredLanguage: preferredLanguage,
+        sharedInterests: sharedInterests,
+        compatibleAvailability: compatibleAvailability,
       );
 }

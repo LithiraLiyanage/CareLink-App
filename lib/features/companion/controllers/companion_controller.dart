@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/companion_connection.dart';
+import '../models/companion_incoming_request.dart';
 import '../models/companion_profile.dart';
 import '../models/conversation_idea.dart';
 import '../models/match_preferences.dart';
@@ -24,19 +25,27 @@ class CompanionController extends ChangeNotifier {
   MatchRequest? currentRequest;
   CompanionConnection? currentConnection;
   List<ConversationIdea> conversationIdeas = const [];
+  List<CompanionIncomingRequest> incomingRequests = const [];
   bool isLoading = false;
+  bool isLoadingIncomingRequests = false;
   String? errorMessage;
+  String? incomingRequestsError;
   StreamSubscription<MatchRequest?>? _requestSubscription;
   StreamSubscription<CompanionConnection?>? _connectionSubscription;
+  StreamSubscription<List<CompanionIncomingRequest>>?
+  _incomingRequestsSubscription;
   bool _disposed = false;
 
   Future<void> _stopWatching() async {
     final request = _requestSubscription;
     final connection = _connectionSubscription;
+    final incoming = _incomingRequestsSubscription;
     _requestSubscription = null;
     _connectionSubscription = null;
+    _incomingRequestsSubscription = null;
     await request?.cancel();
     await connection?.cancel();
+    await incoming?.cancel();
   }
 
   Future<void> _watchCurrentFlow(MatchRequest request) async {
@@ -161,6 +170,57 @@ class CompanionController extends ChangeNotifier {
       companionId: companion.id,
     );
     await _watchCurrentFlow(currentRequest!);
+  });
+
+  void watchIncomingRequests() {
+    if (_incomingRequestsSubscription != null) return;
+    isLoadingIncomingRequests = true;
+    incomingRequestsError = null;
+    notifyListeners();
+    _incomingRequestsSubscription = service.watchIncomingRequests().listen(
+      (latest) {
+        if (_disposed) return;
+        incomingRequests = latest;
+        isLoadingIncomingRequests = false;
+        incomingRequestsError = null;
+        notifyListeners();
+      },
+      onError: (Object error) {
+        if (_disposed) return;
+        isLoadingIncomingRequests = false;
+        incomingRequestsError = error.toString();
+        notifyListeners();
+      },
+    );
+  }
+
+  Future<void> respondToIncomingRequest({
+    required CompanionIncomingRequest incoming,
+    required MatchRequestStatus status,
+  }) => _run(() async {
+    if (status != MatchRequestStatus.accepted &&
+        status != MatchRequestStatus.declined) {
+      throw ArgumentError.value(
+        status,
+        'status',
+        'Incoming requests can only be accepted or declined.',
+      );
+    }
+    final updated = await service.updateMatchRequestStatus(
+      requestId: incoming.request.id,
+      status: status,
+    );
+    currentRequest = updated;
+    if (updated.status == MatchRequestStatus.accepted) {
+      currentConnection = await service.createConnectionFromAcceptedRequest(
+        updated,
+      );
+    } else {
+      currentConnection = null;
+    }
+    incomingRequests = incomingRequests
+        .where((request) => request.request.id != updated.id)
+        .toList(growable: false);
   });
 
   Future<void> acceptCurrentRequest() => _run(() async {

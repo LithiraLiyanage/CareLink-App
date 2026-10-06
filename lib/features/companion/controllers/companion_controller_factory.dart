@@ -1,10 +1,10 @@
 import '../services/companion_service.dart';
-import '../services/mock_companion_service.dart';
+import '../services/firebase_companion_service.dart';
 import 'companion_controller.dart';
 
-/// The single companion service selection point. Keep mock active until the
-/// approval schema, profile publisher, and Firestore rules are ready.
-CompanionService createCompanionService() => MockCompanionService();
+/// The authenticated application uses Firestore. Tests and previews should
+/// inject [MockCompanionService] through [createCompanionController].
+CompanionService createCompanionService() => FirebaseCompanionService();
 
-CompanionController createCompanionController() =>
-    CompanionController(service: createCompanionService());
+CompanionController createCompanionController({CompanionService? service}) =>
+    CompanionController(service: service ?? createCompanionService());

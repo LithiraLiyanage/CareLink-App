@@ -1,10 +1,12 @@
 import 'package:carelink_app/app/theme.dart';
+import 'package:carelink_app/features/companion/controllers/companion_controller.dart';
 import 'package:carelink_app/features/companion/models/companion_language.dart';
 import 'package:carelink_app/features/companion/models/companion_profile.dart';
 import 'package:carelink_app/features/companion/models/companion_strings.dart';
 import 'package:carelink_app/features/companion/screens/current_connection_screen.dart';
 import 'package:carelink_app/features/companion/screens/end_connection_confirmation_screen.dart';
 import 'package:carelink_app/features/companion/screens/recommended_companions_screen.dart';
+import 'package:carelink_app/features/companion/services/mock_companion_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -76,6 +78,8 @@ void main() {
     const language = CompanionLanguage.tamil;
     final strings = CompanionStrings(language);
     final navigatorKey = GlobalKey<NavigatorState>();
+    final controller = CompanionController(service: MockCompanionService());
+    addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(
         navigatorKey: navigatorKey,
@@ -87,8 +91,10 @@ void main() {
     navigatorKey.currentState!.push(
       MaterialPageRoute<void>(
         settings: const RouteSettings(name: '/companion-recommendations'),
-        builder: (_) =>
-            const RecommendedCompanionsScreen(selectedLanguage: language),
+        builder: (_) => RecommendedCompanionsScreen(
+          selectedLanguage: language,
+          controller: controller,
+        ),
       ),
     );
     await tester.pumpAndSettle();

@@ -59,6 +59,31 @@ void main() {
     );
   });
 
+  test('matching profile maps public fields and tolerates optional gaps', () {
+    final profile = CompanionProfile.fromMap({
+      'id': 'student_1',
+      'userId': 'student_1',
+      'fullName': 'Student One',
+      'active': true,
+      'verified': true,
+      'languages': ['Sinhala'],
+      'interests': ['Music'],
+      'availability': 'Weekends',
+      'preferredTimes': ['Evening'],
+      'profileImageUrl': 'https://example.invalid/profile.jpg',
+    });
+
+    expect(profile.name, 'Student One');
+    expect(profile.languages, ['Sinhala']);
+    expect(profile.interests, ['Music']);
+    expect(profile.availableSlots, ['Weekends']);
+    expect(profile.preferredTimes, ['Evening']);
+    expect(profile.profileImageUrl, 'https://example.invalid/profile.jpg');
+    expect(profile.about, isEmpty);
+    expect(profile.toMap().keys, isNot(contains('email')));
+    expect(profile.toMap().keys, isNot(contains('phone')));
+  });
+
   test('mock ranking produces reasons only for actual matches', () async {
     final service = MockCompanionService();
     const preferences = MatchPreferences(

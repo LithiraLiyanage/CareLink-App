@@ -1,4 +1,5 @@
 import '../models/companion_connection.dart';
+import '../models/companion_incoming_request.dart';
 import '../models/companion_profile.dart';
 import '../models/conversation_idea.dart';
 import '../models/match_preferences.dart';
@@ -32,6 +33,8 @@ abstract class CompanionService {
   });
 
   Stream<MatchRequest?> watchMatchRequest(String requestId);
+
+  Stream<List<CompanionIncomingRequest>> watchIncomingRequests();
 
   Future<CompanionConnection> createConnectionFromAcceptedRequest(
     MatchRequest request,

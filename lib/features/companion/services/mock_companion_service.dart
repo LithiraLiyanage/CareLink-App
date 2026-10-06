@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../models/companion_connection.dart';
+import '../models/companion_incoming_request.dart';
 import '../models/companion_profile.dart';
 import '../models/conversation_idea.dart';
 import '../models/match_preferences.dart';
@@ -30,7 +31,7 @@ class MockCompanionService implements CompanionService {
   int _nextRequestId = 0;
   int _nextConnectionId = 0;
 
-  static const List<CompanionProfile> _profiles = [
+  static const List<CompanionProfile> mockProfiles = [
     CompanionProfile(
       id: 'companion_nethmi',
       userId: 'user_nethmi',
@@ -148,11 +149,11 @@ class MockCompanionService implements CompanionService {
   @override
   Future<List<MatchRecommendation>> getRecommendations(
     MatchPreferences preferences,
-  ) async => rankCompanions(_profiles, preferences);
+  ) async => rankCompanions(mockProfiles, preferences);
 
   @override
   Future<CompanionProfile?> getCompanionById(String companionId) async {
-    for (final profile in _profiles) {
+    for (final profile in mockProfiles) {
       if (profile.id == companionId) return profile;
     }
     return null;
@@ -218,6 +219,11 @@ class MockCompanionService implements CompanionService {
     yield* _requestChanges.stream
         .where((request) => request.id == requestId)
         .map((request) => request);
+  }
+
+  @override
+  Stream<List<CompanionIncomingRequest>> watchIncomingRequests() async* {
+    yield const [];
   }
 
   @override

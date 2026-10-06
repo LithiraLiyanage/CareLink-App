@@ -71,10 +71,12 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
 
         final strings = CompanionStrings(language);
+        final controller = CompanionController(service: MockCompanionService());
+        addTearDown(controller.dispose);
         await tester.pumpWidget(
           MaterialApp(
             theme: CareLinkTheme.lightTheme,
-            home: const MatchingPreferencesScreen(),
+            home: MatchingPreferencesScreen(controller: controller),
           ),
         );
 
@@ -308,12 +310,15 @@ void main() {
     );
     const language = CompanionLanguage.tamil;
     final strings = CompanionStrings(language);
+    final controller = CompanionController(service: MockCompanionService());
+    addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(
         theme: CareLinkTheme.lightTheme,
-        home: const RecommendedCompanionsScreen(
+        home: RecommendedCompanionsScreen(
           selectedLanguage: language,
           preferences: preferences,
+          controller: controller,
         ),
       ),
     );
@@ -360,6 +365,7 @@ void main() {
           home: RecommendedCompanionsScreen(
             selectedLanguage: CompanionLanguage.tamil,
             preferences: preferences,
+            controller: CompanionController(service: MockCompanionService()),
           ),
         ),
       );

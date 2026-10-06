@@ -1,4 +1,5 @@
 import 'package:carelink_app/app/theme.dart';
+import 'package:carelink_app/features/companion/controllers/companion_controller.dart';
 import 'package:carelink_app/features/companion/models/companion_language.dart';
 import 'package:carelink_app/features/companion/models/companion_profile.dart';
 import 'package:carelink_app/features/companion/models/companion_strings.dart';
@@ -10,6 +11,7 @@ import 'package:carelink_app/features/companion/screens/matching_preferences_scr
 import 'package:carelink_app/features/companion/screens/recommended_companions_screen.dart';
 import 'package:carelink_app/features/companion/screens/request_declined_screen.dart';
 import 'package:carelink_app/features/companion/screens/request_pending_screen.dart';
+import 'package:carelink_app/features/companion/services/mock_companion_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -37,10 +39,12 @@ Future<void> _openPending(
   CompanionLanguage language,
   CompanionStrings strings,
 ) async {
+  final controller = CompanionController(service: MockCompanionService());
+  addTearDown(controller.dispose);
   await tester.pumpWidget(
     MaterialApp(
       theme: CareLinkTheme.lightTheme,
-      home: const MatchingPreferencesScreen(),
+      home: MatchingPreferencesScreen(controller: controller),
     ),
   );
   await _tapVisible(tester, find.text(language.displayLabel));

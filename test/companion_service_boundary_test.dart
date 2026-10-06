@@ -7,6 +7,7 @@ import 'package:carelink_app/features/companion/models/match_preferences.dart';
 import 'package:carelink_app/features/companion/models/match_request.dart';
 import 'package:carelink_app/features/companion/screens/request_pending_screen.dart';
 import 'package:carelink_app/features/companion/screens/scheduling_handoff_screen.dart';
+import 'package:carelink_app/features/companion/services/firebase_companion_service.dart';
 import 'package:carelink_app/features/companion/services/mock_companion_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,10 +23,10 @@ class _CustomElderMockService extends MockCompanionService {
 }
 
 void main() {
-  test('one service selection point keeps the mock implementation active', () {
-    expect(createCompanionService(), isA<MockCompanionService>());
+  test('authenticated service selection uses Firebase by default', () {
+    expect(createCompanionService(), isA<FirebaseCompanionService>());
     final controller = createCompanionController();
-    expect(controller.service, isA<MockCompanionService>());
+    expect(controller.service, isA<FirebaseCompanionService>());
     controller.dispose();
   });
 
@@ -61,7 +62,9 @@ void main() {
 
   for (final (expectedId, preferences) in rankingCases) {
     test('$expectedId ranks first from actual mock preferences', () async {
-      final controller = createCompanionController();
+      final controller = createCompanionController(
+        service: MockCompanionService(),
+      );
       addTearDown(controller.dispose);
       await controller.loadRecommendations(preferences);
       expect(controller.errorMessage, isNull);

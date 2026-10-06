@@ -23,7 +23,10 @@ List<MatchRecommendation> rankCompanions(
       (language) =>
           language.toLowerCase() == preferences.preferredLanguage.toLowerCase(),
     );
-    final availability = companion.availableSlots.join(' ').toLowerCase();
+    final availability = [
+      ...companion.availableSlots,
+      ...companion.preferredTimes,
+    ].join(' ').toLowerCase();
     final desiredDay = preferences.availability.trim().toLowerCase();
     final dayMatch = switch (desiredDay) {
       'weekend' || 'weekends' =>

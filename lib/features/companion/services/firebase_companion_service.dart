@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/companion_connection.dart';
+import '../models/companion_incoming_request.dart';
 import '../models/companion_profile.dart';
 import '../models/conversation_idea.dart';
 import '../models/match_preferences.dart';
@@ -11,15 +12,16 @@ import 'companion_matching.dart';
 import 'companion_service.dart';
 import 'mock_companion_service.dart';
 
-/// Firestore foundation only. Screens still use the mock service until the
-/// security rules and trusted student-profile projection have been reviewed.
+/// Firestore-backed matching and connection lifecycle for authenticated users.
 class FirebaseCompanionService implements CompanionService {
   FirebaseCompanionService({FirebaseAuth? auth, FirebaseFirestore? firestore})
-    : _auth = auth ?? FirebaseAuth.instance,
-      _db = firestore ?? FirebaseFirestore.instance;
+    : _injectedAuth = auth,
+      _injectedFirestore = firestore;
 
-  final FirebaseAuth _auth;
-  final FirebaseFirestore _db;
+  final FirebaseAuth? _injectedAuth;
+  final FirebaseFirestore? _injectedFirestore;
+  FirebaseAuth get _auth => _injectedAuth ?? FirebaseAuth.instance;
+  FirebaseFirestore get _db => _injectedFirestore ?? FirebaseFirestore.instance;
   final MockCompanionService _localIdeas = MockCompanionService();
 
   static const _elderRole = 'Older Adult';
@@ -55,52 +57,89 @@ class FirebaseCompanionService implements CompanionService {
   String _pairId(String elderUid, String studentUid) =>
       '${elderUid.length}_$elderUid$studentUid';
 
-  Future<void> _requireElder(String uid) async {
+  Future<void> _requireRole(String uid, String role) async {
     final user = await _user(uid).get();
-    if (user.data()?['role'] != _elderRole) {
-      throw StateError('Only an Older Adult can use companion matching.');
+    if (user.data()?['role'] != role) {
+      throw StateError('Only a $role account can use this companion action.');
+    }
+    if (role == _studentRole &&
+        user.data()?['verificationStatus'] != _verified) {
+      throw StateError('Student verification must be verified to participate.');
     }
   }
 
   bool _eligible(Map<String, dynamic>? data) =>
       data != null &&
-      data['role'] == _studentRole &&
-      data['verificationStatus'] == _verified &&
       data['active'] == true &&
-      (data['name'] as String?)?.trim().isNotEmpty == true;
+      data['verificationStatus'] == _verified &&
+      (data['fullName'] as String?)?.trim().isNotEmpty == true;
 
-  Future<bool> _isVerifiedStudentProfile(
+  bool _isEligibleStudentProfile(
     String uid,
     Map<String, dynamic>? profileData,
-  ) async {
-    if (!_eligible(profileData)) return false;
-    final snapshots = await Future.wait([
-      _user(uid).get(),
-      _db.collection('student_verifications').doc(uid).get(),
-    ]);
-    return snapshots[0].data()?['role'] == _studentRole &&
-        snapshots[0].data()?['verificationStatus'] == _verified &&
-        snapshots[1].data()?['status'] == _verified;
-  }
+  ) => _eligible(profileData) && profileData?['userId'] == uid;
 
   CompanionProfile _candidate(String uid, Map<String, dynamic> data) {
     final availability = data['availability'];
-    final slots = availability is List
+    final availabilitySlots = availability is List
         ? availability.whereType<String>().toList()
-        : data['availabilitySlots'];
+        : availability is String && availability.trim().isNotEmpty
+        ? [availability]
+        : <String>[];
+    final preferredTimes = data['preferredTimes'] is List
+        ? (data['preferredTimes'] as List).whereType<String>().toList()
+        : <String>[];
     return CompanionProfile.fromMap({
-      ...data,
       'id': uid,
-      'userId': uid,
-      'verified': true,
+      'userId': data['userId'] as String? ?? uid,
+      'fullName': data['fullName'] as String? ?? '',
+      'bio': data['bio'] as String? ?? '',
+      'languages': data['languages'] is List
+          ? data['languages']
+          : const <String>[],
+      'interests': data['interests'] is List
+          ? data['interests']
+          : const <String>[],
       'availability': availability is String
           ? availability
-          : slots is List
-          ? slots.whereType<String>().join(', ')
-          : '',
-      'availabilitySlots': slots is List ? slots : const <String>[],
+          : availabilitySlots.join(', '),
+      'availabilitySlots': availabilitySlots,
+      'preferredTimes': preferredTimes,
+      'profileImageUrl': data['profileImageUrl'] as String?,
+      'verified': true,
+      'active': true,
       'profileImagePath': '',
     });
+  }
+
+  static bool _matchesPreference(String wanted, Iterable<String> options) {
+    final normalizedWanted = wanted.trim().toLowerCase();
+    if (normalizedWanted.isEmpty) return false;
+    final normalizedOptions = options.join(' ').toLowerCase();
+    return switch (normalizedWanted) {
+      'weekday' || 'weekdays' =>
+        normalizedOptions.contains('weekday') ||
+            normalizedOptions.contains('monday') ||
+            normalizedOptions.contains('tuesday') ||
+            normalizedOptions.contains('wednesday') ||
+            normalizedOptions.contains('thursday') ||
+            normalizedOptions.contains('friday'),
+      'weekend' || 'weekends' =>
+        normalizedOptions.contains('weekend') ||
+            normalizedOptions.contains('saturday') ||
+            normalizedOptions.contains('sunday'),
+      _ => normalizedOptions.contains(normalizedWanted),
+    };
+  }
+
+  CompanionIncomingRequest _incomingRequest(MatchRequest request) {
+    return CompanionIncomingRequest(
+      request: request,
+      elderDisplayName: request.elderDisplayName,
+      preferredLanguage: request.preferredLanguage,
+      sharedInterests: request.sharedInterests,
+      compatibleAvailability: request.compatibleAvailability,
+    );
   }
 
   Map<String, dynamic> _dated(
@@ -119,24 +158,18 @@ class FirebaseCompanionService implements CompanionService {
       MatchRequest.fromMap({
         ..._dated(data, ['createdAt', 'respondedAt']),
         'id': id,
-        'createdAt': data['createdAt'] is Timestamp
-            ? (data['createdAt'] as Timestamp).toDate()
-            : DateTime.now(),
       });
 
   CompanionConnection _connectionModel(String id, Map<String, dynamic> data) =>
       CompanionConnection.fromMap({
         ..._dated(data, ['startedAt', 'pausedAt', 'endedAt']),
         'id': id,
-        'startedAt': data['startedAt'] is Timestamp
-            ? (data['startedAt'] as Timestamp).toDate()
-            : DateTime.now(),
       });
 
   @override
   Future<void> saveMatchPreferences(MatchPreferences preferences) async {
     final uid = _uid;
-    await _requireElder(uid);
+    await _requireRole(uid, _elderRole);
     await _db.collection('matching_preferences').doc(uid).set({
       ...preferences.toMap(),
       'elderId': uid,
@@ -149,17 +182,15 @@ class FirebaseCompanionService implements CompanionService {
     MatchPreferences preferences,
   ) async {
     final uid = _uid;
-    await _requireElder(uid);
+    await _requireRole(uid, _elderRole);
     final candidates = await _db
         .collection('companion_profiles')
-        .where('role', isEqualTo: _studentRole)
-        .where('verificationStatus', isEqualTo: _verified)
         .where('active', isEqualTo: true)
+        .where('verificationStatus', isEqualTo: _verified)
         .get();
     final eligibleProfiles = <CompanionProfile>[];
     for (final doc in candidates.docs) {
-      if (doc.id != uid &&
-          await _isVerifiedStudentProfile(doc.id, doc.data())) {
+      if (doc.id != uid && _isEligibleStudentProfile(doc.id, doc.data())) {
         eligibleProfiles.add(_candidate(doc.id, doc.data()));
       }
     }
@@ -169,9 +200,9 @@ class FirebaseCompanionService implements CompanionService {
   @override
   Future<CompanionProfile?> getCompanionById(String companionId) async {
     final uid = _uid;
-    await _requireElder(uid);
+    await _requireRole(uid, _elderRole);
     final doc = await _profile(companionId).get();
-    return doc.id != uid && await _isVerifiedStudentProfile(doc.id, doc.data())
+    return doc.id != uid && _isEligibleStudentProfile(doc.id, doc.data())
         ? _candidate(doc.id, doc.data()!)
         : null;
   }
@@ -185,6 +216,7 @@ class FirebaseCompanionService implements CompanionService {
     // caller-supplied identity, including the controller's current mock ID.
     final uid = _uid;
     if (uid == companionId) throw StateError('You cannot request yourself.');
+    await _requireRole(uid, _elderRole);
     final pair = _pairId(uid, companionId);
     final userRef = _user(uid);
     final profileRef = _profile(companionId);
@@ -193,9 +225,8 @@ class FirebaseCompanionService implements CompanionService {
     await _db.runTransaction((tx) async {
       final user = await tx.get(userRef);
       final student = await tx.get(profileRef);
-      final studentUser = await tx.get(_user(companionId));
-      final verification = await tx.get(
-        _db.collection('student_verifications').doc(companionId),
+      final preferences = await tx.get(
+        _db.collection('matching_preferences').doc(uid),
       );
       final pairState = await tx.get(pairRef);
       final previousId = pairState.data()?['currentRequestId'] as String?;
@@ -210,9 +241,7 @@ class FirebaseCompanionService implements CompanionService {
         throw StateError('Only an Older Adult can send match requests.');
       }
       if (!_eligible(student.data()) ||
-          studentUser.data()?['role'] != _studentRole ||
-          studentUser.data()?['verificationStatus'] != _verified ||
-          verification.data()?['status'] != _verified) {
+          student.data()?['userId'] != companionId) {
         throw StateError('This student is not available for matching.');
       }
       if (previous?.data()?['status'] == 'pending' ||
@@ -224,13 +253,57 @@ class FirebaseCompanionService implements CompanionService {
           ['active', 'paused'].contains(connection.data()?['status'])) {
         throw StateError('You are already connected to this companion.');
       }
+      final preferenceData = preferences.data() ?? const <String, dynamic>{};
+      final elderInterests = preferenceData['interests'] is List
+          ? (preferenceData['interests'] as List).whereType<String>().toList(
+              growable: false,
+            )
+          : const <String>[];
+      final studentInterests = student.data()?['interests'] is List
+          ? (student.data()!['interests'] as List).whereType<String>().toList(
+              growable: false,
+            )
+          : const <String>[];
+      final availability = student.data()?['availability'];
+      final availabilityOptions = availability is List
+          ? availability.whereType<String>().toList()
+          : availability is String
+          ? [availability]
+          : const <String>[];
+      final preferredTimes = student.data()?['preferredTimes'] is List
+          ? (student.data()!['preferredTimes'] as List)
+                .whereType<String>()
+                .toList()
+          : const <String>[];
+      final wantedDay = preferenceData['availability'] as String? ?? '';
+      final wantedTime = preferenceData['preferredTime'] as String? ?? '';
+      final dayMatches = _matchesPreference(wantedDay, availabilityOptions);
+      final timeMatches = _matchesPreference(wantedTime, [
+        ...availabilityOptions,
+        ...preferredTimes,
+      ]);
+      final compatibleAvailability = [
+        if (dayMatches) wantedDay,
+        if (timeMatches) wantedTime,
+      ].where((value) => value.isNotEmpty).join(' · ');
       tx.set(requestRef, {
         'elderId': uid,
         'companionId': companionId,
-        'pairId': pair,
         'status': MatchRequestStatus.pending.name,
         'createdAt': FieldValue.serverTimestamp(),
         'respondedAt': null,
+        'elderDisplayName': user.data()?['fullName'] as String? ?? '',
+        'preferredLanguage':
+            preferenceData['preferredLanguage'] as String? ?? '',
+        'sharedInterests': elderInterests
+            .where(
+              (interest) => studentInterests.any(
+                (other) => other.toLowerCase() == interest.toLowerCase(),
+              ),
+            )
+            .toSet()
+            .toList(growable: false),
+        'compatibleAvailability': compatibleAvailability,
       });
       tx.set(pairRef, {
         'elderId': uid,
@@ -265,18 +338,21 @@ class FirebaseCompanionService implements CompanionService {
       final studentUid = data['companionId'] as String;
       final pairId = _pairId(elderUid, studentUid);
       final pairState = await tx.get(_requestPair(pairId));
-      if (data['pairId'] != pairId ||
-          pairState.data()?['currentRequestId'] != requestId) {
+      final currentUser = await tx.get(_user(uid));
+      if (pairState.data()?['currentRequestId'] != requestId) {
         throw StateError('Invalid match request.');
       }
-      if (status == MatchRequestStatus.cancelled
-          ? uid != elderUid
-          : uid != studentUid) {
+      final isCancellation = status == MatchRequestStatus.cancelled;
+      if ((isCancellation &&
+              (uid != elderUid || currentUser.data()?['role'] != _elderRole)) ||
+          (!isCancellation &&
+              (uid != studentUid ||
+                  currentUser.data()?['role'] != _studentRole ||
+                  currentUser.data()?['verificationStatus'] != _verified))) {
         throw StateError('You cannot respond to this request.');
       }
       if (status == MatchRequestStatus.accepted) {
         final student = await tx.get(_profile(studentUid));
-        final studentUser = await tx.get(_user(studentUid));
         final verification = await tx.get(
           _db.collection('student_verifications').doc(studentUid),
         );
@@ -285,9 +361,8 @@ class FirebaseCompanionService implements CompanionService {
             ? null
             : await tx.get(_connection(existingId));
         if (!_eligible(student.data()) ||
-            studentUser.data()?['role'] != _studentRole ||
-            studentUser.data()?['verificationStatus'] != _verified ||
-            verification.data()?['status'] != _verified) {
+            (verification.exists &&
+                verification.data()?['status'] != _verified)) {
           throw StateError('The student is no longer verified or active.');
         }
         if (existing != null && existing.data()?['status'] != 'ended') {
@@ -329,6 +404,23 @@ class FirebaseCompanionService implements CompanionService {
       final value = doc.data();
       return value == null ? null : _requestModel(doc.id, value);
     });
+  }
+
+  @override
+  Stream<List<CompanionIncomingRequest>> watchIncomingRequests() async* {
+    final uid = _uid;
+    await _requireRole(uid, _studentRole);
+    yield* _db
+        .collection('match_requests')
+        .where('companionId', isEqualTo: uid)
+        .where('status', isEqualTo: MatchRequestStatus.pending.name)
+        .snapshots()
+        .asyncMap((snapshot) async {
+          final requests = snapshot.docs.map(
+            (doc) => _incomingRequest(_requestModel(doc.id, doc.data())),
+          );
+          return List.unmodifiable(requests);
+        });
   }
 
   @override
@@ -382,7 +474,7 @@ class FirebaseCompanionService implements CompanionService {
   @override
   Future<CompanionConnection?> getCurrentConnection(String elderId) async {
     final uid = _uid;
-    await _requireElder(uid);
+    await _requireRole(uid, _elderRole);
     final snapshot = await _db
         .collection('connections')
         .where('elderId', isEqualTo: uid)
@@ -393,7 +485,7 @@ class FirebaseCompanionService implements CompanionService {
   @override
   Stream<CompanionConnection?> watchCurrentConnection(String elderId) async* {
     final uid = _uid;
-    await _requireElder(uid);
+    await _requireRole(uid, _elderRole);
     yield* _db
         .collection('connections')
         .where('elderId', isEqualTo: uid)

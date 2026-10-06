@@ -1,5 +1,6 @@
 import '../models/companion_profile.dart';
 import '../models/match_preferences.dart';
+import 'mock_companion_service.dart';
 
 enum RecommendationReason {
   sameLanguage,
@@ -8,44 +9,17 @@ enum RecommendationReason {
   preferredTime,
 }
 
-/// Local sample profiles and a deterministic preference-based ordering.
+/// Deterministic preference scoring for local previews.
 /// No connection or request is created by viewing these recommendations.
 abstract final class CompanionRecommendations {
-  static const profiles = <CompanionProfile>[
-    CompanionProfile(
-      id: 'nethmi',
-      name: 'Nethmi Jayasooriya',
-      imagePath: 'assets/images/companion_nethmi.png',
-      verified: true,
-      languages: ['Sinhala', 'English', 'Tamil'],
-      interests: ['Gardening', 'Music', 'Traditional Food'],
-      availability: 'Sunday, 4:00 PM - 7:00 PM',
-      shortAvailability: 'Sunday evenings',
-      about: 'University student volunteer who enjoys meaningful conversations and community activities.',
-    ),
-    CompanionProfile(
-      id: 'amaya',
-      name: 'Amaya Perera',
-      imagePath: 'assets/images/companion_amaya.png',
-      verified: true,
-      languages: ['English'],
-      interests: ['Books', 'Movies'],
-      availability: 'Weekend mornings',
-      shortAvailability: 'Weekend morning',
-      about: 'University student volunteer who enjoys books, movies and friendly conversations.',
-    ),
-    CompanionProfile(
-      id: 'kavindu',
-      name: 'Kavindu Silva',
-      imagePath: 'assets/images/companion_kavindu.png',
-      verified: true,
-      languages: ['Sinhala'],
-      interests: ['Music', 'Culture'],
-      availability: 'Weekday evenings',
-      shortAvailability: 'Weekday evening',
-      about: 'University student volunteer interested in music, culture and meaningful conversations.',
-    ),
-  ];
+  static final profiles = MockCompanionService.mockProfiles
+      .map(
+        (profile) => CompanionProfile.fromMap({
+          ...profile.toMap(),
+          'id': profile.id.replaceFirst('companion_', ''),
+        }),
+      )
+      .toList(growable: false);
 
   static List<CompanionProfile> ordered(MatchPreferences preferences) {
     final ranked = List<CompanionProfile>.of(profiles);
