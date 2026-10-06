@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
+
 /// Static detail view for a coordinator safety case.
 class CoordinatorCaseDetailScreen extends StatelessWidget {
   const CoordinatorCaseDetailScreen({super.key});
@@ -122,7 +124,7 @@ class CoordinatorCaseDetailScreen extends StatelessWidget {
                         icon: Icons.person_outline,
                         label: 'Contact Approved Person',
                         onTap: () =>
-                            Navigator.of(context).pushNamed('/consent-context'),
+                            Navigator.of(context).pushNamed(AppRoutes.consentContextReview),
                       ),
                     ],
                   ),

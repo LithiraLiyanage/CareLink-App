@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
+
 /// Static coordinator view of an older adult's consent and shared context.
 class ConsentContextReviewScreen extends StatelessWidget {
   const ConsentContextReviewScreen({super.key});
@@ -127,7 +129,7 @@ class _ProfileCard extends StatelessWidget {
     color: Colors.transparent,
     child: InkWell(
       borderRadius: BorderRadius.circular(14),
-      onTap: () => Navigator.of(context).pushNamed('/approved-contact'),
+      onTap: () => Navigator.of(context).pushNamed(AppRoutes.approvedContactAction),
       child: Ink(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
         decoration: _cardDecoration(),

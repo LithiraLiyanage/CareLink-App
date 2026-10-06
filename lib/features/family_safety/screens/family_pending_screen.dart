@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
+
 class FamilyPendingScreen extends StatelessWidget {
   const FamilyPendingScreen({super.key});
 
@@ -23,7 +25,7 @@ class FamilyPendingScreen extends StatelessWidget {
         leading: IconButton(
           tooltip: 'Back to family linking',
           onPressed: () => Navigator.of(context).pushReplacementNamed(
-            '/family-linking',
+            AppRoutes.familyLinking,
           ),
           icon: const Icon(Icons.arrow_back_rounded, color: _ink, size: 23),
         ),
@@ -105,7 +107,7 @@ class FamilyPendingScreen extends StatelessWidget {
                           child: InkWell(
                             borderRadius: BorderRadius.circular(14),
                             onTap: () => Navigator.of(context)
-                                .pushNamed('/family-approved'),
+                                .pushNamed(AppRoutes.familyApproved),
                             child: Container(
                               height: 48,
                               alignment: Alignment.center,

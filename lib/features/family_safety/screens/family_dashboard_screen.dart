@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
+
 /// Static family caregiver dashboard shown after a connection is approved.
 class FamilyDashboardScreen extends StatelessWidget {
   const FamilyDashboardScreen({super.key});
@@ -24,7 +26,7 @@ class FamilyDashboardScreen extends StatelessWidget {
         leading: IconButton(
           tooltip: 'Open family linking',
           onPressed: () =>
-              Navigator.of(context).pushNamed('/family-linking'),
+              Navigator.of(context).pushNamed(AppRoutes.familyLinking),
           icon: const Icon(Icons.menu_rounded, color: _ink, size: 24),
         ),
         title: const Text(
@@ -501,7 +503,7 @@ class _DashboardNavigationBar extends StatelessWidget {
             _NavigationItem(
               icon: Icons.notifications_none_rounded,
               label: 'Notifications',
-              onTap: () => Navigator.of(context).pushNamed('/missed-session'),
+              onTap: () => Navigator.of(context).pushNamed(AppRoutes.missedSession),
             ),
             const _NavigationItem(
               icon: Icons.shield_outlined,

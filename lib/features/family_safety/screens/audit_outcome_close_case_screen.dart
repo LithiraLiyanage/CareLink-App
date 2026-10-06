@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
+
 /// Static coordinator view for recording a safety case outcome before
 /// closing the case.
 class AuditOutcomeCloseCaseScreen extends StatelessWidget {
@@ -236,7 +238,7 @@ class _CloseCaseButton extends StatelessWidget {
         height: 46,
         child: ElevatedButton(
           // Visual only: case closing is not implemented.
-          onPressed: () => Navigator.of(context).pushNamed('/case-closed'),
+          onPressed: () => Navigator.of(context).pushNamed(AppRoutes.caseClosed),
           style: ElevatedButton.styleFrom(
             backgroundColor: AuditOutcomeCloseCaseScreen._coral,
             foregroundColor: Colors.white,

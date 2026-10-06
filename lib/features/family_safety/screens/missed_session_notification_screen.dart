@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
+
 /// Static missed check-in notification shown to a family caregiver.
 class MissedSessionNotificationScreen extends StatelessWidget {
   const MissedSessionNotificationScreen({super.key});
@@ -27,7 +29,7 @@ class MissedSessionNotificationScreen extends StatelessWidget {
           tooltip: 'Back to family dashboard',
           onPressed: () => Navigator.pushReplacementNamed(
             context,
-            '/family-dashboard',
+            AppRoutes.familyDashboard,
           ),
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
@@ -112,7 +114,7 @@ class MissedSessionNotificationScreen extends StatelessWidget {
                         filled: true,
                         onPressed: () => Navigator.pushNamed(
                           context,
-                          '/coordinator-case',
+                          AppRoutes.coordinatorCaseList,
                         ),
                       ),
                       const SizedBox(height: 11),

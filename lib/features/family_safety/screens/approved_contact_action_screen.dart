@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
+
 /// Static coordinator view for contacting the elder's approved person
 /// after a missed check-in.
 class ApprovedContactActionScreen extends StatelessWidget {
@@ -123,7 +125,7 @@ class _ContactCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: () => Navigator.of(context).pushNamed('/case-outcome'),
+        onTap: () => Navigator.of(context).pushNamed(AppRoutes.auditOutcomeCloseCase),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
           decoration: _cardDecoration(),

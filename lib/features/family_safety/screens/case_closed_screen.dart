@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
+
 /// Static coordinator view confirming a safety case has been closed, with
 /// the audit timeline of actions taken.
 class CaseClosedScreen extends StatelessWidget {
@@ -326,13 +328,12 @@ class _BackToListButton extends StatelessWidget {
   /// Returns to the case list already in the stack, dropping the case flow
   /// screens; pushes a fresh case list if it was never opened.
   void _backToCaseList(BuildContext context) {
-    const caseListRoute = '/coordinator-case';
     var found = false;
     Navigator.of(context).popUntil((route) {
-      if (route.settings.name == caseListRoute) found = true;
+      if (route.settings.name == AppRoutes.coordinatorCaseList) found = true;
       return found || route.isFirst;
     });
-    if (!found) Navigator.of(context).pushNamed(caseListRoute);
+    if (!found) Navigator.of(context).pushNamed(AppRoutes.coordinatorCaseList);
   }
 
   @override

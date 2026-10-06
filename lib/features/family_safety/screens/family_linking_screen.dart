@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
+
 class FamilyLinkingScreen extends StatelessWidget {
   const FamilyLinkingScreen({super.key});
 
@@ -145,7 +147,7 @@ class FamilyLinkingScreen extends StatelessWidget {
                           child: InkWell(
                             borderRadius: BorderRadius.circular(14),
                             onTap: () =>
-                                Navigator.of(context).pushNamed('/family-pending'),
+                                Navigator.of(context).pushNamed(AppRoutes.familyPending),
                             child: Container(
                               height: 50,
                               decoration: BoxDecoration(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
+
 /// Static success state shown after an older adult approves a family request.
 class FamilyApprovedScreen extends StatelessWidget {
   const FamilyApprovedScreen({super.key});
@@ -24,7 +26,7 @@ class FamilyApprovedScreen extends StatelessWidget {
         leading: IconButton(
           tooltip: 'Back to pending request',
           onPressed: () => Navigator.of(context).pushReplacementNamed(
-            '/family-pending',
+            AppRoutes.familyPending,
           ),
           icon: const Icon(Icons.arrow_back_ios_new_rounded,
               color: _ink, size: 21),
@@ -107,7 +109,7 @@ class FamilyApprovedScreen extends StatelessWidget {
                           child: InkWell(
                             borderRadius: BorderRadius.circular(14),
                             onTap: () => Navigator.of(context)
-                                .pushNamed('/family-dashboard'),
+                                .pushNamed(AppRoutes.familyDashboard),
                             child: Container(
                               height: 48,
                               alignment: Alignment.center,

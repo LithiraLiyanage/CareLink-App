@@ -12,6 +12,7 @@ import '../features/family_safety/screens/consent_context_review_screen.dart';
 import '../features/family_safety/screens/approved_contact_action_screen.dart';
 import '../features/family_safety/screens/audit_outcome_close_case_screen.dart';
 import '../features/family_safety/screens/case_closed_screen.dart';
+import 'routes.dart';
 import 'theme.dart';
 
 class CareLinkApp extends StatelessWidget {
@@ -23,21 +24,21 @@ class CareLinkApp extends StatelessWidget {
       title: 'CareLink',
       debugShowCheckedModeBanner: false,
       theme: CareLinkTheme.lightTheme,
-      initialRoute: '/',
+      initialRoute: AppRoutes.roleSelection,
       routes: {
-        '/': (context) => const SplashScreen(),
-        '/family-linking': (context) => const FamilyLinkingScreen(),
-        '/family-pending': (context) => const FamilyPendingScreen(),
-        '/family-approved': (context) => const FamilyApprovedScreen(),
-        '/family-dashboard': (context) => const FamilyDashboardScreen(),
-        '/missed-session': (context) => const MissedSessionNotificationScreen(),
-        '/coordinator-case': (context) => const CoordinatorCaseListScreen(),
-        '/coordinator-case-details': (context) =>
+        AppRoutes.roleSelection: (context) => const SplashScreen(),
+        AppRoutes.familyLinking: (context) => const FamilyLinkingScreen(),
+        AppRoutes.familyPending: (context) => const FamilyPendingScreen(),
+        AppRoutes.familyApproved: (context) => const FamilyApprovedScreen(),
+        AppRoutes.familyDashboard: (context) => const FamilyDashboardScreen(),
+        AppRoutes.missedSession: (context) => const MissedSessionNotificationScreen(),
+        AppRoutes.coordinatorCaseList: (context) => const CoordinatorCaseListScreen(),
+        AppRoutes.coordinatorCaseDetail: (context) =>
             const CoordinatorCaseDetailScreen(),
-        '/consent-context': (context) => const ConsentContextReviewScreen(),
-        '/approved-contact': (context) => const ApprovedContactActionScreen(),
-        '/case-outcome': (context) => const AuditOutcomeCloseCaseScreen(),
-        '/case-closed': (context) => const CaseClosedScreen(),
+        AppRoutes.consentContextReview: (context) => const ConsentContextReviewScreen(),
+        AppRoutes.approvedContactAction: (context) => const ApprovedContactActionScreen(),
+        AppRoutes.auditOutcomeCloseCase: (context) => const AuditOutcomeCloseCaseScreen(),
+        AppRoutes.caseClosed: (context) => const CaseClosedScreen(),
       },
     );
   }

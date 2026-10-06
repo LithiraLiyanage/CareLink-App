@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
+
 /// Static coordinator view of missed check-in safety cases.
 class CoordinatorCaseListScreen extends StatelessWidget {
   const CoordinatorCaseListScreen({super.key});
@@ -32,7 +34,7 @@ class CoordinatorCaseListScreen extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           tooltip: 'Open missed session',
-          onPressed: () => Navigator.pushNamed(context, '/missed-session'),
+          onPressed: () => Navigator.pushNamed(context, AppRoutes.missedSession),
           icon: const Icon(Icons.menu_rounded, color: _teal, size: 24),
         ),
         title: const Text('CareLink', style: TextStyle(
@@ -45,7 +47,7 @@ class CoordinatorCaseListScreen extends StatelessWidget {
             tooltip: 'Open case details',
             onPressed: () => Navigator.pushNamed(
               context,
-              '/coordinator-case-details',
+              AppRoutes.coordinatorCaseDetail,
             ),
             padding: const EdgeInsets.only(right: 18),
             constraints: const BoxConstraints(),
@@ -186,7 +188,7 @@ class _CaseCard extends StatelessWidget {
               tooltip: 'Open case details',
               onPressed: () => Navigator.pushNamed(
                 context,
-                '/coordinator-case-details',
+                AppRoutes.coordinatorCaseDetail,
               ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
