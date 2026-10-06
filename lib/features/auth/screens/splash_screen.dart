@@ -1,97 +1,65 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+
+import 'onboarding_stay_connected_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
-
-  static const Color careColor = Color(0xFF31D5D2);
-  static const Color linkColor = Color(0xFFFF625F);
-
-  // Match this with the upper area of splash_bottom.png
-  static const Color splashBackground = Color(0xFF132C32);
-
-  // Route opened once the splash has been shown.
-  static const String nextRoute = '/family-linking';
-  static const Duration displayDuration = Duration(seconds: 2);
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  static const Color careColor = SplashScreen.careColor;
-  static const Color linkColor = SplashScreen.linkColor;
-  static const Color splashBackground = SplashScreen.splashBackground;
+  bool _isLoading = false;
 
-  Timer? _timer;
+  Future<void> _goToOnboarding() async {
+    if (_isLoading) return;
 
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer(SplashScreen.displayDuration, () {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed(SplashScreen.nextRoute);
+    setState(() {
+      _isLoading = true;
     });
-  }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+    await Future.delayed(
+      const Duration(milliseconds: 1200),
+    );
+
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            const OnboardingStayConnectedScreen(),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: splashBackground,
-      body: SizedBox.expand(
+      backgroundColor: const Color(0xFF0B3D43),
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _goToOnboarding,
         child: Stack(
+          fit: StackFit.expand,
           children: [
-            // ==========================================
-            // SAME BACKGROUND COLOR AS BOTTOM IMAGE
-            // ==========================================
-            const Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0xFF123238),
-                      Color(0xFF132D32),
-                      Color(0xFF132C32),
-                    ],
-                    stops: [0.0, 0.65, 1.0],
-                  ),
-                ),
-              ),
-            ),
-
-            // ==========================================
-            // BOTTOM ARTWORK
-            // Slight overlap prevents a visible seam.
-            // ==========================================
+            // Bottom decorative image
             Positioned(
               left: 0,
               right: 0,
-              bottom: -1,
-              child: Transform.translate(
-                offset: const Offset(0, -1),
-                child: Image.asset(
-                  'assets/images/splash_bottom.png',
-                  width: double.infinity,
-                  fit: BoxFit.fitWidth,
-                  filterQuality: FilterQuality.high,
-                ),
+              bottom: 0,
+              child: Image.asset(
+                'assets/images/splash_bottom.png',
+                width: double.infinity,
+                fit: BoxFit.fitWidth,
+                filterQuality: FilterQuality.high,
               ),
             ),
 
-            // ==========================================
-            // LOGO
-            // ==========================================
+            // Main logo
             Positioned(
-              top: 190,
+              top: 180,
               left: 0,
               right: 0,
               child: Center(
@@ -105,34 +73,30 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
 
-            // ==========================================
-            // CARELINK
-            // ==========================================
-            Positioned(
-              top: 395,
+            // CareLink text
+            const Positioned(
+              top: 382,
               left: 0,
               right: 0,
               child: Center(
-                child: RichText(
-                  text: const TextSpan(
+                child: Text.rich(
+                  TextSpan(
                     children: [
                       TextSpan(
                         text: 'Care',
                         style: TextStyle(
-                          color: careColor,
-                          fontSize: 42,
+                          color: Color(0xFF31D5D2),
+                          fontSize: 40,
                           fontWeight: FontWeight.w700,
-                          height: 1,
                           letterSpacing: -1,
                         ),
                       ),
                       TextSpan(
                         text: 'Link',
                         style: TextStyle(
-                          color: linkColor,
-                          fontSize: 42,
+                          color: Color(0xFFFF625F),
+                          fontSize: 40,
                           fontWeight: FontWeight.w700,
-                          height: 1,
                           letterSpacing: -1,
                         ),
                       ),
@@ -142,11 +106,9 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
 
-            // ==========================================
-            // TAGLINE
-            // ==========================================
+            // Tag line
             const Positioned(
-              top: 450,
+              top: 440,
               left: 0,
               right: 0,
               child: Text(
@@ -160,6 +122,35 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
               ),
             ),
+
+            // Loading indicator
+            if (_isLoading)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 90,
+                child: Column(
+                  children: [
+                    const SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        color: Color(0xFF31D5D2),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Loading...',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
