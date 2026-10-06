@@ -29,6 +29,8 @@ class AppRoutes {
 
   static const String companionHome = '/companion-home';
   static const String companionMatching = '/companion-matching';
+  static const String companionIncomingRequests =
+      '/companion-incoming-requests';
 
   // =========================
   // FAMILY & SAFETY
