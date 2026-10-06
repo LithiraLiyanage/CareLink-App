@@ -236,7 +236,7 @@ class _CloseCaseButton extends StatelessWidget {
         height: 46,
         child: ElevatedButton(
           // Visual only: case closing is not implemented.
-          onPressed: () {},
+          onPressed: () => Navigator.of(context).pushNamed('/case-closed'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AuditOutcomeCloseCaseScreen._coral,
             foregroundColor: Colors.white,
