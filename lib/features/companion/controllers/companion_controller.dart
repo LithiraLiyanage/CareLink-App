@@ -25,6 +25,7 @@ class CompanionController extends ChangeNotifier {
   MatchRequest? currentRequest;
   CompanionConnection? currentConnection;
   CompanionConnection? studentConnection;
+  MatchRequest? studentConnectionRequest;
   bool isLoadingStudentConnection = false;
   String? studentConnectionError;
   List<ConversationIdea> conversationIdeas = const [];
@@ -38,6 +39,7 @@ class CompanionController extends ChangeNotifier {
   StreamSubscription<CompanionConnection?>? _studentConnectionSubscription;
   StreamSubscription<List<CompanionIncomingRequest>>?
   _incomingRequestsSubscription;
+  String? _refreshedAcceptedRequestId;
   bool _disposed = false;
 
   Future<void> _stopWatching() async {
@@ -63,6 +65,11 @@ class CompanionController extends ChangeNotifier {
           (latest) {
             if (_disposed || latest?.id != currentRequest?.id) return;
             currentRequest = latest;
+            if (latest?.status == MatchRequestStatus.accepted &&
+                _refreshedAcceptedRequestId != latest?.id) {
+              _refreshedAcceptedRequestId = latest!.id;
+              unawaited(_refreshSelectedCompanion(latest.companionId));
+            }
             if (latest!.status == MatchRequestStatus.declined ||
                 latest.status == MatchRequestStatus.cancelled) {
               currentConnection = null;
@@ -96,6 +103,23 @@ class CompanionController extends ChangeNotifier {
             notifyListeners();
           },
         );
+  }
+
+  Future<void> _refreshSelectedCompanion(String companionId) async {
+    try {
+      final refreshed = await service.getCompanionById(companionId);
+      if (_disposed ||
+          refreshed == null ||
+          selectedCompanion?.id != companionId) {
+        return;
+      }
+      selectedCompanion = refreshed;
+      notifyListeners();
+    } catch (error) {
+      if (_disposed) return;
+      errorMessage = error.toString();
+      notifyListeners();
+    }
   }
 
   @override
@@ -210,6 +234,12 @@ class CompanionController extends ChangeNotifier {
       (latest) {
         if (_disposed) return;
         studentConnection = latest;
+        if (latest == null) {
+          studentConnectionRequest = null;
+        } else if (studentConnectionRequest?.id != latest.matchRequestId) {
+          studentConnectionRequest = null;
+          unawaited(_loadStudentConnectionRequest(latest));
+        }
         isLoadingStudentConnection = false;
         studentConnectionError = null;
         notifyListeners();
@@ -221,6 +251,23 @@ class CompanionController extends ChangeNotifier {
         notifyListeners();
       },
     );
+  }
+
+  Future<void> _loadStudentConnectionRequest(
+    CompanionConnection connection,
+  ) async {
+    final requestId = connection.matchRequestId;
+    if (requestId == null) return;
+    try {
+      final request = await service.getAcceptedRequest(requestId);
+      if (_disposed || studentConnection?.id != connection.id) return;
+      studentConnectionRequest = request;
+      notifyListeners();
+    } catch (error) {
+      if (_disposed || studentConnection?.id != connection.id) return;
+      studentConnectionError = error.toString();
+      notifyListeners();
+    }
   }
 
   Future<void> respondToIncomingRequest({
@@ -314,9 +361,10 @@ class CompanionController extends ChangeNotifier {
     currentConnection = await service.endConnection(connection);
   });
 
-  Future<void> loadConversationIdeas() => _run(() async {
-    conversationIdeas = await service.getConversationIdeas(
-      currentPreferences?.interests ?? const [],
-    );
-  });
+  Future<void> loadConversationIdeas({List<String>? interests}) =>
+      _run(() async {
+        conversationIdeas = await service.getConversationIdeas(
+          interests ?? currentPreferences?.interests ?? const [],
+        );
+      });
 }

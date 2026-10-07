@@ -9,12 +9,14 @@ class CompanionAvatar extends StatelessWidget {
     required this.name,
     required this.size,
     this.imagePath = '',
+    this.imageUrl,
     this.heroTag,
   });
 
   final String name;
   final double size;
   final String imagePath;
+  final String? imageUrl;
   final Object? heroTag;
 
   @override
@@ -37,7 +39,17 @@ class CompanionAvatar extends StatelessWidget {
         ),
       ),
     );
-    final image = imagePath.isEmpty
+    final image = imageUrl != null && imageUrl!.isNotEmpty
+        ? ClipOval(
+            child: Image.network(
+              imageUrl!,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => fallback,
+            ),
+          )
+        : imagePath.isEmpty
         ? fallback
         : ClipOval(
             child: Image.asset(

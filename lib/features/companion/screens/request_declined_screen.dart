@@ -94,6 +94,7 @@ class RequestDeclinedScreen extends StatelessWidget {
                               name: profile.name,
                               size: 76,
                               imagePath: profile.imagePath,
+                              imageUrl: profile.profileImageUrl,
                             ),
                             const SizedBox(height: 12),
                             Text(

@@ -262,6 +262,7 @@ class CompanionProfileScreen extends StatelessWidget {
                 name: profile.name,
                 size: 84,
                 imagePath: profile.imagePath,
+                imageUrl: profile.profileImageUrl,
                 heroTag: 'companion-avatar-${profile.id}',
               ),
               const SizedBox(height: 12),

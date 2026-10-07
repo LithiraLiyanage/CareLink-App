@@ -36,6 +36,8 @@ abstract class CompanionService {
 
   Stream<List<CompanionIncomingRequest>> watchIncomingRequests();
 
+  Future<MatchRequest?> getAcceptedRequest(String requestId);
+
   Future<CompanionConnection> createConnectionFromAcceptedRequest(
     MatchRequest request,
   );

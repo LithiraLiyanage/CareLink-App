@@ -19,7 +19,9 @@ class ConversationIdeasScreen extends StatefulWidget {
     super.key,
     required CompanionProfile profile,
     required this.selectedLanguage,
+    this.interests,
     this.openedFromCheckIn = false,
+    this.studentPerspective = false,
     this.controller,
   }) : _profile = profile;
 
@@ -27,9 +29,11 @@ class ConversationIdeasScreen extends StatefulWidget {
   CompanionProfile get profile => controller?.selectedCompanion ?? _profile;
   final CompanionLanguage selectedLanguage;
   final CompanionController? controller;
+  final List<String>? interests;
 
   /// Set to true only when an agreed check-in flow pushes this screen.
   final bool openedFromCheckIn;
+  final bool studentPerspective;
 
   @override
   State<ConversationIdeasScreen> createState() =>
@@ -73,7 +77,9 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.controller?.loadConversationIdeas();
+      if (mounted) {
+        widget.controller?.loadConversationIdeas(interests: widget.interests);
+      }
     });
   }
 
@@ -81,7 +87,9 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
     final controller = widget.controller;
     if (controller == null) return _ideas;
     final interests =
-        controller.currentPreferences?.interests ?? const <String>[];
+        widget.interests ??
+        controller.currentPreferences?.interests ??
+        const <String>[];
     final matching = controller.conversationIdeas
         .where(
           (idea) =>
@@ -124,9 +132,8 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
   }
 
   void _backToCheckIn(CompanionStrings strings) {
-    // TODO: The shared check-in flow should pass openedFromCheckIn: true when
-    // its route is agreed. This screen does not navigate into another module.
-    if (widget.openedFromCheckIn && Navigator.of(context).canPop()) {
+    if ((widget.openedFromCheckIn || widget.studentPerspective) &&
+        Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
       return;
     }
@@ -173,7 +180,9 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
                   children: [
                     CompanionFlowHeader(
                       onBack: () => Navigator.of(context).maybePop(),
-                      backTooltip: strings.backToCheckIn,
+                      backTooltip: widget.studentPerspective
+                          ? 'Back to Home'
+                          : strings.backToCheckIn,
                       trailingIcon: null,
                       showCoralDot: true,
                     ),
@@ -304,7 +313,9 @@ class _ConversationIdeasScreenState extends State<ConversationIdeasScreen> {
                               final backButton = ElevatedButton(
                                 onPressed: () => _backToCheckIn(strings),
                                 child: Text(
-                                  strings.backToCheckIn,
+                                  widget.studentPerspective
+                                      ? 'Back to Home'
+                                      : strings.backToCheckIn,
                                   textAlign: TextAlign.center,
                                 ),
                               );
