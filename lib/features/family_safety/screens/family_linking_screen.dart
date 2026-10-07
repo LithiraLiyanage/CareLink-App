@@ -133,8 +133,8 @@ class FamilyLinkingScreen extends StatelessWidget {
                             ),
                             SizedBox(height: 12),
                             _InputField(
-                              label: 'Contact / ID',
-                              hint: 'Phone number or ID',
+                              label: 'ID Number',
+                              hint: 'Enter your ID number',
                               icon: Icons.badge_outlined,
                               textInputAction: TextInputAction.done,
                             ),
