@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 
 import '../services/student_verification_service.dart';
 import '../services/student_verification_validator.dart';
@@ -7,8 +6,13 @@ import 'verification_status_screen.dart';
 
 class StudentVerificationScreen extends StatefulWidget {
   final String selectedRole;
+  final StudentVerificationRepository? verificationRepository;
 
-  const StudentVerificationScreen({super.key, required this.selectedRole});
+  const StudentVerificationScreen({
+    super.key,
+    required this.selectedRole,
+    this.verificationRepository,
+  });
 
   @override
   State<StudentVerificationScreen> createState() =>
@@ -27,16 +31,16 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
   final _universityController = TextEditingController();
   final _studentIdController = TextEditingController();
   final _universityEmailController = TextEditingController();
-  final _verificationService = StudentVerificationService();
+  late final StudentVerificationRepository _verificationService;
 
-  PlatformFile? _selectedDocument;
   bool _confirmedAccurate = false;
-  bool _isPickingDocument = false;
   bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
+    _verificationService =
+        widget.verificationRepository ?? StudentVerificationService();
     _universityController.addListener(_onFormChanged);
     _studentIdController.addListener(_onFormChanged);
     _universityEmailController.addListener(_onFormChanged);
@@ -59,9 +63,7 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
         StudentVerificationValidator.isValidEmail(
           _universityEmailController.text,
         ) &&
-        _selectedDocument != null &&
         _confirmedAccurate &&
-        !_isPickingDocument &&
         !_isSubmitting;
   }
 
@@ -99,72 +101,8 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
     );
   }
 
-  Future<void> _pickDocument() async {
-    if (_isPickingDocument || _isSubmitting) {
-      return;
-    }
-
-    setState(() {
-      _isPickingDocument = true;
-    });
-
-    try {
-      final file = await FilePicker.pickFile(
-        type: FileType.custom,
-        allowedExtensions: StudentVerificationValidator.allowedExtensions
-            .toList(),
-      );
-
-      if (file == null) {
-        return;
-      }
-
-      final fileSize = file.lengthSync() ?? await file.length();
-      if (fileSize != null &&
-          !StudentVerificationValidator.isWithinSizeLimit(fileSize)) {
-        if (!mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please choose a document smaller than 10 MB'),
-          ),
-        );
-        return;
-      }
-
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _selectedDocument = file;
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the document picker')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isPickingDocument = false;
-        });
-      }
-    }
-  }
-
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    final selectedDocument = _selectedDocument;
-    if (selectedDocument == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a student proof document')),
-      );
       return;
     }
 
@@ -182,20 +120,11 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
     });
 
     try {
-      final documentBytes = await selectedDocument.readAsBytes();
-      if (!StudentVerificationValidator.isWithinSizeLimit(
-        documentBytes.length,
-      )) {
-        throw ArgumentError('Document must be between 1 byte and 10 MB.');
-      }
-
       await _verificationService.submitVerification(
         selectedRole: widget.selectedRole,
         university: _universityController.text,
         studentId: _studentIdController.text,
         universityEmail: _universityEmailController.text,
-        documentName: selectedDocument.name,
-        documentBytes: documentBytes,
       );
 
       if (!mounted) {
@@ -204,7 +133,9 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => const VerificationStatusScreen(),
+          builder: (context) => VerificationStatusScreen(
+            verificationRepository: _verificationService,
+          ),
         ),
       );
     } on ArgumentError catch (error) {
@@ -226,9 +157,7 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Could not submit verification. Please check your connection and try again.',
-          ),
+          content: Text('Could not submit verification. Please try again.'),
         ),
       );
     } finally {
@@ -328,7 +257,10 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
                         icon: Icons.badge_rounded,
                       ),
                       validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
+                        if (value == null ||
+                            !StudentVerificationValidator.isValidStudentId(
+                              value,
+                            )) {
                           return 'Please enter your student ID';
                         }
                         return null;
@@ -354,12 +286,6 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
                         }
                         return null;
                       },
-                    ),
-                    const SizedBox(height: 22),
-                    _UploadCard(
-                      fileName: _selectedDocument?.name,
-                      isPicking: _isPickingDocument,
-                      onTap: _pickDocument,
                     ),
                     const SizedBox(height: 22),
                     _ConfirmationRow(
@@ -459,106 +385,6 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-class _UploadCard extends StatelessWidget {
-  final String? fileName;
-  final bool isPicking;
-  final VoidCallback onTap;
-
-  const _UploadCard({
-    required this.fileName,
-    required this.isPicking,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = fileName != null;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0xFFE6F7F5) : Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: selected
-                  ? _StudentVerificationScreenState.teal
-                  : _StudentVerificationScreenState.borderColor,
-              width: selected ? 2 : 1.5,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F7F5),
-                  borderRadius: BorderRadius.circular(17),
-                ),
-                child: isPicking
-                    ? const Padding(
-                        padding: EdgeInsets.all(15),
-                        child: CircularProgressIndicator(
-                          color: _StudentVerificationScreenState.teal,
-                          strokeWidth: 2.5,
-                        ),
-                      )
-                    : Icon(
-                        selected
-                            ? Icons.check_circle_rounded
-                            : Icons.upload_file_rounded,
-                        color: _StudentVerificationScreenState.teal,
-                        size: 31,
-                      ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isPicking
-                          ? 'Opening documents...'
-                          : selected
-                          ? fileName!
-                          : 'Student ID / Proof',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _StudentVerificationScreenState.darkText,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      selected
-                          ? 'Document selected - tap to replace'
-                          : 'Upload a clear JPG, PNG, or PDF (max 10 MB)',
-                      style: const TextStyle(
-                        color: _StudentVerificationScreenState.mutedText,
-                        fontSize: 14,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ConfirmationRow extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -571,6 +397,7 @@ class _ConfirmationRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
+          key: const ValueKey('verification-confirmation-checkbox'),
           onTap: () => onChanged(!value),
           child: Container(
             width: 48,

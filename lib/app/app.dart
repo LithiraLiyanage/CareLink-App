@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../features/companion/screens/incoming_requests_screen.dart';
 import '../features/auth/screens/splash_screen.dart';
 import '../features/family_safety/screens/family_linking_screen.dart';
 import '../features/family_safety/screens/family_pending_screen.dart';
@@ -39,6 +40,10 @@ class CareLinkApp extends StatelessWidget {
         AppRoutes.approvedContactAction: (context) => const ApprovedContactActionScreen(),
         AppRoutes.auditOutcomeCloseCase: (context) => const AuditOutcomeCloseCaseScreen(),
         AppRoutes.caseClosed: (context) => const CaseClosedScreen(),
+      home: const SplashScreen(),
+      routes: {
+        AppRoutes.companionIncomingRequests: (_) =>
+            const IncomingRequestsScreen(),
       },
     );
   }

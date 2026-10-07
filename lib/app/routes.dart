@@ -29,6 +29,8 @@ class AppRoutes {
 
   static const String companionHome = '/companion-home';
   static const String companionMatching = '/companion-matching';
+  static const String companionIncomingRequests =
+      '/companion-incoming-requests';
 
   // =========================
   // FAMILY & SAFETY
@@ -47,4 +49,7 @@ class AppRoutes {
   static const String approvedContactAction = '/approved-contact';
   static const String auditOutcomeCloseCase = '/case-outcome';
   static const String caseClosed = '/case-closed';
+}
+  static const String familyHome = '/family-home';
+  static const String safetyDashboard = '/safety-dashboard';
 }

@@ -39,7 +39,6 @@ class AuthService {
           'reduceMotion': false,
         },
         'profileCompleted': false,
-        'verificationStatus': 'notSubmitted',
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
