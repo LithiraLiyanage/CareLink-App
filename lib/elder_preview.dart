@@ -16,14 +16,11 @@ import 'features/elder/screens/my_schedule_screen.dart';
 import 'features/elder/screens/nethmi_ready_screen.dart';
 import 'features/elder/screens/new_recurring_checkin_screen.dart';
 import 'features/elder/screens/reschedule_checkin_screen.dart';
-import 'features/elder/services/firebase_elder_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  await FirebaseElderService.instance.seedDemoDataIfEmpty();
 
   runApp(const ElderPreviewApp());
 }
