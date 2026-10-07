@@ -1,0 +1,29 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "carelink-hci",
+          "appId": "1:895413760421:android:700fc1a6cf34f6556fb84c",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "carelink-hci",
+          "configurations": {
+            "android": "1:895413760421:android:700fc1a6cf34f6556fb84c",
+            "web": "1:895413760421:web:c08a983c5a18277f6fb84c"
+          }
+        }
+      }
+    }
+  }
+}

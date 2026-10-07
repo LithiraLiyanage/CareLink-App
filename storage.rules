@@ -1,0 +1,8 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // No Student Verification files are stored. Other feature-specific Storage
+    // rules can be added here without granting access to verification objects.
+  }
+}
