@@ -41,6 +41,8 @@ class AppRoutes {
   static const String familyApproved = '/family-approved';
   static const String familyDashboard = '/family-dashboard';
   static const String missedSession = '/missed-session';
+  static const String familyHome = '/family-home';
+  static const String safetyDashboard = '/safety-dashboard';
 
   // Coordinator
   static const String coordinatorCaseList = '/coordinator-case';
@@ -49,7 +51,4 @@ class AppRoutes {
   static const String approvedContactAction = '/approved-contact';
   static const String auditOutcomeCloseCase = '/case-outcome';
   static const String caseClosed = '/case-closed';
-}
-  static const String familyHome = '/family-home';
-  static const String safetyDashboard = '/safety-dashboard';
 }

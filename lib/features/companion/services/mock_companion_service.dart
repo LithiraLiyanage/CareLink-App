@@ -276,6 +276,9 @@ class MockCompanionService implements CompanionService {
     }
   }
 
+  @override
+  Stream<CompanionConnection?> watchCompanionConnection() => Stream.value(null);
+
   CompanionConnection _currentStored(CompanionConnection connection) {
     final stored = _connections[connection.id];
     if (stored == null ||

@@ -406,7 +406,7 @@ service cloud.firestore {
     }
 
     match /companion_profiles/{studentUid} {
-      allow get, list: if isOwner(studentUid)
+      allow get: if isOwner(studentUid)
         || (
           request.auth != null
           && get(
@@ -416,6 +416,10 @@ service cloud.firestore {
           && resource.data.verificationStatus == 'verified'
           && isVerifiedStudent(studentUid)
         );
+      allow list: if request.auth != null
+        && get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.role == 'Older Adult';
       allow create, update: if isOwner(studentUid)
         && get(
           /databases/$(database)/documents/users/$(studentUid)

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../features/companion/screens/incoming_requests_screen.dart';
+import '../features/companion/screens/matching_preferences_screen.dart';
+import '../features/companion/screens/student_companion_home_screen.dart';
 import '../features/auth/screens/splash_screen.dart';
 import '../features/family_safety/screens/family_linking_screen.dart';
 import '../features/family_safety/screens/family_pending_screen.dart';
@@ -25,23 +27,30 @@ class CareLinkApp extends StatelessWidget {
       title: 'CareLink',
       debugShowCheckedModeBanner: false,
       theme: CareLinkTheme.lightTheme,
-      initialRoute: AppRoutes.roleSelection,
+      initialRoute: '/',
       routes: {
         AppRoutes.roleSelection: (context) => const SplashScreen(),
         AppRoutes.familyLinking: (context) => const FamilyLinkingScreen(),
         AppRoutes.familyPending: (context) => const FamilyPendingScreen(),
         AppRoutes.familyApproved: (context) => const FamilyApprovedScreen(),
         AppRoutes.familyDashboard: (context) => const FamilyDashboardScreen(),
-        AppRoutes.missedSession: (context) => const MissedSessionNotificationScreen(),
-        AppRoutes.coordinatorCaseList: (context) => const CoordinatorCaseListScreen(),
+        AppRoutes.missedSession: (context) =>
+            const MissedSessionNotificationScreen(),
+        AppRoutes.coordinatorCaseList: (context) =>
+            const CoordinatorCaseListScreen(),
         AppRoutes.coordinatorCaseDetail: (context) =>
             const CoordinatorCaseDetailScreen(),
-        AppRoutes.consentContextReview: (context) => const ConsentContextReviewScreen(),
-        AppRoutes.approvedContactAction: (context) => const ApprovedContactActionScreen(),
-        AppRoutes.auditOutcomeCloseCase: (context) => const AuditOutcomeCloseCaseScreen(),
+        AppRoutes.consentContextReview: (context) =>
+            const ConsentContextReviewScreen(),
+        AppRoutes.approvedContactAction: (context) =>
+            const ApprovedContactActionScreen(),
+        AppRoutes.auditOutcomeCloseCase: (context) =>
+            const AuditOutcomeCloseCaseScreen(),
         AppRoutes.caseClosed: (context) => const CaseClosedScreen(),
-      home: const SplashScreen(),
-      routes: {
+        AppRoutes.companionHome: (context) =>
+            const StudentCompanionHomeScreen(),
+        AppRoutes.companionMatching: (context) =>
+            const MatchingPreferencesScreen(),
         AppRoutes.companionIncomingRequests: (_) =>
             const IncomingRequestsScreen(),
       },
