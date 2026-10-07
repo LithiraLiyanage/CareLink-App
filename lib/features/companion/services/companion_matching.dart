@@ -5,12 +5,25 @@ import '../models/match_recommendation.dart';
 /// The same transparent scoring for mock and Firebase candidates.
 List<MatchRecommendation> rankCompanions(
   Iterable<CompanionProfile> candidates,
-  MatchPreferences preferences,
-) {
+  MatchPreferences preferences, {
+  void Function(String message)? debugLog,
+}) {
+  debugLog?.call(
+    'Match preferences: language=${preferences.preferredLanguage}, '
+    'interests=${preferences.interests}, '
+    'availability=${preferences.availability}, '
+    'preferredTime=${preferences.preferredTime}',
+  );
   final profiles = candidates.toList();
   final ranked = <MatchRecommendation>[];
   for (final companion in profiles) {
-    if (!companion.verified || !companion.active) continue;
+    if (!companion.verified || !companion.active) {
+      debugLog?.call(
+        'Companion ${companion.id} excluded by scorer: '
+        'verified=${companion.verified}, active=${companion.active}',
+      );
+      continue;
+    }
     final shared = preferences.interests
         .where(
           (interest) => companion.interests.any(
@@ -39,23 +52,26 @@ List<MatchRecommendation> rankCompanions(
     final desiredTime = preferences.preferredTime.trim().toLowerCase();
     final timeMatch =
         desiredTime.isNotEmpty && availability.contains(desiredTime);
+    final score =
+        (languageMatch ? 3 : 0) +
+        shared.length * 2 +
+        (dayMatch ? 3 : 0) +
+        (timeMatch ? 2 : 0);
+    final reasons = List<String>.unmodifiable([
+      if (languageMatch) 'Speaks ${preferences.preferredLanguage}',
+      if (shared.isNotEmpty)
+        '${shared.length} shared ${shared.length == 1 ? 'interest' : 'interests'}',
+      if (dayMatch && timeMatch) 'Available at your preferred time',
+      if (dayMatch && !timeMatch) 'Available on your preferred days',
+      if (timeMatch && !dayMatch) 'Available at your preferred time of day',
+    ]);
+    debugLog?.call(
+      'Companion ${companion.id}: score=$score, '
+      'reasons=$reasons; languageMatch=$languageMatch, '
+      'sharedInterests=$shared, dayMatch=$dayMatch, timeMatch=$timeMatch',
+    );
     ranked.add(
-      MatchRecommendation(
-        companion: companion,
-        score:
-            (languageMatch ? 3 : 0) +
-            shared.length * 2 +
-            (dayMatch ? 3 : 0) +
-            (timeMatch ? 2 : 0),
-        reasons: List.unmodifiable([
-          if (languageMatch) 'Speaks ${preferences.preferredLanguage}',
-          if (shared.isNotEmpty)
-            '${shared.length} shared ${shared.length == 1 ? 'interest' : 'interests'}',
-          if (dayMatch && timeMatch) 'Available at your preferred time',
-          if (dayMatch && !timeMatch) 'Available on your preferred days',
-          if (timeMatch && !dayMatch) 'Available at your preferred time of day',
-        ]),
-      ),
+      MatchRecommendation(companion: companion, score: score, reasons: reasons),
     );
   }
   final sourceOrder = {
