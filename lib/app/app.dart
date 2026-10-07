@@ -25,7 +25,7 @@ class CareLinkApp extends StatelessWidget {
       title: 'CareLink',
       debugShowCheckedModeBanner: false,
       theme: CareLinkTheme.lightTheme,
-      home: const SplashScreen(),
+      initialRoute: '/',
       routes: {
         AppRoutes.roleSelection: (context) => const SplashScreen(),
         AppRoutes.familyLinking: (context) => const FamilyLinkingScreen(),

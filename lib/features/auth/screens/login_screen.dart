@@ -77,9 +77,9 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      final userRole =
-          (userDocument.data()?['role'] as String?) ??
-          await _authService.getUserRole(loggedInUser.uid);
+      var userRole = userDocument.data()?['role'] as String?;
+      userRole ??= await _authService.getUserRole(loggedInUser.uid);
+      if (!mounted) return;
 
       if (userRole == 'Family Caregiver') {
         Navigator.pushNamedAndRemoveUntil(
