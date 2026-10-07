@@ -44,6 +44,8 @@ abstract class CompanionService {
 
   Stream<CompanionConnection?> watchCurrentConnection(String elderId);
 
+  Stream<CompanionConnection?> watchCompanionConnection();
+
   Future<CompanionConnection> pauseConnection(CompanionConnection connection);
 
   Future<CompanionConnection> resumeConnection(CompanionConnection connection);

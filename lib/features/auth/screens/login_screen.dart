@@ -101,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (userRole == 'Student Companion') {
         Navigator.pushNamedAndRemoveUntil(
           context,
-          AppRoutes.companionIncomingRequests,
+          AppRoutes.companionHome,
           (route) => false,
         );
         return;

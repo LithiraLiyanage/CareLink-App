@@ -24,6 +24,9 @@ class CompanionController extends ChangeNotifier {
   CompanionProfile? selectedCompanion;
   MatchRequest? currentRequest;
   CompanionConnection? currentConnection;
+  CompanionConnection? studentConnection;
+  bool isLoadingStudentConnection = false;
+  String? studentConnectionError;
   List<ConversationIdea> conversationIdeas = const [];
   List<CompanionIncomingRequest> incomingRequests = const [];
   bool isLoading = false;
@@ -32,6 +35,7 @@ class CompanionController extends ChangeNotifier {
   String? incomingRequestsError;
   StreamSubscription<MatchRequest?>? _requestSubscription;
   StreamSubscription<CompanionConnection?>? _connectionSubscription;
+  StreamSubscription<CompanionConnection?>? _studentConnectionSubscription;
   StreamSubscription<List<CompanionIncomingRequest>>?
   _incomingRequestsSubscription;
   bool _disposed = false;
@@ -39,12 +43,15 @@ class CompanionController extends ChangeNotifier {
   Future<void> _stopWatching() async {
     final request = _requestSubscription;
     final connection = _connectionSubscription;
+    final studentConnection = _studentConnectionSubscription;
     final incoming = _incomingRequestsSubscription;
     _requestSubscription = null;
     _connectionSubscription = null;
+    _studentConnectionSubscription = null;
     _incomingRequestsSubscription = null;
     await request?.cancel();
     await connection?.cancel();
+    await studentConnection?.cancel();
     await incoming?.cancel();
   }
 
@@ -189,6 +196,28 @@ class CompanionController extends ChangeNotifier {
         if (_disposed) return;
         isLoadingIncomingRequests = false;
         incomingRequestsError = error.toString();
+        notifyListeners();
+      },
+    );
+  }
+
+  void watchCompanionConnection() {
+    if (_studentConnectionSubscription != null) return;
+    isLoadingStudentConnection = true;
+    studentConnectionError = null;
+    notifyListeners();
+    _studentConnectionSubscription = service.watchCompanionConnection().listen(
+      (latest) {
+        if (_disposed) return;
+        studentConnection = latest;
+        isLoadingStudentConnection = false;
+        studentConnectionError = null;
+        notifyListeners();
+      },
+      onError: (Object error) {
+        if (_disposed) return;
+        isLoadingStudentConnection = false;
+        studentConnectionError = error.toString();
         notifyListeners();
       },
     );

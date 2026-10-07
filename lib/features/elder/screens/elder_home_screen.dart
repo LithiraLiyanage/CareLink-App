@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
@@ -255,7 +256,8 @@ class ElderHomeScreen extends StatelessWidget {
                     color: ElderColors.coral,
                     height: 52,
                     onPressed: () =>
-                        _open(context, const MyScheduleScreen()),
+                        Navigator.of(context)
+                            .pushNamed(AppRoutes.companionMatching),
                   ),
                 ],
               ),

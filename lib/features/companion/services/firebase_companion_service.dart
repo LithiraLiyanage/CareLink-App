@@ -493,6 +493,17 @@ class FirebaseCompanionService implements CompanionService {
         .map((snapshot) => _currentConnection(snapshot.docs));
   }
 
+  @override
+  Stream<CompanionConnection?> watchCompanionConnection() async* {
+    final uid = _uid;
+    await _requireRole(uid, _studentRole);
+    yield* _db
+        .collection('connections')
+        .where('companionId', isEqualTo: uid)
+        .snapshots()
+        .map((snapshot) => _currentConnection(snapshot.docs));
+  }
+
   Future<CompanionConnection> _changeConnection(
     CompanionConnection connection,
     ConnectionStatus next,
