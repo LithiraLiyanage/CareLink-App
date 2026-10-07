@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
 import '../services/auth_service.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
@@ -47,10 +48,11 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _authService.loginUser(
+      final user = await _authService.loginUser(
         email: _emailController.text,
         password: _passwordController.text,
       );
+      final role = await _authService.getUserRole(user.uid);
 
       if (!mounted) return;
 
@@ -70,6 +72,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
+      // Next:
+      // add home routes for Older Adult and Student Companion.
+      if (role == 'Family Caregiver') {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.familyLinking,
+          (route) => false,
+        );
+      }
       if (!userDocument.exists) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User profile was not found.')),
