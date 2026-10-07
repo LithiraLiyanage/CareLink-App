@@ -5,6 +5,10 @@ import '../services/auth_service.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../elder/screens/elder_home_screen.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -50,11 +54,42 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Login successful')));
+      final user = FirebaseAuth.instance.currentUser;
 
-      // Next:
-      // navigate to role-based home/profile screen.
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not find the logged-in user.')),
+        );
+        return;
+      }
+
+      final userDocument = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!mounted) return;
+
+      if (!userDocument.exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User profile was not found.')),
+        );
+        return;
+      }
+
+      final role = userDocument.data()?['role'] as String?;
+
+      if (role == 'Older Adult') {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const ElderHomeScreen()),
+          (route) => false,
+        );
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Login successful. Role: ${role ?? 'Unknown'}')),
+      );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
