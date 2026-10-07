@@ -661,5 +661,27 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'pausedAt', 'endedAt']);
     }
+    // =========================================================
+    // ELDER CHECK-IN & MEMORY LANE
+    // =========================================================
+
+    match /check_ins/{documentId} {
+      allow read, create, update, delete:
+        if request.auth != null
+        && isOlderAdult(request.auth.uid);
+    }
+
+    match /recurring_schedules/{documentId} {
+      allow read, create, update, delete:
+        if request.auth != null
+        && isOlderAdult(request.auth.uid);
+    }
+
+    match /memories/{documentId} {
+      allow read, create, update, delete:
+        if request.auth != null
+        && isOlderAdult(request.auth.uid);
+    }
+
   }
 }
