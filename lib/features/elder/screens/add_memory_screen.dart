@@ -7,7 +7,9 @@ import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
 
 class AddMemoryScreen extends StatefulWidget {
-  const AddMemoryScreen({super.key});
+  const AddMemoryScreen({super.key, this.navigationOnly = false});
+
+  final bool navigationOnly;
 
   @override
   State<AddMemoryScreen> createState() => _AddMemoryScreenState();
@@ -29,6 +31,11 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
 
   Future<void> _saveMemory() async {
     if (_saving) return;
+
+    if (widget.navigationOnly) {
+      Navigator.of(context).maybePop();
+      return;
+    }
 
     final title = titleController.text.trim();
 
@@ -62,6 +69,11 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
   }
 
   Future<void> _deleteMemory() async {
+    if (widget.navigationOnly) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+
     final ok = await elderConfirm(
       context,
       title: 'Delete this memory?',
