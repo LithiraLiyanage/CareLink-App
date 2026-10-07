@@ -48,17 +48,15 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final user = await _authService.loginUser(
+      final loggedInUser = await _authService.loginUser(
         email: _emailController.text,
         password: _passwordController.text,
       );
-      final role = await _authService.getUserRole(user.uid);
 
       if (!mounted) return;
 
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (user == null) {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not find the logged-in user.')),
         );
@@ -67,20 +65,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final userDocument = await FirebaseFirestore.instance
           .collection('users')
-          .doc(user.uid)
+          .doc(loggedInUser.uid)
           .get();
 
       if (!mounted) return;
 
-      // Next:
-      // add home routes for Older Adult and Student Companion.
-      if (role == 'Family Caregiver') {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.familyLinking,
-          (route) => false,
-        );
-      }
       if (!userDocument.exists) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User profile was not found.')),
@@ -88,9 +77,20 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      final role = userDocument.data()?['role'] as String?;
+      final userRole =
+          (userDocument.data()?['role'] as String?) ??
+          await _authService.getUserRole(loggedInUser.uid);
 
-      if (role == 'Older Adult') {
+      if (userRole == 'Family Caregiver') {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.familyLinking,
+          (route) => false,
+        );
+        return;
+      }
+
+      if (userRole == 'Older Adult') {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const ElderHomeScreen()),
           (route) => false,
@@ -98,8 +98,28 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      if (userRole == 'Student Companion') {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.companionIncomingRequests,
+          (route) => false,
+        );
+        return;
+      }
+
+      if (userRole == 'Coordinator' || userRole == 'Admin') {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRoutes.coordinatorCaseList,
+          (route) => false,
+        );
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login successful. Role: ${role ?? 'Unknown'}')),
+        SnackBar(
+          content: Text('Login successful. Role: ${userRole ?? 'Unknown'}'),
+        ),
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;

@@ -15,7 +15,6 @@ class CoordinatorCaseDetailScreen extends StatelessWidget {
   static const _orange = Color(0xFFF59E0B);
   static const _lightWarning = Color(0xFFFFF4DF);
   static const _success = Color(0xFF00A878);
-  static const _lightSuccess = Color(0xFFDFF5ED);
 
   @override
   Widget build(BuildContext context) {

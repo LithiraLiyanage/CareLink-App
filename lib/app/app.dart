@@ -25,23 +25,26 @@ class CareLinkApp extends StatelessWidget {
       title: 'CareLink',
       debugShowCheckedModeBanner: false,
       theme: CareLinkTheme.lightTheme,
-      initialRoute: AppRoutes.roleSelection,
+      home: const SplashScreen(),
       routes: {
         AppRoutes.roleSelection: (context) => const SplashScreen(),
         AppRoutes.familyLinking: (context) => const FamilyLinkingScreen(),
         AppRoutes.familyPending: (context) => const FamilyPendingScreen(),
         AppRoutes.familyApproved: (context) => const FamilyApprovedScreen(),
         AppRoutes.familyDashboard: (context) => const FamilyDashboardScreen(),
-        AppRoutes.missedSession: (context) => const MissedSessionNotificationScreen(),
-        AppRoutes.coordinatorCaseList: (context) => const CoordinatorCaseListScreen(),
+        AppRoutes.missedSession: (context) =>
+            const MissedSessionNotificationScreen(),
+        AppRoutes.coordinatorCaseList: (context) =>
+            const CoordinatorCaseListScreen(),
         AppRoutes.coordinatorCaseDetail: (context) =>
             const CoordinatorCaseDetailScreen(),
-        AppRoutes.consentContextReview: (context) => const ConsentContextReviewScreen(),
-        AppRoutes.approvedContactAction: (context) => const ApprovedContactActionScreen(),
-        AppRoutes.auditOutcomeCloseCase: (context) => const AuditOutcomeCloseCaseScreen(),
+        AppRoutes.consentContextReview: (context) =>
+            const ConsentContextReviewScreen(),
+        AppRoutes.approvedContactAction: (context) =>
+            const ApprovedContactActionScreen(),
+        AppRoutes.auditOutcomeCloseCase: (context) =>
+            const AuditOutcomeCloseCaseScreen(),
         AppRoutes.caseClosed: (context) => const CaseClosedScreen(),
-      home: const SplashScreen(),
-      routes: {
         AppRoutes.companionIncomingRequests: (_) =>
             const IncomingRequestsScreen(),
       },
