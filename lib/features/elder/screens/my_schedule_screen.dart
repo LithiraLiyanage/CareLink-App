@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/check_in.dart';
+import '../models/recurring_schedule.dart';
 import '../services/firebase_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
@@ -11,7 +12,26 @@ import 'new_recurring_checkin_screen.dart';
 import 'reschedule_checkin_screen.dart';
 
 class MyScheduleScreen extends StatefulWidget {
-  const MyScheduleScreen({super.key});
+  const MyScheduleScreen({
+    super.key,
+    this.connectionId,
+    this.elderId,
+    this.elderName,
+    this.companionId,
+    this.companionName,
+    this.companionImageUrl,
+    this.preferredCheckInType,
+    this.navigationOnly = false,
+  });
+
+  final String? connectionId;
+  final String? elderId;
+  final String? elderName;
+  final String? companionId;
+  final String? companionName;
+  final String? companionImageUrl;
+  final String? preferredCheckInType;
+  final bool navigationOnly;
 
   @override
   State<MyScheduleScreen> createState() => _MyScheduleScreenState();
@@ -21,32 +41,91 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
   final FirebaseElderService _service = FirebaseElderService.instance;
 
   List<CheckIn> _checkIns = [];
+  List<RecurringSchedule> _recurringSchedules = [];
+  String? _connectionId;
+  String? _elderId;
+  String? _elderName;
+  String? _companionId;
+  String? _companionName;
+  String? _companionImageUrl;
+  String? _preferredCheckInType;
   bool _loading = true;
+  String? _loadError;
 
   @override
   void initState() {
     super.initState();
-    _loadCheckIns();
+    _connectionId = widget.connectionId;
+    _elderId = widget.elderId;
+    _elderName = widget.elderName;
+    _companionId = widget.companionId;
+    _companionName = widget.companionName;
+    _companionImageUrl = widget.companionImageUrl;
+    _preferredCheckInType = widget.preferredCheckInType;
+    if (widget.navigationOnly) {
+      _loading = false;
+    } else {
+      _loadCheckIns();
+    }
   }
 
   Future<void> _loadCheckIns() async {
-    final items = await _service.getCheckIns();
+    try {
+      if (_connectionId == null ||
+          _elderId == null ||
+          _companionId == null ||
+          _companionName == null) {
+        final connection = await _service.getActiveConnectionForCurrentElder();
+        _connectionId = connection?.id;
+        _elderId = connection?.elderId;
+        _elderName = connection?.elderName;
+        _companionId = connection?.companionId;
+        _companionName = connection?.companionName;
+        _companionImageUrl = connection?.companionImageUrl;
+      }
 
-    if (!mounted) return;
+      final elderId = _elderId;
+      final companionId = _companionId;
+      final connectionId = _connectionId;
+      final items = elderId != null && companionId != null
+          ? await _service.getCheckInsForConnection(
+              elderId: elderId,
+              companionId: companionId,
+            )
+          : <CheckIn>[];
+      final schedules =
+          elderId != null && companionId != null && connectionId != null
+          ? await _service.getRecurringSchedulesForConnection(
+              elderId: elderId,
+              companionId: companionId,
+              connectionId: connectionId,
+            )
+          : <RecurringSchedule>[];
 
-    setState(() {
-      _checkIns = items
-          .where((item) => item.status != CheckInStatus.cancelled)
-          .toList();
-      _loading = false;
-    });
+      if (!mounted) return;
+
+      setState(() {
+        _checkIns = items
+            .where((item) => item.status != CheckInStatus.cancelled)
+            .toList();
+        _recurringSchedules = schedules;
+        _loadError = null;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error.toString();
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _openAndRefresh(Widget screen) async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
     if (!mounted) return;
-    await _loadCheckIns();
+    if (!widget.navigationOnly) await _loadCheckIns();
   }
 
   void _open(BuildContext context, Widget screen) {
@@ -92,7 +171,13 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
             const SizedBox(height: 14),
             _tabs(),
             const SizedBox(height: 16),
-            Expanded(child: _loading ? _loadingView() : _scheduleContent()),
+            Expanded(
+              child: _loading
+                  ? _loadingView()
+                  : _loadError == null
+                  ? _scheduleContent()
+                  : _errorView(_loadError!),
+            ),
           ],
         ),
       ),
@@ -102,6 +187,30 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
   Widget _loadingView() {
     return const Center(
       child: CircularProgressIndicator(color: ElderColors.darkTeal),
+    );
+  }
+
+  Widget _errorView(String error) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            error,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: ElderColors.textDark),
+          ),
+          const SizedBox(height: 12),
+          ElderOutlineButton(
+            label: 'Try again',
+            height: 44,
+            onPressed: () {
+              setState(() => _loading = true);
+              _loadCheckIns();
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -117,7 +226,15 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
             filledBadge: index == 0,
             onTap: () {
               if (index == 0) {
-                _openAndRefresh(const NethmiReadyScreen());
+                _openAndRefresh(
+                  NethmiReadyScreen(
+                    companionName: visible[index].companionName,
+                    companionImageUrl: _companionImageUrl,
+                    scheduledAt: visible[index].scheduledAt,
+                    durationMinutes: visible[index].durationMinutes,
+                    mode: visible[index].mode,
+                  ),
+                );
               } else {
                 _openAndRefresh(
                   RescheduleCheckInScreen(checkInId: visible[index].id),
@@ -127,17 +244,82 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
           ),
           if (index != visible.length - 1) const SizedBox(height: 13),
         ],
-        if (visible.isEmpty) _emptySchedule(),
+        if (visible.isEmpty && _recurringSchedules.isEmpty) _emptySchedule(),
+        if (visible.isEmpty && _recurringSchedules.isNotEmpty)
+          _recurringScheduleCard(_recurringSchedules.first),
         const Spacer(),
         ElderPrimaryButton(
           label: '+  Create recurring check-in',
           color: ElderColors.darkTeal,
           height: 54,
-          onPressed: () => _openAndRefresh(const NewRecurringCheckInScreen()),
+          onPressed: () => _openAndRefresh(
+            NewRecurringCheckInScreen(
+              connectionId: _connectionId,
+              elderId: _elderId,
+              elderName: _elderName,
+              companionId: _companionId,
+              companionName: _companionName,
+              preferredCheckInType: _preferredCheckInType,
+              navigationOnly: widget.navigationOnly,
+            ),
+          ),
         ),
         const SizedBox(height: 10),
         _infoCard(),
       ],
+    );
+  }
+
+  Widget _recurringScheduleCard(RecurringSchedule schedule) {
+    final next = schedule.nextOccurrence(DateTime.now());
+    final days = schedule.weekdays
+        .where((weekday) => weekday >= 1 && weekday <= 7)
+        .map(
+          (weekday) => const [
+            'Mon',
+            'Tue',
+            'Wed',
+            'Thu',
+            'Fri',
+            'Sat',
+            'Sun',
+          ][weekday - 1],
+        )
+        .join(' · ');
+    return Container(
+      height: 104,
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: ElderColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            schedule.companionName,
+            style: const TextStyle(
+              color: ElderColors.textDark,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            next == null
+                ? days
+                : '$days · ${TimeOfDay.fromDateTime(next).format(context)}',
+            style: const TextStyle(
+              color: ElderColors.textMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

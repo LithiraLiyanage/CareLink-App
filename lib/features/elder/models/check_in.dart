@@ -11,6 +11,7 @@ class CheckIn {
   final String id;
   final String elderId;
   final String elderName;
+  final String? elderImageUrl;
   final String companionId;
   final String companionName;
   final DateTime scheduledAt;
@@ -23,6 +24,7 @@ class CheckIn {
     required this.id,
     required this.elderId,
     required this.elderName,
+    this.elderImageUrl,
     required this.companionId,
     required this.companionName,
     required this.scheduledAt,
@@ -36,6 +38,7 @@ class CheckIn {
     String? id,
     String? elderId,
     String? elderName,
+    String? elderImageUrl,
     String? companionId,
     String? companionName,
     DateTime? scheduledAt,
@@ -48,6 +51,7 @@ class CheckIn {
       id: id ?? this.id,
       elderId: elderId ?? this.elderId,
       elderName: elderName ?? this.elderName,
+      elderImageUrl: elderImageUrl ?? this.elderImageUrl,
       companionId: companionId ?? this.companionId,
       companionName: companionName ?? this.companionName,
       scheduledAt: scheduledAt ?? this.scheduledAt,
