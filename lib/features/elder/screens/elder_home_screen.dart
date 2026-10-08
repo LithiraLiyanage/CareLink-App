@@ -30,27 +30,38 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
   StreamSubscription<ElderConnectionDetails?>? _connectionSubscription;
 
   ElderConnectionDetails? _connection;
-
   String? _scheduleConnectionId;
   Stream<ElderScheduleData>? _scheduleStream;
 
   String _elderName = '';
   Object? _connectionError;
   Object? _elderNameError;
+
   bool _loading = true;
   bool _openingAcceptedRequest = false;
 
-  static const Color _darkTeal = Color(0xFF073F42);
-  static const Color _primaryTeal = Color(0xFF00776F);
-  static const Color _background = Color(0xFFF5FBF9);
-  static const Color _mint = Color(0xFFB1F4E6);
-  static const Color _coral = Color(0xFFFF5369);
-  static const Color _mutedText = Color(0xFF708486);
+  // ==========================================
+  // FIGMA COLOUR PALETTE
+  // ==========================================
+
+  static const Color _darkTeal = Color(0xFF073F46);
+  static const Color _primaryTeal = Color(0xFF0E5D5D);
+  static const Color _background = Color(0xFFF6FAF9);
+  static const Color _mint = Color(0xFFAFF9E4);
+  static const Color _mintStrong = Color(0xFFA4F2DC);
+  static const Color _coral = Color(0xFFF05263);
+  static const Color _reminderGreen = Color(0xFF146755);
+  static const Color _mutedText = Color(0xFF5E706B);
+  static const Color _border = Color(0xFF91BFB7);
 
   static const String _elderAvatar =
       'assets/images/carelink_elder_avatar_demo.jpg';
 
   static const String _heroImage = 'assets/images/carelink_home_hero_demo.jpg';
+
+  // ==========================================
+  // FIREBASE - ORIGINAL LOGIC
+  // ==========================================
 
   @override
   void initState() {
@@ -127,8 +138,12 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
     return _scheduleStream!;
   }
 
+  // ==========================================
+  // NAVIGATION
+  // ==========================================
+
   void _open(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
   }
 
   void _openSchedule(BuildContext context) {
@@ -151,20 +166,26 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
     Navigator.of(context).pushNamed(AppRoutes.companionMatching);
   }
 
-  /// Reopens the accepted W06 view using the actual Firestore connection.
-  /// No request/connection is created or simulated by this navigation.
   Future<void> _openAcceptedRequest(BuildContext context) async {
     final connection = _connection;
-    if (connection == null || _openingAcceptedRequest) return;
 
-    setState(() => _openingAcceptedRequest = true);
+    if (connection == null || _openingAcceptedRequest) {
+      return;
+    }
+
+    setState(() {
+      _openingAcceptedRequest = true;
+    });
+
     final companionService = FirebaseCompanionService();
+
     final controller = CompanionController(service: companionService);
 
     try {
       final realConnection = await companionService.getCurrentConnection(
         connection.elderId,
       );
+
       if (realConnection == null ||
           realConnection.id != connection.id ||
           realConnection.status != ConnectionStatus.active ||
@@ -175,6 +196,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
       final profile = await companionService.getCompanionById(
         realConnection.companionId,
       );
+
       if (profile == null) {
         throw StateError('The verified companion profile is unavailable.');
       }
@@ -182,18 +204,21 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
       controller.selectCompanion(profile);
       controller.currentConnection = realConnection;
 
-      // Only previously saved Elder preferences are used to calculate
-      // "shared interests"; never make up profile/interests on W06.
       CompanionLanguage language = CompanionLanguage.english;
+
       try {
         final snapshot = await FirebaseFirestore.instance
             .collection('matching_preferences')
             .doc(realConnection.elderId)
             .get();
+
         final data = snapshot.data();
+
         if (data != null) {
           final preferences = MatchPreferences.fromMap(data);
+
           controller.currentPreferences = preferences;
+
           language = switch (preferences.preferredLanguage.toLowerCase()) {
             'sinhala' || 'සිංහල' => CompanionLanguage.sinhala,
             'tamil' || 'தமிழ்' => CompanionLanguage.tamil,
@@ -201,15 +226,17 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
           };
         }
       } on FirebaseException catch (error) {
-        debugPrint('Could not restore match preferences: ${error.code}');
+        debugPrint('Could not restore preferences: ${error.code}');
       }
 
       final requestId = realConnection.matchRequestId;
+
       if (requestId != null && requestId.isNotEmpty) {
         try {
           final request = await companionService
               .watchMatchRequest(requestId)
               .first;
+
           if (request != null &&
               request.status == MatchRequestStatus.accepted &&
               request.elderId == realConnection.elderId &&
@@ -217,11 +244,12 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
             controller.currentRequest = request;
           }
         } on FirebaseException catch (error) {
-          debugPrint('Could not restore accepted request: ${error.code}');
+          debugPrint('Could not restore request: ${error.code}');
         }
       }
 
       if (!context.mounted) return;
+
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => ConnectionAcceptedScreen(
@@ -233,18 +261,28 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
       );
     } catch (error) {
       if (!context.mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not open accepted connection: $error')),
       );
     } finally {
       controller.dispose();
-      if (mounted) setState(() => _openingAcceptedRequest = false);
+
+      if (mounted) {
+        setState(() {
+          _openingAcceptedRequest = false;
+        });
+      }
     }
   }
 
+  // ==========================================
+  // MAIN UI
+  // ==========================================
+
   @override
   Widget build(BuildContext context) {
-    final displayName = _elderName.trim().isEmpty
+    final firstName = _elderName.trim().isEmpty
         ? 'Older Adult'
         : _elderName.trim().split(RegExp(r'\s+')).first;
 
@@ -263,41 +301,50 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _header(displayName),
+            _header(firstName),
+
             if (_connection != null)
               _acceptedNotificationBanner(context, _connection!),
+
             _checkInCard(context),
+
             const Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 10),
+              padding: EdgeInsets.fromLTRB(20, 15, 20, 9),
               child: Text(
                 'Quick actions',
                 style: TextStyle(
                   color: _darkTeal,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ),
+
             _quickActions(context),
-            const SizedBox(height: 14),
+
+            const SizedBox(height: 17),
+
             _reminder(),
-            const SizedBox(height: 10),
           ],
         ),
       ),
     );
   }
 
+  // ==========================================
+  // DARK FIGMA HEADER
+  // ==========================================
+
   Widget _header(String firstName) {
     return Container(
       width: double.infinity,
-      height: 158,
+      height: 168,
       decoration: const BoxDecoration(
         color: _darkTeal,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 18, 16),
+        padding: const EdgeInsets.fromLTRB(20, 10, 18, 15),
         child: Column(
           children: [
             Row(
@@ -315,16 +362,18 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                   ),
                 ),
                 const SizedBox(width: 9),
+
                 const Text(
                   'CareLink',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
+
                 const Spacer(),
+
                 IconButton(
                   tooltip: 'Notifications',
                   onPressed: _connection == null
@@ -336,7 +385,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                       const Icon(
                         Icons.notifications_none_rounded,
                         color: Colors.white,
-                        size: 26,
+                        size: 27,
                       ),
                       if (_connection != null)
                         const Positioned(
@@ -352,7 +401,9 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                 ),
               ],
             ),
+
             const Spacer(),
+
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -361,52 +412,54 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Good morning, $firstName',
+                        '${_greeting()} $firstName',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 21,
-                          fontWeight: FontWeight.w800,
-                          height: 1.14,
-                          letterSpacing: -0.4,
+                          fontWeight: FontWeight.w900,
+                          height: 1.13,
+                          letterSpacing: -0.35,
                         ),
                       ),
                       const SizedBox(height: 7),
+
                       Text(
                         _connection == null
-                            ? 'Your next connection starts here'
-                            : 'Connected with ${_connection!.companionName}',
+                            ? 'Find a companion to get started'
+                            : 'Connected with '
+                                  '${_connection!.companionName}',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Color(0xFFD1EBE7),
-                          fontSize: 11,
-                          height: 1.25,
+                          color: Color(0xFFD0EBE7),
+                          fontSize: 11.5,
+                          height: 1.3,
                         ),
                       ),
                     ],
                   ),
                 ),
+
                 const SizedBox(width: 12),
+
                 ClipOval(
                   child: Image.asset(
                     _elderAvatar,
-                    width: 76,
-                    height: 76,
+                    width: 78,
+                    height: 78,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      debugPrint('Elder avatar loading error: $error');
-
+                    errorBuilder: (_, _, _) {
                       return CircleAvatar(
-                        radius: 38,
+                        radius: 39,
                         backgroundColor: const Color(0xFFB5EFE5),
                         child: Text(
                           firstName.isEmpty ? '?' : firstName[0].toUpperCase(),
                           style: const TextStyle(
                             color: _darkTeal,
                             fontSize: 28,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       );
@@ -421,12 +474,24 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
     );
   }
 
+  String _greeting() {
+    final hour = DateTime.now().hour;
+
+    if (hour < 12) return 'Good morning,';
+    if (hour < 17) return 'Good afternoon,';
+    return 'Good evening,';
+  }
+
+  // ==========================================
+  // ACCEPTED CONNECTION NOTIFICATION
+  // ==========================================
+
   Widget _acceptedNotificationBanner(
     BuildContext context,
     ElderConnectionDetails connection,
   ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 11, 20, 0),
       child: Material(
         color: const Color(0xFFE7F6F1),
         borderRadius: BorderRadius.circular(15),
@@ -442,21 +507,23 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
             child: Row(
               children: [
                 const CircleAvatar(
-                  radius: 17,
+                  radius: 19,
                   backgroundColor: _primaryTeal,
                   child: Icon(
                     Icons.check_rounded,
                     color: Colors.white,
-                    size: 20,
+                    size: 22,
                   ),
                 ),
                 const SizedBox(width: 11),
+
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${connection.companionName} accepted your request',
+                        '${connection.companionName} '
+                        'accepted your request',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -473,11 +540,8 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: _primaryTeal,
-                  size: 24,
-                ),
+
+                const Icon(Icons.chevron_right_rounded, color: _primaryTeal),
               ],
             ),
           ),
@@ -486,6 +550,10 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
     );
   }
 
+  // ==========================================
+  // FIGMA PHOTO + CHECK-IN CARD
+  // ==========================================
+
   Widget _checkInCard(BuildContext context) {
     final connection = _connection;
 
@@ -493,12 +561,11 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
       margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(23),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: _darkTeal.withValues(alpha: 0.10),
             blurRadius: 22,
-            spreadRadius: 0,
             offset: const Offset(0, 8),
           ),
         ],
@@ -507,7 +574,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(23)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             child: SizedBox(
               height: 145,
               child: Stack(
@@ -516,15 +583,10 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                   Image.asset(
                     _heroImage,
                     fit: BoxFit.cover,
-                    alignment: Alignment.center,
-                    errorBuilder: (context, error, stackTrace) {
-                      debugPrint('Hero image loading error: $error');
-
-                      return _companionPlaceholder(
-                        connection?.companionName ?? '',
-                      );
-                    },
+                    errorBuilder: (_, _, _) =>
+                        _companionPlaceholder(connection?.companionName ?? ''),
                   ),
+
                   DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -533,12 +595,13 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                         colors: [
                           Colors.transparent,
                           Colors.black.withValues(alpha: 0.05),
-                          _darkTeal.withValues(alpha: 0.93),
+                          _darkTeal.withValues(alpha: 0.85),
                         ],
-                        stops: const [0.25, 0.52, 1.0],
+                        stops: const [0.20, 0.55, 1.0],
                       ),
                     ),
                   ),
+
                   Positioned(
                     left: 12,
                     right: 12,
@@ -555,13 +618,14 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 11.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w800,
-                              height: 1.2,
                             ),
                           ),
                         ),
+
                         const SizedBox(width: 8),
+
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 13,
@@ -576,7 +640,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
@@ -587,8 +651,9 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
               ),
             ),
           ),
+
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 15),
+            padding: const EdgeInsets.fromLTRB(15, 13, 15, 15),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -598,7 +663,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                   Text(
                     'Could not load connection or schedule: '
                     '${_connectionError ?? _elderNameError}',
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                    style: const TextStyle(color: _coral, fontSize: 12),
                   )
                 else if (connection == null)
                   const Padding(
@@ -616,10 +681,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                         return Text(
                           'Could not load your check-in: '
                           '${snapshot.error}',
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 12,
-                          ),
+                          style: const TextStyle(color: _coral, fontSize: 12),
                         );
                       }
 
@@ -655,7 +717,9 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                       return _scheduledSummary(context, next);
                     },
                   ),
+
                 const SizedBox(height: 14),
+
                 if (connection == null)
                   ElderPrimaryButton(
                     label: 'Find a Companion',
@@ -677,7 +741,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: ElderOutlineButton(
-                          label: 'Find a Companion',
+                          label: 'Find Companion',
                           foregroundColor: _primaryTeal,
                           height: 48,
                           onPressed: () => _openCompanionMatching(context),
@@ -705,8 +769,6 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
           colors: [Color(0xFF047C79), Color(0xFF07504D)],
         ),
       ),
@@ -726,6 +788,10 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
       ),
     );
   }
+
+  // ==========================================
+  // NEXT CHECK-IN - REAL DATA
+  // ==========================================
 
   ({DateTime at, int duration, String mode, String companionName})?
   _nextCheckIn(ElderScheduleData data) {
@@ -792,7 +858,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
         Text(
           time,
           style: const TextStyle(
-            fontSize: 25,
+            fontSize: 26,
             height: 1.08,
             color: _darkTeal,
             fontWeight: FontWeight.w900,
@@ -801,8 +867,14 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
         const SizedBox(height: 5),
         Row(
           children: [
-            const Icon(Icons.videocam_outlined, size: 15, color: _primaryTeal),
-            const SizedBox(width: 5),
+            Icon(
+              item.mode.toLowerCase() == 'voice'
+                  ? Icons.call_outlined
+                  : Icons.videocam_outlined,
+              size: 16,
+              color: _primaryTeal,
+            ),
+            const SizedBox(width: 6),
             Expanded(
               child: Text(
                 '${item.duration} min · '
@@ -823,26 +895,35 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
     );
   }
 
+  // ==========================================
+  // BRIGHT MINT QUICK ACTIONS
+  // ==========================================
+
   Widget _quickActions(BuildContext context) {
-    Widget actionItem(IconData icon, String label, VoidCallback onTap) {
+    Widget actionItem(
+      IconData icon,
+      String label,
+      VoidCallback onTap,
+      Color background,
+    ) {
       return Expanded(
         child: Material(
-          color: _mint,
-          borderRadius: BorderRadius.circular(15),
+          color: background,
+          borderRadius: BorderRadius.circular(17),
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(17),
             child: Container(
-              height: 83,
+              height: 84,
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF8FD4C9)),
-                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: _border),
+                borderRadius: BorderRadius.circular(17),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(icon, color: _darkTeal, size: 29),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 7),
                   Text(
                     label,
                     maxLines: 2,
@@ -850,7 +931,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                     style: const TextStyle(
                       color: _darkTeal,
                       fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
@@ -869,41 +950,47 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
             Icons.schedule_rounded,
             'Schedule',
             () => _openSchedule(context),
+            _mint,
           ),
           const SizedBox(width: 8),
           actionItem(
             Icons.menu_book_rounded,
             'Memory Lane',
             () => _open(context, const MemoryLaneScreen()),
+            _mint,
           ),
           const SizedBox(width: 8),
           actionItem(Icons.help_outline_rounded, 'Need Help', () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Help options will open here.')),
             );
-          }),
+          }, _mintStrong),
         ],
       ),
     );
   }
 
+  // ==========================================
+  // DARK GREEN FIGMA REMINDER
+  // ==========================================
+
   Widget _reminder() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
       decoration: BoxDecoration(
-        color: const Color(0xFF176D5B),
+        color: _reminderGreen,
         borderRadius: BorderRadius.circular(19),
       ),
       child: const Row(
         children: [
           CircleAvatar(
-            radius: 22,
-            backgroundColor: _coral,
+            radius: 23,
+            backgroundColor: Color(0xFFF87373),
             child: Icon(
               Icons.favorite_border_rounded,
-              color: Colors.white,
-              size: 26,
+              color: _darkTeal,
+              size: 27,
             ),
           ),
           SizedBox(width: 14),
@@ -916,7 +1003,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
                 SizedBox(height: 5),

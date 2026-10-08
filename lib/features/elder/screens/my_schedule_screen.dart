@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import '../models/check_in.dart';
@@ -41,13 +40,11 @@ class MyScheduleScreen extends StatefulWidget {
   final bool navigationOnly;
 
   @override
-  State<MyScheduleScreen> createState() =>
-      _MyScheduleScreenState();
+  State<MyScheduleScreen> createState() => _MyScheduleScreenState();
 }
 
 class _MyScheduleScreenState extends State<MyScheduleScreen> {
-  final FirebaseElderService _service =
-      FirebaseElderService.instance;
+  final FirebaseElderService _service = FirebaseElderService.instance;
 
   ElderConnectionDetails? _connection;
   Stream<ElderScheduleData>? _scheduleStream;
@@ -60,6 +57,16 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
   String? _error;
   String? _deletingScheduleId;
 
+  // Figma styling only
+  static const Color _background = Color(0xFFF6FAF9);
+  static const Color _ink = Color(0xFF123F42);
+  static const Color _teal = Color(0xFF095E5C);
+  static const Color _mint = Color(0xFFA6F6E2);
+  static const Color _mintSoft = Color(0xFFE8F8F4);
+  static const Color _coral = Color(0xFFF25266);
+  static const Color _muted = Color(0xFF6A8080);
+  static const Color _border = Color(0xFFD6E6E2);
+
   @override
   void initState() {
     super.initState();
@@ -71,23 +78,20 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     }
   }
 
-  // ==========================================================
-  // LOAD CONNECTION
-  // ==========================================================
+  // =====================================================
+  // ORIGINAL FIREBASE CONNECTION LOGIC
+  // =====================================================
 
   Future<void> _loadConnection() async {
     try {
-      final connection =
-          await _service.getActiveConnectionForCurrentElder();
+      final connection = await _service.getActiveConnectionForCurrentElder();
 
       if (!mounted) return;
 
       if (connection != null &&
           widget.connectionId != null &&
           connection.id != widget.connectionId) {
-        throw StateError(
-          'The selected connection is no longer active.',
-        );
+        throw StateError('The selected connection is no longer active.');
       }
 
       setState(() {
@@ -119,17 +123,12 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openAndRefresh(Widget screen) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => screen,
-      ),
-    );
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => screen));
 
     if (!mounted || widget.navigationOnly) return;
 
@@ -138,22 +137,18 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
 
   void _goHome() {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(
-        builder: (_) => const ElderHomeScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const ElderHomeScreen()),
       (_) => false,
     );
   }
 
   bool _sameDay(DateTime a, DateTime b) {
-    return a.year == b.year &&
-        a.month == b.month &&
-        a.day == b.day;
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
-  // ==========================================================
-  // CHECK-IN LIST FILTER
-  // ==========================================================
+  // =====================================================
+  // ORIGINAL CHECK-IN FILTERING
+  // =====================================================
 
   List<CheckIn> _visibleCheckIns(List<CheckIn> all) {
     final now = DateTime.now();
@@ -176,11 +171,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
           return checkIn.status == CheckInStatus.completed ||
               checkIn.status == CheckInStatus.missed ||
               checkIn.scheduledAt
-                  .add(
-                    Duration(
-                      minutes: checkIn.durationMinutes,
-                    ),
-                  )
+                  .add(Duration(minutes: checkIn.durationMinutes))
                   .isBefore(now);
       }
     }).toList();
@@ -196,9 +187,9 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     return filtered;
   }
 
-  // ==========================================================
-  // CHECK-IN CARD NAVIGATION
-  // ==========================================================
+  // =====================================================
+  // ORIGINAL CHECK-IN NAVIGATION
+  // =====================================================
 
   void _openCheckIn(CheckIn checkIn) {
     if (widget.navigationOnly) {
@@ -222,61 +213,39 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
       return;
     }
 
-    // Ready screen can open before the booked time.
-    // Actual call start is checked separately.
-
     if (checkIn.status == CheckInStatus.ready) {
       _openAndRefresh(
         NethmiReadyScreen(
           companionName: checkIn.companionName,
           companionImageUrl:
-              checkIn.companionImageUrl ??
-              _connection?.companionImageUrl,
+              checkIn.companionImageUrl ?? _connection?.companionImageUrl,
           scheduledAt: checkIn.scheduledAt,
           durationMinutes: checkIn.durationMinutes,
           mode: checkIn.mode,
-          onStartCall: () =>
-              _startCall(checkIn, 'Video'),
-          onVoiceCall: () =>
-              _startCall(checkIn, 'Voice'),
+          onStartCall: () => _startCall(checkIn, 'Video'),
+          onVoiceCall: () => _startCall(checkIn, 'Voice'),
         ),
       );
-
       return;
     }
 
     if (CheckInScheduling.isDue(checkIn)) {
       if (CheckInScheduling.isCallWindowExpired(checkIn)) {
-        _showMessage(
-          'This scheduled check-in window has ended.',
-        );
+        _showMessage('This scheduled check-in window has ended.');
       } else {
-        _showMessage(
-          'Waiting for your Student Companion to become ready.',
-        );
+        _showMessage('Waiting for your Student Companion to become ready.');
       }
-
       return;
     }
 
-    // Future scheduled check-in:
-    // keep the working Reschedule/Cancel flow.
-
-    _openAndRefresh(
-      RescheduleCheckInScreen(
-        checkInId: checkIn.id,
-      ),
-    );
+    _openAndRefresh(RescheduleCheckInScreen(checkInId: checkIn.id));
   }
 
-  // ==========================================================
-  // START REAL CALL
-  // ==========================================================
+  // =====================================================
+  // ORIGINAL REAL WEBRTC CALL FLOW
+  // =====================================================
 
-  Future<void> _startCall(
-    CheckIn checkIn,
-    String callType,
-  ) async {
+  Future<void> _startCall(CheckIn checkIn, String callType) async {
     if (_openingCall) return;
 
     final connection = _connection;
@@ -284,9 +253,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     if (connection == null ||
         connection.elderId != checkIn.elderId ||
         connection.companionId != checkIn.companionId) {
-      _showMessage(
-        'The active connection could not be verified.',
-      );
+      _showMessage('The active connection could not be verified.');
       return;
     }
 
@@ -299,9 +266,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     }
 
     if (checkIn.mode == 'Voice' && callType != 'Voice') {
-      _showMessage(
-        'This is a voice-only check-in.',
-      );
+      _showMessage('This is a voice-only check-in.');
       return;
     }
 
@@ -310,54 +275,36 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     });
 
     try {
-      final active =
-          await _service.getActiveConnectionForCurrentElder();
+      final active = await _service.getActiveConnectionForCurrentElder();
 
       if (active == null ||
           active.id != connection.id ||
           active.elderId != checkIn.elderId ||
           active.companionId != checkIn.companionId) {
-        throw StateError(
-          'Your companion connection is no longer active.',
-        );
+        throw StateError('Your companion connection is no longer active.');
       }
 
-      // Always check the latest Firestore document.
-
-      final latest =
-          await _service.getCheckInById(checkIn.id);
+      final latest = await _service.getCheckInById(checkIn.id);
 
       if (latest == null ||
           latest.elderId != connection.elderId ||
           latest.companionId != connection.companionId) {
-        throw StateError(
-          'This check-in is no longer available.',
-        );
+        throw StateError('This check-in is no longer available.');
       }
 
       if (latest.status != CheckInStatus.ready) {
-        throw StateError(
-          'Your Student Companion is not ready.',
-        );
+        throw StateError('Your Student Companion is not ready.');
       }
 
       if (!CheckInScheduling.isWithinCallWindow(latest)) {
-        throw StateError(
-          'The scheduled call window is not open.',
-        );
+        throw StateError('The scheduled call window is not open.');
       }
 
       if (latest.mode == 'Voice' && callType != 'Voice') {
-        throw StateError(
-          'This check-in is voice-only.',
-        );
+        throw StateError('This check-in is voice-only.');
       }
 
-      // Do NOT mark inProgress here.
-      // The Student must answer and WebRTC must connect.
-
-      // FIX: Avoid using context after async operations
-      // if this screen has already been disposed.
+      // Actual connection determines inProgress, not navigation.
       if (!mounted) return;
 
       await Navigator.of(context).push(
@@ -369,20 +316,15 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
             companionId: connection.companionId,
             companionName: latest.companionName,
             companionImageUrl:
-                latest.companionImageUrl ??
-                connection.companionImageUrl,
+                latest.companionImageUrl ?? connection.companionImageUrl,
             connectionId: connection.id,
             checkInId: latest.id,
             scheduledAt: latest.scheduledAt,
             durationMinutes: latest.durationMinutes,
             callType: callType,
 
-            // Only a REAL connected call:
-            // ready -> inProgress.
-
             onConnected: () async {
-              final current =
-                  await _service.getCheckInById(latest.id);
+              final current = await _service.getCheckInById(latest.id);
 
               if (current?.status == CheckInStatus.ready) {
                 await _service.updateCheckInStatus(
@@ -392,17 +334,11 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
               }
             },
 
-            // After a connected call finishes:
-            // inProgress -> completed.
-
             onEndCall: () async {
-              final current =
-                  await _service.getCheckInById(latest.id);
+              final current = await _service.getCheckInById(latest.id);
 
               if (current == null) {
-                throw StateError(
-                  'Check-in no longer exists.',
-                );
+                throw StateError('Check-in no longer exists.');
               }
 
               if (current.status != CheckInStatus.completed) {
@@ -416,8 +352,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
 
               Navigator.of(callContext).pushAndRemoveUntil(
                 MaterialPageRoute<void>(
-                  builder: (_) =>
-                      CheckInCompleteNethmiScreen(
+                  builder: (_) => CheckInCompleteNethmiScreen(
                     companionName: latest.companionName,
                     companionImageUrl:
                         latest.companionImageUrl ??
@@ -434,9 +369,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
         ),
       );
     } catch (error) {
-      _showMessage(
-        'Could not open the call: $error',
-      );
+      _showMessage('Could not open the call: $error');
     } finally {
       if (mounted) {
         setState(() {
@@ -446,17 +379,15 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     }
   }
 
-  // ==========================================================
-  // CREATE RECURRING CHECK-IN
-  // ==========================================================
+  // =====================================================
+  // ORIGINAL CREATE RECURRING FLOW
+  // =====================================================
 
   void _createRecurringCheckIn() {
     final connection = _connection;
 
     if (connection == null) {
-      _showMessage(
-        'Connect with a Student Companion first.',
-      );
+      _showMessage('Connect with a Student Companion first.');
       return;
     }
 
@@ -467,20 +398,17 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
         elderName: connection.elderName,
         companionId: connection.companionId,
         companionName: connection.companionName,
-        preferredCheckInType:
-            widget.preferredCheckInType,
+        preferredCheckInType: widget.preferredCheckInType,
         navigationOnly: false,
       ),
     );
   }
 
-  // ==========================================================
-  // REMOVE RECURRING CHECK-IN
-  // ==========================================================
+  // =====================================================
+  // ORIGINAL DELETE RECURRING FLOW
+  // =====================================================
 
-  Future<void> _confirmRemoveRecurring(
-    RecurringSchedule schedule,
-  ) async {
+  Future<void> _confirmRemoveRecurring(RecurringSchedule schedule) async {
     if (widget.navigationOnly) {
       _showMessage('This is a navigation preview.');
       return;
@@ -496,9 +424,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
         (schedule.connectionId != null &&
             schedule.connectionId!.isNotEmpty &&
             schedule.connectionId != connection.id)) {
-      _showMessage(
-        'This routine is not part of your active connection.',
-      );
+      _showMessage('This routine is not part of your active connection.');
       return;
     }
 
@@ -507,8 +433,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
       return;
     }
 
-    final next =
-        schedule.nextOccurrence(DateTime.now());
+    final next = schedule.nextOccurrence(DateTime.now());
 
     final when = next == null
         ? ''
@@ -518,9 +443,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text(
-            'Remove recurring check-in?',
-          ),
+          title: const Text('Remove recurring check-in?'),
           content: Text(
             'Stop the repeating schedule with '
             '${schedule.companionName}?'
@@ -530,18 +453,12 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(false);
-              },
+              onPressed: () => Navigator.of(dialogContext).pop(false),
               child: const Text('Keep schedule'),
             ),
             TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: ElderColors.coral,
-              ),
-              onPressed: () {
-                Navigator.of(dialogContext).pop(true);
-              },
+              style: TextButton.styleFrom(foregroundColor: ElderColors.coral),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
               child: const Text('Remove routine'),
             ),
           ],
@@ -556,27 +473,20 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     });
 
     try {
-      final active =
-          await _service.getActiveConnectionForCurrentElder();
+      final active = await _service.getActiveConnectionForCurrentElder();
 
       if (active == null ||
           active.id != connection.id ||
           active.elderId != schedule.elderId ||
           active.companionId != schedule.companionId) {
-        throw StateError(
-          'Active connection changed. Please try again.',
-        );
+        throw StateError('Active connection changed. Please try again.');
       }
 
-      await _service.deleteRecurringSchedule(
-        schedule.id,
-      );
+      await _service.deleteRecurringSchedule(schedule.id);
 
       _showMessage('Recurring routine removed.');
     } catch (error) {
-      _showMessage(
-        'Could not remove recurring schedule: $error',
-      );
+      _showMessage('Could not remove recurring schedule: $error');
     } finally {
       if (mounted) {
         setState(() {
@@ -586,56 +496,55 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     }
   }
 
-  // ==========================================================
-  // MAIN SCREEN
-  // ==========================================================
+  // =====================================================
+  // UPDATED FIGMA UI — L02
+  // =====================================================
 
   @override
   Widget build(BuildContext context) {
     return ElderPhoneScaffold(
-      backgroundColor: ElderColors.background,
-      statusBarColor: ElderColors.background,
+      backgroundColor: _background,
+      statusBarColor: _background,
       darkStatusBar: true,
       bottomNavigationBar: ElderBottomNav(
         selectedIndex: 1,
         onHome: _goHome,
         onSchedule: () {},
-        onMemory: () => _openAndRefresh(
-          const MemoryLaneScreen(),
-        ),
+        onMemory: () => _openAndRefresh(const MemoryLaneScreen()),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          18,
-          8,
-          18,
-          10,
-        ),
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 9),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _topBar(),
-            const SizedBox(height: 10),
+
+            const SizedBox(height: 13),
+
             const Text(
               'My Schedule',
               style: TextStyle(
-                color: ElderColors.textDark,
-                fontSize: 24,
-                height: 1,
+                color: _ink,
+                fontSize: 28,
+                height: 1.08,
                 fontWeight: FontWeight.w900,
+                letterSpacing: -0.6,
               ),
             ),
-            const SizedBox(height: 7),
+
+            const SizedBox(height: 5),
+
             const Text(
-              'Your companion check-ins',
-              style: TextStyle(
-                color: ElderColors.textMuted,
-                fontSize: 10.5,
-              ),
+              'Your upcoming companion check-ins',
+              style: TextStyle(color: _muted, fontSize: 12),
             ),
-            const SizedBox(height: 14),
+
+            const SizedBox(height: 17),
+
             _tabs(),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 17),
+
             Expanded(child: _body()),
           ],
         ),
@@ -643,17 +552,13 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     );
   }
 
-  // ==========================================================
-  // FIRESTORE STREAM
-  // ==========================================================
+  // =====================================================
+  // FIREBASE STREAM — PRESERVED
+  // =====================================================
 
   Widget _body() {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: ElderColors.darkTeal,
-        ),
-      );
+      return const Center(child: CircularProgressIndicator(color: _teal));
     }
 
     if (_error != null) {
@@ -662,10 +567,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
 
     if (_scheduleStream == null) {
       return _scheduleContent(
-        const ElderScheduleData(
-          checkIns: [],
-          recurringSchedules: [],
-        ),
+        const ElderScheduleData(checkIns: [], recurringSchedules: []),
       );
     }
 
@@ -673,17 +575,11 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
       stream: _scheduleStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return _errorView(
-            snapshot.error.toString(),
-          );
+          return _errorView(snapshot.error.toString());
         }
 
         if (!snapshot.hasData) {
-          return const Center(
-            child: CircularProgressIndicator(
-              color: ElderColors.darkTeal,
-            ),
-          );
+          return const Center(child: CircularProgressIndicator(color: _teal));
         }
 
         return _scheduleContent(snapshot.data!);
@@ -696,18 +592,12 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.error_outline,
-            size: 36,
-            color: ElderColors.coral,
-          ),
+          const Icon(Icons.error_outline_rounded, color: _coral, size: 36),
           const SizedBox(height: 12),
           Text(
             error,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: ElderColors.textDark,
-            ),
+            style: const TextStyle(color: _ink, fontSize: 12),
           ),
           const SizedBox(height: 12),
           ElderOutlineButton(
@@ -716,7 +606,6 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
               setState(() {
                 _loading = true;
               });
-
               _loadConnection();
             },
           ),
@@ -725,31 +614,35 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     );
   }
 
+  // =====================================================
+  // CHECK-IN LIST + FIXED BOTTOM CONTENT
+  // =====================================================
+
   Widget _scheduleContent(ElderScheduleData data) {
-    final visible =
-        _visibleCheckIns(data.checkIns);
+    final visible = _visibleCheckIns(data.checkIns);
 
     return Column(
       children: [
         Expanded(
           child: ListView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 8),
             children: [
               for (int i = 0; i < visible.length; i++) ...[
                 _scheduleCard(
                   checkIn: visible[i],
                   badge: _statusLabel(visible[i], i),
-                  onTap: () =>
-                      _openCheckIn(visible[i]),
+                  onTap: () => _openCheckIn(visible[i]),
                 ),
                 const SizedBox(height: 12),
               ],
 
+              // Existing recurring schedules remain
+              // visible in the Upcoming tab.
               if (_selectedTab == _ScheduleTab.upcoming)
-                for (final schedule
-                    in data.recurringSchedules)
+                for (final schedule in data.recurringSchedules)
                   Padding(
-                    padding:
-                        const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 12),
                     child: _recurringCard(schedule),
                   ),
 
@@ -763,55 +656,43 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
 
         if (_connection != null) ...[
           const SizedBox(height: 10),
-          ElderPrimaryButton(
-            label: '+  Create recurring check-in',
-            color: ElderColors.darkTeal,
-            height: 54,
-            onPressed: _createRecurringCheckIn,
-          ),
+          _createButton(),
         ],
 
-        const SizedBox(height: 10),
+        const SizedBox(height: 11),
+
         _infoCard(),
       ],
     );
   }
 
-  String _statusLabel(
-    CheckIn checkIn,
-    int index,
-  ) {
+  String _statusLabel(CheckIn checkIn, int index) {
     switch (checkIn.status) {
       case CheckInStatus.ready:
         return 'READY';
-
       case CheckInStatus.inProgress:
         return 'IN CALL';
-
       case CheckInStatus.completed:
         return 'COMPLETED';
-
       case CheckInStatus.cancelled:
         return 'CANCELLED';
-
       case CheckInStatus.missed:
         return 'MISSED';
-
       case CheckInStatus.scheduled:
         return index == 0 ? 'NEXT' : 'SCHEDULED';
     }
   }
 
-  // ==========================================================
-  // TABS
-  // ==========================================================
+  // =====================================================
+  // FIGMA MINT TABS
+  // =====================================================
 
   Widget _tabs() {
     return Container(
-      height: 50,
+      height: 48,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: ElderColors.mint,
+        color: _mint,
         borderRadius: BorderRadius.circular(15),
       ),
       child: Row(
@@ -824,45 +705,43 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     );
   }
 
-  Widget _tabButton(
-    String label,
-    _ScheduleTab tab,
-  ) {
+  Widget _tabButton(String label, _ScheduleTab tab) {
     final selected = _selectedTab == tab;
 
     return Expanded(
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _selectedTab = tab;
-          });
-        },
-        borderRadius: BorderRadius.circular(13),
-        child: Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected
-                ? Colors.white
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(13),
-            boxShadow: selected
-                ? const [
-                    BoxShadow(
-                      color: Color(0x0D000000),
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: ElderColors.textDark,
-              fontSize: 10.5,
-              fontWeight: selected
-                  ? FontWeight.w800
-                  : FontWeight.w600,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              _selectedTab = tab;
+            });
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: _ink.withValues(alpha: 0.07),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: _ink,
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+              ),
             ),
           ),
         ),
@@ -870,9 +749,9 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     );
   }
 
-  // ==========================================================
-  // ONE-TIME CHECK-IN CARD
-  // ==========================================================
+  // =====================================================
+  // FIGMA SINGLE CHECK-IN CARD
+  // =====================================================
 
   Widget _scheduleCard({
     required CheckIn checkIn,
@@ -880,202 +759,241 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     required VoidCallback onTap,
   }) {
     final name = checkIn.companionName;
-
     final imageUrl =
         checkIn.companionImageUrl ??
-        _connection?.companionImageUrl;
+        _connection?.companionImageUrl ??
+        widget.companionImageUrl;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(17),
-      child: Container(
-        height: 104,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 13,
-          vertical: 12,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(17),
-          border: Border.all(
-            color: const Color(0x6693CFC4),
-          ),
-        ),
-        child: Row(
-          children: [
-            _avatar(name, imageUrl),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _formatSchedule(
-                      checkIn.scheduledAt,
-                    ),
-                    style: const TextStyle(
-                      color: ElderColors.textDark,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '$name · '
-                    '${checkIn.durationMinutes} min · '
-                    '${checkIn.mode}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: ElderColors.textMuted,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
+    final localizations = MaterialLocalizations.of(context);
+
+    final time = localizations.formatTimeOfDay(
+      TimeOfDay.fromDateTime(checkIn.scheduledAt),
+    );
+
+    final day = _sameDay(checkIn.scheduledAt, DateTime.now())
+        ? 'Today'
+        : _shortWeekday(checkIn.scheduledAt);
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 83),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _border),
+            boxShadow: [
+              BoxShadow(
+                color: _ink.withValues(alpha: 0.065),
+                blurRadius: 13,
+                offset: const Offset(0, 5),
               ),
-            ),
-            const SizedBox(width: 5),
-            ElderStatusPill(
-              badge,
-              filled:
-                  checkIn.status == CheckInStatus.ready,
-            ),
-          ],
+            ],
+          ),
+          child: Row(
+            children: [
+              _avatar(name, imageUrl),
+
+              const SizedBox(width: 11),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$day • $time',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ink,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+
+                    const SizedBox(height: 7),
+
+                    Text(
+                      '$name · ${checkIn.mode}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: _muted, fontSize: 11),
+                    ),
+
+                    const SizedBox(height: 3),
+
+                    Text(
+                      '${localizations.formatMediumDate(checkIn.scheduledAt)}'
+                      ' · ${checkIn.durationMinutes} min',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: _muted, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 7),
+
+              _statusBadge(
+                badge,
+                filled:
+                    badge == 'READY' || badge == 'NEXT' || badge == 'IN CALL',
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ==========================================================
-  // AVATAR
-  // ==========================================================
+  String _shortWeekday(DateTime date) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days[date.weekday - 1];
+  }
 
-  Widget _avatar(
-    String name,
-    String? imageUrl,
-  ) {
+  // =====================================================
+  // COMPANION AVATAR — REAL IMAGE OR INITIALS
+  // =====================================================
+
+  Widget _avatar(String name, String? imageUrl) {
     final initials = name
+        .trim()
         .split(RegExp(r'\s+'))
         .where((part) => part.isNotEmpty)
         .take(2)
         .map((part) => part[0].toUpperCase())
         .join();
 
-    final fallback = CircleAvatar(
-      radius: 24,
-      backgroundColor: ElderColors.mintSoft,
-      child: Text(
-        initials.isEmpty ? '?' : initials,
-        style: const TextStyle(
-          color: ElderColors.darkTeal,
-          fontWeight: FontWeight.bold,
+    Widget fallback() {
+      return CircleAvatar(
+        radius: 26,
+        backgroundColor: _mintSoft,
+        child: Text(
+          initials.isEmpty ? '?' : initials,
+          style: const TextStyle(
+            color: _ink,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+          ),
         ),
-      ),
-    );
+      );
+    }
 
-    if (imageUrl == null ||
-        imageUrl.trim().isEmpty) {
-      return fallback;
+    if (imageUrl == null || imageUrl.trim().isEmpty) {
+      return fallback();
     }
 
     return CircleAvatar(
-      radius: 24,
-      backgroundColor: ElderColors.mintSoft,
-      child: ClipOval(
-        child: Image.network(
-          imageUrl,
-          width: 48,
-          height: 48,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => fallback,
+      radius: 27,
+      backgroundColor: _coral,
+      child: CircleAvatar(
+        radius: 25,
+        backgroundColor: Colors.white,
+        child: ClipOval(
+          child: Image.network(
+            imageUrl,
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => fallback(),
+          ),
         ),
       ),
     );
   }
 
-  // ==========================================================
-  // RECURRING CARD WITH DELETE
-  // ==========================================================
+  // =====================================================
+  // FIGMA RECURRING CARD
+  // =====================================================
 
-  Widget _recurringCard(
-    RecurringSchedule schedule,
-  ) {
-    final next =
-        schedule.nextOccurrence(DateTime.now());
+  Widget _recurringCard(RecurringSchedule schedule) {
+    final next = schedule.nextOccurrence(DateTime.now());
+    final isDeleting = _deletingScheduleId == schedule.id;
 
-    final isDeleting =
-        _deletingScheduleId == schedule.id;
+    final imageUrl = _connection?.companionImageUrl ?? widget.companionImageUrl;
+
+    final subtitle = next == null
+        ? 'Recurring schedule'
+        : '${_shortWeekday(next)} • '
+              '${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(next))}'
+              ' · ${schedule.mode}';
 
     return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(17),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(17),
         onTap: _deletingScheduleId != null
             ? null
             : () => _confirmRemoveRecurring(schedule),
+        borderRadius: BorderRadius.circular(18),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          constraints: const BoxConstraints(minHeight: 80),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(17),
-            border: Border.all(
-              color: ElderColors.border,
-            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _border),
+            boxShadow: [
+              BoxShadow(
+                color: _ink.withValues(alpha: 0.055),
+                blurRadius: 13,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.repeat_rounded,
-                color: ElderColors.darkTeal,
-              ),
-              const SizedBox(width: 12),
+              _avatar(schedule.companionName, imageUrl),
+
+              const SizedBox(width: 11),
+
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       schedule.companionName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: ElderColors.textDark,
-                        fontWeight: FontWeight.w800,
+                        color: _ink,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 5),
+
+                    const SizedBox(height: 6),
+
                     Text(
-                      next == null
-                          ? 'Recurring schedule'
-                          : 'Recurring · '
-                              '${_formatSchedule(next)}',
-                      style: const TextStyle(
-                        color: ElderColors.textMuted,
-                        fontSize: 10,
-                      ),
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: _muted, fontSize: 10.5),
                     ),
                   ],
                 ),
               ),
+
+              const SizedBox(width: 7),
+
               if (isDeleting)
                 const SizedBox(
-                  height: 20,
-                  width: 20,
+                  width: 19,
+                  height: 19,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: ElderColors.darkTeal,
+                    color: _teal,
                   ),
                 )
               else ...[
-                const ElderStatusPill('RECURRING'),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: ElderColors.darkTeal,
-                  size: 18,
-                ),
+                _statusBadge('RECURRING'),
+                const SizedBox(width: 3),
+                const Icon(Icons.chevron_right_rounded, size: 20, color: _teal),
               ],
             ],
           ),
@@ -1084,123 +1002,176 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     );
   }
 
-  // ==========================================================
+  Widget _statusBadge(String label, {bool filled = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: filled ? _teal : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _teal, width: 1),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: filled ? Colors.white : _teal,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
+  // =====================================================
   // EMPTY STATE
-  // ==========================================================
+  // =====================================================
 
   Widget _emptyState() {
     final message = switch (_selectedTab) {
-      _ScheduleTab.today =>
-        'No check-ins today',
-      _ScheduleTab.upcoming =>
-        'No upcoming check-ins',
-      _ScheduleTab.past =>
-        'No past check-ins',
+      _ScheduleTab.today => 'No check-ins today',
+      _ScheduleTab.upcoming => 'No upcoming check-ins',
+      _ScheduleTab.past => 'No past check-ins',
     };
 
     return Container(
       width: double.infinity,
-      height: 104,
-      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(vertical: 35, horizontal: 15),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(
-          color: ElderColors.border,
-        ),
-        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: _border),
+        borderRadius: BorderRadius.circular(18),
       ),
-      child: Text(
-        message,
-        style: const TextStyle(
-          color: ElderColors.textMuted,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Column(
+        children: [
+          const Icon(Icons.calendar_today_outlined, color: _teal, size: 28),
+          const SizedBox(height: 13),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _muted,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   String _formatSchedule(DateTime date) {
-    final localizations =
-        MaterialLocalizations.of(context);
-
+    final localizations = MaterialLocalizations.of(context);
     return '${localizations.formatMediumDate(date)} · '
         '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(date))}';
   }
 
-  // ==========================================================
-  // HEADER
-  // ==========================================================
+  // =====================================================
+  // FIGMA HEADER
+  // =====================================================
 
   Widget _topBar() {
     return Row(
       children: [
-        ElderBackButton(
-          onPressed: () =>
-              Navigator.of(context).maybePop(),
-        ),
-        const SizedBox(width: 10),
+        ElderBackButton(onPressed: () => Navigator.of(context).maybePop()),
+
+        const SizedBox(width: 11),
+
         Container(
-          width: 30,
-          height: 30,
+          width: 32,
+          height: 32,
           alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: ElderColors.darkTeal,
-            shape: BoxShape.circle,
-          ),
+          decoration: const BoxDecoration(color: _teal, shape: BoxShape.circle),
           child: const Text(
             'C',
             style: TextStyle(
               color: Colors.white,
+              fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
           ),
         ),
-        const SizedBox(width: 7),
+
+        const SizedBox(width: 8),
+
         const Text(
           'CareLink',
           style: TextStyle(
-            color: ElderColors.textDark,
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
+            color: _ink,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
           ),
         ),
+
+        const Spacer(),
+
+        const CircleAvatar(radius: 4, backgroundColor: _coral),
       ],
     );
   }
 
-  // ==========================================================
-  // INFORMATION CARD
-  // ==========================================================
+  // =====================================================
+  // FIGMA CREATE BUTTON
+  // =====================================================
+
+  Widget _createButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        onPressed: _createRecurringCheckIn,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _teal,
+          foregroundColor: Colors.white,
+          elevation: 4,
+          shadowColor: _teal.withValues(alpha: 0.18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: const Text(
+          '+  Create recurring check-in',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+        ),
+      ),
+    );
+  }
+
+  // =====================================================
+  // FIGMA WHITE REMINDER
+  // =====================================================
 
   Widget _infoCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 15),
       decoration: BoxDecoration(
-        color: const Color(0x66A7EEE0),
-        border: Border.all(
-          color: const Color(0x6693CFC4),
-        ),
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: _border),
+        boxShadow: [
+          BoxShadow(
+            color: _ink.withValues(alpha: 0.04),
+            blurRadius: 9,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: const Row(
         children: [
-          Icon(
-            Icons.info_outline,
-            color: ElderColors.darkTeal,
+          CircleAvatar(
+            radius: 19,
+            backgroundColor: Color(0xFFFFEBED),
+            child: Icon(Icons.info_outline_rounded, color: _coral, size: 24),
           ),
-          SizedBox(width: 10),
+
+          SizedBox(width: 12),
+
           Expanded(
             child: Text(
-              'You can reschedule or cancel your '
-              'upcoming check-ins. Calls open when '
+              'You can reschedule or cancel any '
+              'upcoming check-in. Calls open when '
               'your companion confirms readiness. '
               'Tap a recurring routine to remove it.',
-              style: TextStyle(
-                color: ElderColors.textDark,
-                fontSize: 10,
-              ),
+              style: TextStyle(color: _ink, fontSize: 11, height: 1.45),
             ),
           ),
         ],
