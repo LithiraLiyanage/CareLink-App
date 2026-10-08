@@ -285,23 +285,27 @@ class CompanionProfileScreen extends StatelessWidget {
                     color: _careLinkTeal.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  // Wrap lets the translated verification label move below
+                  // the icon at 2x text scale instead of overflowing a Row.
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
+                    runSpacing: 4,
                     children: [
                       const Icon(
                         Icons.verified_outlined,
                         size: 18,
                         color: _careLinkTeal,
                       ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          strings.verifiedStudentCompanion,
-                          style: const TextStyle(
-                            color: _careLinkTeal,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      Text(
+                        strings.verifiedStudentCompanion,
+                        softWrap: true,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: _careLinkTeal,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../controllers/companion_controller.dart';
 import '../controllers/companion_controller_factory.dart';
 import '../models/companion_language.dart';
+import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
 import '../models/match_preferences.dart';
 import '../models/match_recommendation.dart';
@@ -24,12 +25,10 @@ class RecommendedCompanionsScreen extends StatefulWidget {
     this.controller,
     this.fromPreferences = false,
   });
-
   final CompanionLanguage selectedLanguage;
   final MatchPreferences? preferences;
   final CompanionController? controller;
   final bool fromPreferences;
-
   @override
   State<RecommendedCompanionsScreen> createState() =>
       _RecommendedCompanionsScreenState();
@@ -39,19 +38,22 @@ class _RecommendedCompanionsScreenState
     extends State<RecommendedCompanionsScreen> {
   late final CompanionController _controller;
   late final bool _ownsController;
+  static const Color _teal = Color(0xFF087F83);
+  static const Color _darkTeal = Color(0xFF173F42);
+  static const Color _coral = Color(0xFFFF625F);
+  static const Color _mint = Color(0xFFEAF6F2);
+  static const Color _border = Color(0xFFDCE9E5);
+  static const Color _muted = Color(0xFF5B7272);
   CompanionLanguage get selectedLanguage => widget.selectedLanguage;
-
   MatchPreferences get _effectivePreferences =>
       widget.preferences ??
       _controller.currentPreferences ??
       MatchPreferences(
-        // The UI language is not a matching preference for direct W02 entry.
         preferredLanguage: '',
         interests: const [],
         availability: '',
         preferredTime: '',
       );
-
   @override
   void initState() {
     super.initState();
@@ -63,7 +65,9 @@ class _RecommendedCompanionsScreenState
         (widget.preferences != null &&
             !identical(_controller.currentPreferences, widget.preferences))) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _controller.loadRecommendations(_effectivePreferences);
+        if (mounted) {
+          _controller.loadRecommendations(_effectivePreferences);
+        }
       });
     }
   }
@@ -75,10 +79,15 @@ class _RecommendedCompanionsScreenState
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
-    if (_ownsController) _controller.dispose();
+    if (_ownsController) {
+      _controller.dispose();
+    }
     super.dispose();
   }
 
+  // ===================================================
+  // Existing navigation and matching logic
+  // ===================================================
   void _adjustPreferences(BuildContext context) {
     if (widget.fromPreferences && Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
@@ -132,17 +141,56 @@ class _RecommendedCompanionsScreenState
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  // ===================================================
+  // Profile image presentation
+  // ===================================================
+  // Demo portraits are visual fallbacks for the sample
+  // profiles. The Firebase image URL always takes priority.
+  // Replace these previews with genuine profile photos
+  // before production use.
+  String _imagePathFor(CompanionProfile profile) {
+    if (profile.imagePath.isNotEmpty) {
+      return profile.imagePath;
+    }
+    if ((profile.profileImageUrl ?? '').isNotEmpty) {
+      return '';
+    }
+    final name = profile.name.trim().toLowerCase();
+    if (name.startsWith('nethmi ')) {
+      return 'assets/images/companion_nethmi.png';
+    }
+    if (name.startsWith('amaya ')) {
+      return 'assets/images/companion_amaya.png';
+    }
+    if (name.startsWith('kavindu ')) {
+      return 'assets/images/companion_kavindu.png';
+    }
+    return '';
+  }
+
+  Widget _avatar(CompanionProfile profile, {required double size}) {
+    return CompanionAvatar(
+      name: profile.name,
+      size: size,
+      imagePath: _imagePathFor(profile),
+      imageUrl: profile.profileImageUrl,
+      heroTag: 'companion-avatar-${profile.id}',
+    );
+  }
+
+  // ===================================================
+  // Main UI
+  // ===================================================
   @override
   Widget build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
-    final textTheme = CompanionScaffold.textTheme(context);
     final recommendations = _controller.recommendations;
-
     return CompanionScaffold(
       body: CompanionEntrance(
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),
@@ -150,62 +198,37 @@ class _RecommendedCompanionsScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHeader(context, strings),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 20),
                     Semantics(
                       header: true,
                       child: Text(
                         strings.recommendedCompanions,
-                        style: textTheme.headlineMedium?.copyWith(
-                          fontSize: 27,
-                          letterSpacing: -0.6,
+                        style: const TextStyle(
+                          color: _darkTeal,
+                          fontSize: 25,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.8,
+                          height: 1.13,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 6),
                     Text(
                       strings.recommendationSubtitle,
-                      style: textTheme.bodyMedium,
+                      style: const TextStyle(
+                        color: _muted,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
                     ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: CompanionPalette.coral,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () => _adjustPreferences(context),
-                              style: TextButton.styleFrom(
-                                foregroundColor: CompanionPalette.teal,
-                                minimumSize: const Size(0, 48),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                              ),
-                              child: Text(
-                                '${strings.adjustPreferences} →',
-                                textAlign: TextAlign.end,
-                                softWrap: true,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
+                    _preferencesRow(context, strings),
+                    const SizedBox(height: 15),
                     if (_controller.isLoading)
                       const Center(
                         child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: CircularProgressIndicator(),
+                          padding: EdgeInsets.all(30),
+                          child: CircularProgressIndicator(color: _teal),
                         ),
                       )
                     else if (_controller.errorMessage != null)
@@ -274,62 +297,74 @@ class _RecommendedCompanionsScreenState
     );
   }
 
+  // ===================================================
+  // Header
+  // ===================================================
   Widget _buildHeader(BuildContext context, CompanionStrings strings) {
     return Row(
       children: [
-        IconButton(
-          onPressed: () => _adjustPreferences(context),
-          tooltip: strings.adjustPreferences,
-          icon: const Icon(Icons.chevron_left),
-          color: CompanionPalette.teal,
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.white,
-            side: const BorderSide(color: CompanionPalette.border),
+        Material(
+          color: Colors.white,
+          shape: const CircleBorder(side: BorderSide(color: _border)),
+          child: IconButton(
+            onPressed: () => _adjustPreferences(context),
+            tooltip: strings.adjustPreferences,
+            icon: const Icon(
+              Icons.chevron_left_rounded,
+              size: 24,
+              color: _teal,
+            ),
           ),
         ),
+        // A bounded, flexible label avoids an overflowing Row with 2x text.
         Expanded(
-          child: Center(
-            child: Semantics(
-              label: 'CareLink',
-              child: ExcludeSemantics(
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 7,
-                  runSpacing: 3,
+          child: Semantics(
+            label: 'CareLink',
+            child: ExcludeSemantics(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      width: 34,
-                      height: 34,
+                      width: 31,
+                      height: 31,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: CompanionPalette.teal,
-                        borderRadius: BorderRadius.circular(10),
+                        color: _teal,
+                        borderRadius: BorderRadius.circular(9),
                       ),
                       child: const Text(
                         'C',
+                        textScaler: TextScaler.noScaling,
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 20,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    const Flexible(
+                      child: Text(
+                        'CareLink',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                        style: TextStyle(
+                          color: _teal,
+                          fontSize: 16,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
                     const Text(
-                      'CareLink',
-                      textAlign: TextAlign.center,
+                      '•',
+                      textScaler: TextScaler.noScaling,
                       style: TextStyle(
-                        color: CompanionPalette.teal,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Container(
-                      width: 5,
-                      height: 5,
-                      decoration: const BoxDecoration(
-                        color: CompanionPalette.coral,
-                        shape: BoxShape.circle,
+                        color: _coral,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
@@ -338,21 +373,27 @@ class _RecommendedCompanionsScreenState
             ),
           ),
         ),
-        // Decorative only until the notifications flow is connected.
+        // Keep the existing decorative notification icon.
         ExcludeSemantics(
           child: Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
+            width: 47,
+            height: 47,
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
-              border: Border.all(color: CompanionPalette.border),
+              border: Border.all(color: _border),
+              boxShadow: [
+                BoxShadow(
+                  color: _darkTeal.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                ),
+              ],
             ),
+            alignment: Alignment.center,
             child: const Icon(
-              Icons.notifications_none,
-              color: CompanionPalette.teal,
-              size: 21,
+              Icons.notifications_none_rounded,
+              color: _teal,
+              size: 22,
             ),
           ),
         ),
@@ -360,111 +401,128 @@ class _RecommendedCompanionsScreenState
     );
   }
 
-  Widget _buildMessageCard(
-    BuildContext context, {
-    required String title,
-    required String detail,
-    required String action,
-    required VoidCallback onPressed,
-  }) {
-    final textTheme = Theme.of(context).textTheme;
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(detail, style: textTheme.bodyMedium),
-            const SizedBox(height: 14),
-            OutlinedButton(onPressed: onPressed, child: Text(action)),
-          ],
+  // ===================================================
+  // Adjust preferences row
+  // ===================================================
+  Widget _preferencesRow(BuildContext context, CompanionStrings strings) {
+    return Row(
+      children: [
+        Container(
+          width: 31,
+          height: 3,
+          decoration: BoxDecoration(
+            color: _coral,
+            borderRadius: BorderRadius.circular(5),
+          ),
         ),
-      ),
+        const SizedBox(width: 8),
+        // Expanded gives localized text a finite width. The label can wrap
+        // instead of pushing the trailing edge outside a narrow screen.
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => _adjustPreferences(context),
+              style: TextButton.styleFrom(
+                foregroundColor: _teal,
+                minimumSize: const Size(0, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
+                tapTargetSize: MaterialTapTargetSize.padded,
+              ),
+              child: Text(
+                '${strings.adjustPreferences} →',
+                softWrap: true,
+                textAlign: TextAlign.end,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
+  // ===================================================
+  // Featured companion card
+  // ===================================================
   Widget _buildFeaturedCard(
     BuildContext context,
     CompanionStrings strings,
     MatchRecommendation recommendation,
   ) {
     final profile = recommendation.companion;
-    final textTheme = Theme.of(context).textTheme;
-    final compactEnglish =
-        selectedLanguage == CompanionLanguage.english &&
-        MediaQuery.textScalerOf(context).scale(1) <= 1.2;
     final reasons = recommendation.reasons;
     final availability = strings.profileAvailability(profile, short: true);
     final metadata = [
       if (profile.languages.isNotEmpty) profile.languages.join(', '),
       if (availability.trim().isNotEmpty) availability,
     ].join(' • ');
-
     return Card(
       margin: EdgeInsets.zero,
+      color: Colors.white,
+      elevation: 3,
+      shadowColor: _darkTeal.withValues(alpha: 0.10),
       clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        width: double.infinity,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(
-              width: double.infinity,
-              height: 3,
-              child: ColoredBox(color: CompanionPalette.teal),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CompanionAvatar(
-                        name: profile.name,
-                        size: 58,
-                        imagePath: profile.imagePath,
-                        imageUrl: profile.profileImageUrl,
-                        heroTag: 'companion-avatar-${profile.id}',
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              profile.name,
-                              style: textTheme.titleLarge?.copyWith(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                              ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(21),
+        side: const BorderSide(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 3, child: ColoredBox(color: _teal)),
+          Padding(
+            padding: const EdgeInsets.all(13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _avatar(profile, size: 55),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _darkTeal,
+                              fontSize: 16.5,
+                              fontWeight: FontWeight.w800,
+                              height: 1.15,
                             ),
-                            if (profile.verified) ...[
-                              const SizedBox(height: 5),
-                              _buildVerifiedBadge(strings.verifiedStudent),
-                            ],
+                          ),
+                          if (profile.verified) ...[
+                            const SizedBox(height: 6),
+                            _buildVerifiedBadge(strings.verifiedStudent),
                           ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (metadata.isNotEmpty) ...[
-                    Text(
-                      metadata,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: CompanionPalette.muted,
-                        fontSize: 12.5,
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
                   ],
+                ),
+                if (metadata.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    metadata,
+                    style: const TextStyle(
+                      color: _muted,
+                      fontSize: 11.5,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+                if (profile.interests.isNotEmpty) ...[
+                  const SizedBox(height: 9),
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 7,
+                    runSpacing: 7,
                     children: profile.interests
                         .map(
                           (interest) => _buildInterestChip(
@@ -474,107 +532,130 @@ class _RecommendedCompanionsScreenState
                         )
                         .toList(),
                   ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: CompanionPalette.mint,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Semantics(
-                          header: true,
-                          child: Text(
-                            strings.whyThisMatch,
-                            style: textTheme.titleMedium?.copyWith(
-                              color: CompanionPalette.ink,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        if (reasons.isEmpty)
-                          Text(
-                            strings.noPreferenceOverlap,
-                            style: textTheme.bodySmall,
-                          )
-                        else
-                          for (final reason in reasons)
-                            _buildReason(strings.matchReasonText(reason)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final profileButton = OutlinedButton(
-                        onPressed: () => _openProfile(context, recommendation),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: CompanionPalette.teal,
-                          side: const BorderSide(
-                            color: CompanionPalette.teal,
-                            width: 1.5,
-                          ),
-                          minimumSize: const Size(0, 48),
-                        ),
-                        child: Text(
-                          strings.viewProfile,
-                          textAlign: TextAlign.center,
-                        ),
-                      );
-                      final requestButton = ElevatedButton(
-                        onPressed: () => _openRequest(context, recommendation),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: CompanionPalette.teal,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(0, 48),
-                        ),
-                        child: Text(
-                          strings.sendRequest,
-                          textAlign: TextAlign.center,
-                        ),
-                      );
-
-                      if (!compactEnglish || constraints.maxWidth < 300) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            profileButton,
-                            const SizedBox(height: 8),
-                            requestButton,
-                          ],
-                        );
-                      }
-
-                      return Row(
-                        children: [
-                          Expanded(child: profileButton),
-                          const SizedBox(width: 10),
-                          Expanded(child: requestButton),
-                        ],
-                      );
-                    },
-                  ),
                 ],
-              ),
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 11,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _mint,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Semantics(
+                        header: true,
+                        child: Text(
+                          strings.whyThisMatch,
+                          style: const TextStyle(
+                            color: _darkTeal,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      if (reasons.isEmpty)
+                        Text(
+                          strings.noPreferenceOverlap,
+                          style: const TextStyle(color: _muted, fontSize: 11.5),
+                        )
+                      else
+                        for (final reason in reasons)
+                          _buildReason(strings.matchReasonText(reason)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildActionButtons(context, strings, recommendation),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
+  // ===================================================
+  // Profile and Request buttons
+  // ===================================================
+  Widget _buildActionButtons(
+    BuildContext context,
+    CompanionStrings strings,
+    MatchRecommendation recommendation,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final profileButton = OutlinedButton(
+          onPressed: () => _openProfile(context, recommendation),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _teal,
+            backgroundColor: Colors.white,
+            side: const BorderSide(color: _teal, width: 1.4),
+            minimumSize: const Size(0, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+          ),
+          child: Text(
+            strings.viewProfile,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+          ),
+        );
+        final requestButton = ElevatedButton(
+          onPressed: () => _openRequest(context, recommendation),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _teal,
+            foregroundColor: Colors.white,
+            elevation: 2,
+            shadowColor: _teal.withValues(alpha: 0.18),
+            minimumSize: const Size(0, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+          ),
+          child: Text(
+            strings.sendRequest,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+          ),
+        );
+        final compactEnglish =
+            selectedLanguage == CompanionLanguage.english &&
+            MediaQuery.textScalerOf(context).scale(1) <= 1.2;
+        if (!compactEnglish || constraints.maxWidth < 290) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [profileButton, const SizedBox(height: 8), requestButton],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: profileButton),
+            const SizedBox(width: 9),
+            Expanded(child: requestButton),
+          ],
+        );
+      },
+    );
+  }
+
+  // ===================================================
+  // Small companion cards
+  // ===================================================
   Widget _buildSmallCard(
     BuildContext context,
     CompanionStrings strings, {
     required MatchRecommendation recommendation,
   }) {
     final profile = recommendation.companion;
-    final textTheme = Theme.of(context).textTheme;
     final availability = strings.profileAvailability(profile, short: true);
     final metadata = [
       if (profile.languages.isNotEmpty) profile.languages.join(', '),
@@ -582,76 +663,64 @@ class _RecommendedCompanionsScreenState
         profile.interests.map(strings.interestLabel).join(', '),
       if (availability.trim().isNotEmpty) availability,
     ].join(' • ');
-
     return Card(
       margin: EdgeInsets.zero,
+      color: Colors.white,
+      elevation: 2,
+      shadowColor: _darkTeal.withValues(alpha: 0.09),
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: _border),
+      ),
       child: Semantics(
         button: true,
         label: '${strings.viewProfile}: ${profile.name}',
         child: InkWell(
           onTap: () => _openProfile(context, recommendation),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                CompanionAvatar(
-                  name: profile.name,
-                  size: 48,
-                  imagePath: profile.imagePath,
-                  imageUrl: profile.profileImageUrl,
-                  heroTag: 'companion-avatar-${profile.id}',
-                ),
-                const SizedBox(width: 12),
+                _avatar(profile, size: 47),
+                const SizedBox(width: 11),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         profile.name,
-                        style: textTheme.titleMedium?.copyWith(
-                          fontSize: 16,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _darkTeal,
+                          fontSize: 14.5,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       if (profile.verified) ...[
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 5),
                         _buildVerifiedBadge(strings.verified),
                       ],
                       if (metadata.isNotEmpty) ...[
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 6),
                         Text(
                           metadata,
-                          softWrap: true,
-                          style: textTheme.bodySmall?.copyWith(
-                            color: CompanionPalette.muted,
-                            fontSize: 12.5,
-                          ),
-                        ),
-                      ],
-                      if (recommendation.reasons.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          recommendation.reasons
-                              .map(strings.matchReasonText)
-                              .join(' • '),
-                          softWrap: true,
-                          style: textTheme.bodySmall?.copyWith(
-                            color: CompanionPalette.teal,
-                            fontSize: 12,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _muted,
+                            fontSize: 10.5,
+                            height: 1.3,
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.chevron_right,
-                  color: CompanionPalette.muted,
-                  size: 20,
-                ),
+                const SizedBox(width: 3),
+                const Icon(Icons.chevron_right_rounded, size: 19, color: _teal),
               ],
             ),
           ),
@@ -660,24 +729,29 @@ class _RecommendedCompanionsScreenState
     );
   }
 
+  // ===================================================
+  // Verified badge
+  // ===================================================
   Widget _buildVerifiedBadge(String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: CompanionPalette.mint,
-        borderRadius: BorderRadius.circular(20),
+        color: _mint,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.check, size: 14, color: CompanionPalette.teal),
+          const Icon(Icons.check_rounded, color: _teal, size: 13),
           const SizedBox(width: 4),
           Flexible(
             child: Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: CompanionPalette.teal,
-                fontSize: 12,
+                color: _teal,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -687,26 +761,28 @@ class _RecommendedCompanionsScreenState
     );
   }
 
+  // ===================================================
+  // Interest chips
+  // ===================================================
   Widget _buildInterestChip(String label, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF7F4),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: CompanionPalette.coral, width: 1.2),
+        border: Border.all(color: _coral, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: CompanionPalette.coral),
-          const SizedBox(width: 4),
+          Icon(icon, color: _coral, size: 14),
+          const SizedBox(width: 5),
           Flexible(
             child: Text(
               label,
-              softWrap: true,
               style: const TextStyle(
-                color: CompanionPalette.coral,
-                fontSize: 13,
+                color: _coral,
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -716,24 +792,69 @@ class _RecommendedCompanionsScreenState
     );
   }
 
+  // ===================================================
+  // Matching reasons
+  // ===================================================
   Widget _buildReason(String reason) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.check, size: 15, color: CompanionPalette.teal),
-          const SizedBox(width: 3),
+          const Icon(Icons.check_rounded, size: 15, color: _teal),
+          const SizedBox(width: 4),
           Expanded(
             child: Text(
               reason,
-              style: const TextStyle(
-                fontSize: 12.5,
-                color: CompanionPalette.teal,
-              ),
+              style: const TextStyle(color: _teal, fontSize: 11.5, height: 1.3),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ===================================================
+  // Loading/error/empty state message
+  // ===================================================
+  Widget _buildMessageCard(
+    BuildContext context, {
+    required String title,
+    required String detail,
+    required String action,
+    required VoidCallback onPressed,
+  }) {
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: _border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.people_outline_rounded, color: _teal, size: 30),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                color: _darkTeal,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              detail,
+              style: const TextStyle(color: _muted, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton(onPressed: onPressed, child: Text(action)),
+          ],
+        ),
       ),
     );
   }
