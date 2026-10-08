@@ -409,14 +409,7 @@ service cloud.firestore {
         && request.resource.data.respondedAt == request.time
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'respondedAt']);
-      // The requester marks an accepted request as seen once they open the
-      // approval notification.
-      allow update: if request.auth != null
-        && resource.data.requesterId == request.auth.uid
-        && resource.data.status == 'accepted'
-        && request.resource.data.requesterSeenAt == request.time
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['requesterSeenAt']);
+     
     }
 
     match /companion_profiles/{studentUid} {
