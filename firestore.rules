@@ -763,5 +763,12 @@ service cloud.firestore {
           .hasOnly(['requesterSeenAt']);
     }
 
+    // Family caregivers can read check-ins (read-only) for the family
+    // dashboard. This is in addition to the elder's access rule above.
+    match /check_ins/{documentId} {
+      allow read: if request.auth != null
+        && isFamilyCaregiver(request.auth.uid);
+    }
+
   }
 }

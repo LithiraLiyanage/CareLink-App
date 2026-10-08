@@ -1,9 +1,16 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
+import '../../elder/models/check_in.dart';
+import '../../elder/widgets/elder_assets.dart';
+import '../../elder/widgets/elder_ui.dart';
+import '../services/family_check_in_service.dart';
+import '../services/family_link_service.dart';
 
-/// Static family caregiver dashboard shown after a connection is approved.
-class FamilyDashboardScreen extends StatelessWidget {
+/// Family caregiver dashboard shown after a connection is approved.
+class FamilyDashboardScreen extends StatefulWidget {
   const FamilyDashboardScreen({super.key});
 
   static const _ink = Color(0xFF00695C);
@@ -15,6 +22,32 @@ class FamilyDashboardScreen extends StatelessWidget {
   static const _lightSuccess = Color(0xFFDFF5ED);
 
   @override
+  State<FamilyDashboardScreen> createState() => _FamilyDashboardScreenState();
+}
+
+class _FamilyDashboardScreenState extends State<FamilyDashboardScreen> {
+  static const _ink = FamilyDashboardScreen._ink;
+  static const _titleInk = FamilyDashboardScreen._titleInk;
+  static const _muted = FamilyDashboardScreen._muted;
+  static const _mint = FamilyDashboardScreen._mint;
+
+  late final Future<String?> _caregiverName = _loadCaregiverName();
+  late final Stream<List<FamilyLinkRequest>> _approvals =
+      FamilyLinkService.instance.watchApprovals();
+
+  Future<String?> _loadCaregiverName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+    final profile = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    final fullName = (profile.data()?['fullName'] as String?)?.trim();
+    if (fullName == null || fullName.isEmpty) return user.displayName;
+    return fullName;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _mint,
@@ -24,9 +57,9 @@ class FamilyDashboardScreen extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         leadingWidth: 56,
         leading: IconButton(
-          tooltip: 'Open family linking',
+          tooltip: 'Open approved connection',
           onPressed: () =>
-              Navigator.of(context).pushNamed(AppRoutes.familyLinking),
+              Navigator.of(context).pushNamed(AppRoutes.familyApproved),
           icon: const Icon(Icons.menu_rounded, color: _ink, size: 24),
         ),
         title: const Text(
@@ -67,13 +100,23 @@ class FamilyDashboardScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'Hello, Jane 👋',
-                        style: TextStyle(
-                          color: _titleInk,
-                          fontSize: 21,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      FutureBuilder<String?>(
+                        future: _caregiverName,
+                        builder: (context, snapshot) {
+                          final name = snapshot.data?.trim() ?? '';
+                          final firstName =
+                              name.isEmpty ? '' : name.split(' ').first;
+                          return Text(
+                            firstName.isEmpty
+                                ? 'Hello 👋'
+                                : 'Hello, $firstName 👋',
+                            style: const TextStyle(
+                              color: _titleInk,
+                              fontSize: 21,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 4),
                       const Text(
@@ -81,33 +124,25 @@ class FamilyDashboardScreen extends StatelessWidget {
                         style: TextStyle(color: _muted, fontSize: 13),
                       ),
                       const SizedBox(height: 16),
-                      const _MemberCard(),
-                      const SizedBox(height: 12),
-                      const Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _CheckInCard(
-                              title: "Today's Check-in",
-                              status: 'Completed',
-                              time: '9:15 AM',
-                              icon: Icons.check_rounded,
-                              iconColor: _success,
-                              statusColor: _success,
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: _CheckInCard(
-                              title: 'Next Check-in',
-                              status: 'Tomorrow',
-                              time: '10:00 AM',
-                              icon: Icons.calendar_month_rounded,
-                              iconColor: _ink,
-                              statusColor: _titleInk,
-                            ),
-                          ),
-                        ],
+                      StreamBuilder<List<FamilyLinkRequest>>(
+                        stream: _approvals,
+                        builder: (context, snapshot) {
+                          final approvals = snapshot.data;
+                          final approval = approvals == null || approvals.isEmpty
+                              ? null
+                              : approvals.first;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _MemberCard(
+                                approval: approval,
+                                loading: !snapshot.hasData && !snapshot.hasError,
+                              ),
+                              const SizedBox(height: 12),
+                              _CheckInRow(elderName: approval?.elderName),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 12),
                       const _FamilyStatusCard(),
@@ -138,37 +173,63 @@ class FamilyDashboardScreen extends StatelessWidget {
 }
 
 class _MemberCard extends StatelessWidget {
-  const _MemberCard();
+  const _MemberCard({required this.approval, this.loading = false});
+
+  final FamilyLinkRequest? approval;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
+    final elderName = approval?.elderName.trim() ?? '';
+    final relationship = approval?.relationship.trim() ?? '';
+    final String nameText;
+    final String relationshipText;
+    if (loading) {
+      nameText = 'Loading...';
+      relationshipText = '';
+    } else if (approval == null) {
+      nameText = 'No family member linked';
+      relationshipText = 'Send a link request to connect';
+    } else {
+      nameText = elderName.isEmpty ? 'Older adult' : elderName;
+      relationshipText =
+          relationship.isEmpty ? 'Family member' : 'You are their $relationship';
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
       decoration: _cardDecoration(),
       child: Row(
         children: [
-          const CircleAvatar(
-            radius: 27,
-            backgroundColor: Color(0xFFE0F2EF),
-            child: Icon(Icons.person_rounded,
-                size: 31, color: FamilyDashboardScreen._ink),
-          ),
+          if (approval != null && !loading)
+            const ElderAvatar(
+              asset: ElderAssets.kamalaAvatar,
+              size: 54,
+              border: false,
+            )
+          else
+            const CircleAvatar(
+              radius: 27,
+              backgroundColor: Color(0xFFE0F2EF),
+              child: Icon(Icons.person_rounded,
+                  size: 31, color: FamilyDashboardScreen._ink),
+            ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mrs. Silva',
-                  style: TextStyle(
+                  nameText,
+                  style: const TextStyle(
                     color: FamilyDashboardScreen._titleInk,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 2),
-                Text('Mother',
-                    style: TextStyle(
+                const SizedBox(height: 2),
+                Text(relationshipText,
+                    style: const TextStyle(
                         color: FamilyDashboardScreen._muted, fontSize: 12)),
               ],
             ),
@@ -199,6 +260,150 @@ class _MemberCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Today's and the next check-in for the linked elder, live from Firestore.
+class _CheckInRow extends StatefulWidget {
+  const _CheckInRow({required this.elderName});
+
+  final String? elderName;
+
+  @override
+  State<_CheckInRow> createState() => _CheckInRowState();
+}
+
+class _CheckInRowState extends State<_CheckInRow> {
+  Stream<FamilyCheckInSummary>? _summary;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(_CheckInRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.elderName != widget.elderName) _subscribe();
+  }
+
+  void _subscribe() {
+    final name = widget.elderName?.trim() ?? '';
+    _summary = name.isEmpty
+        ? null
+        : FamilyCheckInService.instance.watchSummary(name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_summary == null) {
+      return _buildRow(today: null, next: null, message: 'Not linked yet');
+    }
+    return StreamBuilder<FamilyCheckInSummary>(
+      stream: _summary,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _buildRow(today: null, next: null, message: 'Unavailable');
+        }
+        if (!snapshot.hasData) {
+          return _buildRow(today: null, next: null, message: 'Loading...');
+        }
+        return _buildRow(today: snapshot.data!.today, next: snapshot.data!.next);
+      },
+    );
+  }
+
+  Widget _buildRow({
+    required CheckIn? today,
+    required CheckIn? next,
+    String? message,
+  }) {
+    final todayStatus = message ?? _todayStatus(today);
+    final todayDone = today?.status == CheckInStatus.completed;
+    final todayMissed = today?.status == CheckInStatus.missed;
+    final todayColor = todayDone
+        ? FamilyDashboardScreen._success
+        : todayMissed
+            ? const Color(0xFFC62828)
+            : FamilyDashboardScreen._titleInk;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _CheckInCard(
+            title: "Today's Check-in",
+            status: todayStatus,
+            time: message != null
+                ? ''
+                : today == null
+                    ? 'Nothing scheduled'
+                    : _formatTime(today.scheduledAt),
+            icon: todayDone ? Icons.check_rounded : Icons.today_rounded,
+            iconColor: todayDone
+                ? FamilyDashboardScreen._success
+                : FamilyDashboardScreen._ink,
+            statusColor: todayColor,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _CheckInCard(
+            title: 'Next Check-in',
+            status: message ?? (next == null ? 'None yet' : _dayLabel(next.scheduledAt)),
+            time: message != null
+                ? ''
+                : next == null
+                    ? 'Nothing scheduled'
+                    : _formatTime(next.scheduledAt),
+            icon: Icons.calendar_month_rounded,
+            iconColor: FamilyDashboardScreen._ink,
+            statusColor: FamilyDashboardScreen._titleInk,
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _todayStatus(CheckIn? checkIn) {
+    switch (checkIn?.status) {
+      case null:
+        return 'None today';
+      case CheckInStatus.completed:
+        return 'Completed';
+      case CheckInStatus.inProgress:
+        return 'In progress';
+      case CheckInStatus.missed:
+        return 'Missed';
+      case CheckInStatus.cancelled:
+        return 'Cancelled';
+      case CheckInStatus.scheduled:
+      case CheckInStatus.ready:
+        return 'Upcoming';
+    }
+  }
+
+  static String _dayLabel(DateTime date) {
+    final now = DateTime.now();
+    final days = DateTime(date.year, date.month, date.day)
+        .difference(DateTime(now.year, now.month, now.day))
+        .inDays;
+    if (days == 0) return 'Today';
+    if (days == 1) return 'Tomorrow';
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${weekdays[date.weekday - 1]}, ${date.day} ${months[date.month - 1]}';
+  }
+
+  static String _formatTime(DateTime date) {
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour < 12 ? 'AM' : 'PM';
+    return '$hour:$minute $period';
   }
 }
 

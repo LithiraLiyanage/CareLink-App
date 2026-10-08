@@ -67,7 +67,8 @@ class _FamilyNotificationsScreenState extends State<FamilyNotificationsScreen> {
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           tooltip: 'Back',
-          onPressed: () => Navigator.of(context).maybePop(),
+          onPressed: () => Navigator.of(context)
+              .pushReplacementNamed(AppRoutes.familyLinking),
           icon: const Icon(Icons.arrow_back_rounded, color: _ink, size: 23),
         ),
         title: const Text(
