@@ -1,48 +1,149 @@
-// Keep the existing `profile:` route argument while using controller state.
 // ignore_for_file: prefer_initializing_formals
+// Keep the public `profile:` parameter while storing a private fallback.
 
 import 'package:flutter/material.dart';
 
 import '../../elder/models/check_in.dart';
+
 import '../../elder/services/firebase_elder_service.dart';
+
 import '../controllers/companion_controller.dart';
+
 import '../models/companion_connection.dart';
+
 import '../models/companion_language.dart';
+
 import '../models/companion_match.dart';
+
 import '../models/companion_profile.dart';
+
 import '../models/companion_strings.dart';
+
 import '../widgets/companion_avatar.dart';
+
 import '../widgets/companion_bottom_navigation.dart';
+
 import '../widgets/companion_entrance.dart';
+
 import '../widgets/companion_flow_header.dart';
+
 import '../widgets/companion_interest_icon.dart';
+
 import '../widgets/companion_route.dart';
+
 import '../widgets/companion_scaffold.dart';
+
 import 'manage_connection_screen.dart';
+
 import 'scheduling_handoff_screen.dart';
 
 class CurrentConnectionScreen extends StatelessWidget {
   const CurrentConnectionScreen({
     super.key,
+
     required CompanionProfile profile,
+
     required this.selectedLanguage,
+
     this.connectionStatus = MatchStatus.accepted,
+
     this.controller,
   }) : _profile = profile,
+
        assert(
          connectionStatus == MatchStatus.accepted ||
              connectionStatus == MatchStatus.paused,
        );
 
   final CompanionProfile _profile;
-  CompanionProfile get profile => controller?.selectedCompanion ?? _profile;
+
   final CompanionLanguage selectedLanguage;
+
   final MatchStatus connectionStatus;
+
   final CompanionController? controller;
 
-  bool get _isPaused => controller == null
-      ? connectionStatus == MatchStatus.paused
-      : controller?.currentConnection?.status == ConnectionStatus.paused;
+  CompanionProfile get profile => controller?.selectedCompanion ?? _profile;
+
+  // ====================================================
+
+  // W07 FIGMA COLORS
+
+  // ====================================================
+
+  static const Color _background = Color(0xFFF6FAF9);
+
+  static const Color _darkTeal = Color(0xFF173F42);
+
+  static const Color _primaryTeal = Color(0xFF0D6461);
+
+  static const Color _mint = Color(0xFFEAF8F4);
+
+  static const Color _coral = Color(0xFFFF625F);
+
+  static const Color _muted = Color(0xFF688080);
+
+  static const Color _border = Color(0xFFD5E9E4);
+
+  static const Color _activeGreen = Color(0xFF2E9D70);
+
+  bool get _isPaused {
+    if (controller == null) {
+      return connectionStatus == MatchStatus.paused;
+    }
+
+    return controller?.currentConnection?.status == ConnectionStatus.paused;
+  }
+
+  bool get _isActive =>
+      controller == null ||
+      controller?.currentConnection?.status == ConnectionStatus.active;
+
+  // ====================================================
+
+  // NAVIGATION
+
+  // ====================================================
+
+  void _openScheduling(BuildContext context) {
+    if (!_isActive) return;
+
+    Navigator.of(context).push(
+      CompanionRoute<void>(
+        context: context,
+
+        builder: (_) => SchedulingHandoffScreen(
+          profile: profile,
+
+          selectedLanguage: selectedLanguage,
+
+          fromCurrentConnection: true,
+
+          controller: controller,
+        ),
+      ),
+    );
+  }
+
+  void _openManageConnection(BuildContext context) {
+    Navigator.of(context).push(
+      CompanionRoute<void>(
+        context: context,
+
+        builder: (_) => ManageConnectionScreen(
+          profile: profile,
+
+          selectedLanguage: selectedLanguage,
+
+          connectionStatus: _isPaused
+              ? MatchStatus.paused
+              : MatchStatus.accepted,
+
+          controller: controller,
+        ),
+      ),
+    );
+  }
 
   void _showPlaceholder(BuildContext context, String message) {
     ScaffoldMessenger.of(context)
@@ -50,245 +151,407 @@ class CurrentConnectionScreen extends StatelessWidget {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  // ====================================================
+
+  // MAIN SCREEN
+
+  // ====================================================
+
   @override
   Widget build(BuildContext context) {
     final currentController = controller;
-    if (currentController == null) return _build(context);
+
+    if (currentController == null) {
+      return _buildContent(context);
+    }
+
     return ListenableBuilder(
       listenable: currentController,
-      builder: (context, _) => _build(context),
+
+      builder: (context, _) => _buildContent(context),
     );
   }
 
-  Widget _build(BuildContext context) {
+  Widget _buildContent(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
-    final textTheme = CompanionScaffold.textTheme(context);
+
+    final currentStatus = controller?.currentConnection?.status;
+
     if (controller != null &&
-        controller?.currentConnection?.status != ConnectionStatus.active &&
-        controller?.currentConnection?.status != ConnectionStatus.paused) {
+        currentStatus != ConnectionStatus.active &&
+        currentStatus != ConnectionStatus.paused) {
       return CompanionScaffold(
         body: SafeArea(
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
+
               child: Text(
-                controller?.currentConnection?.status == ConnectionStatus.ended
+                currentStatus == ConnectionStatus.ended
                     ? strings.connectionEnded
                     : strings.backToMatches,
+
                 textAlign: TextAlign.center,
-                style: textTheme.titleLarge,
+
+                style: const TextStyle(
+                  color: _darkTeal,
+
+                  fontSize: 20,
+
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
         ),
       );
     }
-    final isPaused = _isPaused;
-    final isActive =
-        controller == null ||
-        controller?.currentConnection?.status == ConnectionStatus.active;
 
     return CompanionScaffold(
-      body: SafeArea(
-        bottom: false,
-        child: CompanionEntrance(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CompanionFlowHeader(
-                      onBack: () => Navigator.of(context).maybePop(),
-                      backTooltip: strings.backToMatches,
-                      trailingIcon: null,
-                      showCoralDot: true,
-                    ),
-                    const SizedBox(height: 18),
-                    Semantics(
-                      header: true,
-                      child: Text(
-                        strings.myConnection,
-                        style: textTheme.headlineMedium?.copyWith(
-                          fontSize: 27,
-                          letterSpacing: -0.5,
-                        ),
+      body: ColoredBox(
+        color: _background,
+
+        child: SafeArea(
+          bottom: false,
+
+          child: CompanionEntrance(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+
+              padding: const EdgeInsets.fromLTRB(20, 15, 20, 30),
+
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 450),
+
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+
+                    children: [
+                      // ============================
+
+                      // CARELINK HEADER
+
+                      // ============================
+                      CompanionFlowHeader(
+                        onBack: () {
+                          Navigator.of(context).maybePop();
+                        },
+
+                        backTooltip: strings.backToMatches,
+
+                        trailingIcon: null,
+
+                        showCoralDot: true,
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      isPaused
-                          ? strings.pausedActivitySubtitle
-                          : strings.activeCompanionSubtitle,
-                      style: textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 5),
-                    Container(
-                      width: 32,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: CompanionPalette.coral,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    _buildCompanionCard(context, strings, isPaused),
-                    const SizedBox(height: 24),
-                    _buildNextCheckInCard(
-                      context,
-                      strings,
-                      controller?.currentConnection,
-                    ),
-                    const SizedBox(height: 34),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: !isActive
-                            ? null
-                            : () => Navigator.of(context).push(
-                                CompanionRoute<void>(
-                                  context: context,
-                                  builder: (_) => SchedulingHandoffScreen(
-                                    profile: profile,
-                                    selectedLanguage: selectedLanguage,
-                                    fromCurrentConnection: true,
-                                    controller: controller,
-                                  ),
-                                ),
-                              ),
+
+                      const SizedBox(height: 19),
+
+                      // ============================
+
+                      // PAGE TITLE
+
+                      // ============================
+                      Semantics(
+                        header: true,
+
                         child: Text(
-                          strings.viewOrScheduleCheckIn,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 26),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).push(
-                        CompanionRoute<void>(
-                          context: context,
-                          builder: (_) => ManageConnectionScreen(
-                            profile: profile,
-                            selectedLanguage: selectedLanguage,
-                            connectionStatus: isPaused
-                                ? MatchStatus.paused
-                                : MatchStatus.accepted,
-                            controller: controller,
+                          strings.myConnection,
+
+                          style: const TextStyle(
+                            color: _darkTeal,
+
+                            fontSize: 27,
+
+                            fontWeight: FontWeight.w900,
+
+                            height: 1.15,
+
+                            letterSpacing: -0.65,
                           ),
                         ),
                       ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: CompanionPalette.ink,
-                        minimumSize: const Size(0, 48),
-                        padding: const EdgeInsets.symmetric(horizontal: 0),
-                        alignment: Alignment.centerLeft,
-                        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+
+                      const SizedBox(height: 7),
+
+                      Text(
+                        _isPaused
+                            ? strings.pausedActivitySubtitle
+                            : strings.activeCompanionSubtitle,
+
+                        style: const TextStyle(
+                          color: _muted,
+
+                          fontSize: 13,
+
+                          height: 1.45,
+                        ),
                       ),
-                      child: Text(strings.manageConnection),
-                    ),
-                    Text(
-                      strings.completedCheckInsUnaffected,
-                      style: textTheme.bodySmall,
-                    ),
-                  ],
+
+                      const SizedBox(height: 6),
+
+                      Container(
+                        height: 4,
+
+                        width: 34,
+
+                        decoration: BoxDecoration(
+                          color: _coral,
+
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+
+                      const SizedBox(height: 28),
+
+                      // ============================
+
+                      // COMPANION PROFILE CARD
+
+                      // ============================
+                      _buildCompanionCard(context, strings, _isPaused),
+
+                      const SizedBox(height: 22),
+
+                      // ============================
+
+                      // NEXT CHECK-IN
+
+                      // ============================
+                      _buildNextCheckInCard(
+                        context,
+
+                        strings,
+
+                        controller?.currentConnection,
+                      ),
+
+                      const SizedBox(height: 33),
+
+                      // ============================
+
+                      // MAIN ACTION BUTTON
+
+                      // ============================
+                      _buildScheduleButton(context, strings),
+
+                      const SizedBox(height: 28),
+
+                      // ============================
+
+                      // MANAGE CONNECTION
+
+                      // ============================
+                      _buildManageSection(context, strings),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
+
+      // ================================
+
+      // FIGMA BOTTOM NAVIGATION
+
+      // ================================
       bottomNavigationBar: SafeArea(
         top: false,
-        child: CompanionBottomNavigation(
-          selectedLanguage: selectedLanguage,
-          selectedIndex: 1,
-          matchesIcon: Icons.favorite_border,
-          selectedMatchesIcon: Icons.favorite_border,
-          onDestinationSelected: (index) {
-            if (index != 1) {
-              _showPlaceholder(context, strings.navigationComingSoon);
-            }
-          },
+
+        child: Stack(
+          children: [
+            CompanionBottomNavigation(
+              selectedLanguage: selectedLanguage,
+
+              selectedIndex: 1,
+
+              matchesIcon: Icons.favorite_border,
+
+              selectedMatchesIcon: Icons.favorite_border,
+
+              onDestinationSelected: (index) {
+                if (index != 1) {
+                  _showPlaceholder(context, strings.navigationComingSoon);
+                }
+              },
+            ),
+
+            // Slim Figma active-tab indicator.
+            Positioned(
+              top: 0,
+
+              left: 0,
+
+              right: 0,
+
+              child: IgnorePointer(
+                child: Row(
+                  children: [
+                    const Expanded(child: SizedBox.shrink()),
+
+                    Expanded(
+                      child: Center(
+                        child: Container(
+                          width: 64,
+
+                          height: 2,
+
+                          decoration: BoxDecoration(
+                            color: _primaryTeal,
+
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const Expanded(child: SizedBox.shrink()),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  // ====================================================
+
+  // COMPANION PROFILE CARD
+
+  // ====================================================
+
   Widget _buildCompanionCard(
     BuildContext context,
+
     CompanionStrings strings,
+
     bool isPaused,
   ) {
-    final textTheme = Theme.of(context).textTheme;
+    // Use the existing matched interests.
+
+    // Do not insert fake interests from Figma.
+
     final interests =
         controller?.sharedInterests ?? profile.interests.take(2).toList();
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        width: double.infinity,
+    return Container(
+      width: double.infinity,
+
+      decoration: BoxDecoration(
+        color: Colors.white,
+
+        borderRadius: BorderRadius.circular(21),
+
+        border: Border.all(color: _border, width: 1),
+
+        boxShadow: [
+          BoxShadow(
+            color: _darkTeal.withValues(alpha: 0.075),
+
+            blurRadius: 18,
+
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(21),
+
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+
           children: [
-            const SizedBox(
-              width: double.infinity,
-              height: 3,
-              child: ColoredBox(color: CompanionPalette.teal),
-            ),
+            const SizedBox(height: 2, child: ColoredBox(color: _primaryTeal)),
+
             Padding(
-              padding: const EdgeInsets.all(13),
+              padding: const EdgeInsets.fromLTRB(13, 12, 13, 14),
+
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+
                 children: [
                   Row(
                     children: [
+                      // Actual Firebase profile image
+
                       CompanionAvatar(
                         name: profile.name,
-                        size: 54,
+
+                        size: 55,
+
                         imagePath: profile.imagePath,
+
                         imageUrl: profile.profileImageUrl,
                       ),
-                      const SizedBox(width: 10),
+
+                      const SizedBox(width: 11),
+
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+
                           children: [
                             Text(
                               profile.name,
-                              style: textTheme.titleMedium?.copyWith(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
+
+                              maxLines: 2,
+
+                              overflow: TextOverflow.ellipsis,
+
+                              style: const TextStyle(
+                                color: _darkTeal,
+
+                                fontSize: 16,
+
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
+
                             if (profile.verified) ...[
-                              const SizedBox(height: 5),
+                              const SizedBox(height: 7),
+
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
+                                  horizontal: 9,
+
+                                  vertical: 5,
                                 ),
+
                                 decoration: BoxDecoration(
-                                  color: CompanionPalette.mint,
+                                  color: _mint,
+
                                   borderRadius: BorderRadius.circular(20),
                                 ),
+
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
+
                                   children: [
                                     const Icon(
-                                      Icons.check,
+                                      Icons.check_rounded,
+
+                                      color: _primaryTeal,
+
                                       size: 13,
-                                      color: CompanionPalette.teal,
                                     ),
-                                    const SizedBox(width: 4),
+
+                                    const SizedBox(width: 5),
+
                                     Flexible(
                                       child: Text(
                                         strings.verifiedCompanion,
+
                                         style: const TextStyle(
-                                          color: CompanionPalette.teal,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
+                                          color: _primaryTeal,
+
+                                          fontSize: 10.5,
+
+                                          fontWeight: FontWeight.w800,
                                         ),
                                       ),
                                     ),
@@ -301,55 +564,25 @@ class CurrentConnectionScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 9),
+
+                  const SizedBox(height: 11),
+
+                  // Active / Paused + Shared Interest Chips
                   Wrap(
                     spacing: 8,
+
                     runSpacing: 8,
+
                     crossAxisAlignment: WrapCrossAlignment.center,
+
                     children: [
-                      AnimatedContainer(
-                        duration: MediaQuery.of(context).disableAnimations
-                            ? Duration.zero
-                            : const Duration(milliseconds: 220),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: CompanionPalette.mint,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isPaused ? Icons.pause_circle : Icons.circle,
-                              color: isPaused
-                                  ? CompanionPalette.teal
-                                  : const Color(0xFF2F855F),
-                              size: 11,
-                            ),
-                            const SizedBox(width: 5),
-                            Flexible(
-                              child: Text(
-                                isPaused
-                                    ? strings.paused
-                                    : strings.currentConnectionActive,
-                                softWrap: true,
-                                style: const TextStyle(
-                                  color: CompanionPalette.teal,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      for (var i = 0; i < interests.length; i++)
-                        _buildInterestChip(
-                          strings.interestLabel(interests[i]),
-                          companionInterestIcon(interests[i]),
+                      _statusChip(isPaused: isPaused, strings: strings),
+
+                      for (final interest in interests)
+                        _interestChip(
+                          label: strings.interestLabel(interest),
+
+                          icon: companionInterestIcon(interest),
                         ),
                     ],
                   ),
@@ -362,166 +595,437 @@ class CurrentConnectionScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInterestChip(String label, IconData icon) {
+  // ====================================================
+
+  // STATUS CHIP
+
+  // ====================================================
+
+  Widget _statusChip({
+    required bool isPaused,
+
+    required CompanionStrings strings,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7F4),
+        color: _mint,
+
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: CompanionPalette.coral),
       ),
+
       child: Row(
         mainAxisSize: MainAxisSize.min,
+
         children: [
-          Icon(icon, size: 14, color: CompanionPalette.coral),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: CompanionPalette.coral,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+          Icon(
+            isPaused ? Icons.pause_circle_filled_rounded : Icons.circle,
+
+            size: 11,
+
+            color: isPaused ? _primaryTeal : _activeGreen,
+          ),
+
+          const SizedBox(width: 5),
+
+          Text(
+            isPaused ? strings.paused : strings.currentConnectionActive,
+
+            style: const TextStyle(
+              color: _primaryTeal,
+
+              fontSize: 11,
+
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
       ),
     );
   }
+
+  // ====================================================
+
+  // SHARED INTEREST CHIP
+
+  // ====================================================
+
+  Widget _interestChip({required String label, required IconData icon}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF9F7),
+
+        borderRadius: BorderRadius.circular(20),
+
+        border: Border.all(color: _coral, width: 1),
+      ),
+
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+
+        children: [
+          Icon(icon, color: _coral, size: 15),
+
+          const SizedBox(width: 5),
+
+          Text(
+            label,
+
+            style: const TextStyle(
+              color: _coral,
+
+              fontSize: 11.5,
+
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ====================================================
+
+  // NEXT CHECK-IN FIREBASE STREAM
+
+  // ====================================================
 
   Stream<ElderScheduleData> _watchSchedule(
     CompanionConnection connection,
   ) async* {
     final service = FirebaseElderService.instance;
+
     yield* service.watchScheduleForConnection(
       elderId: connection.elderId,
+
       companionId: connection.companionId,
+
       connectionId: connection.id,
     );
   }
 
+  // ====================================================
+
+  // NEXT CHECK-IN CARD
+
+  // ====================================================
+
   Widget _buildNextCheckInCard(
     BuildContext context,
+
     CompanionStrings strings,
+
     CompanionConnection? connection,
   ) {
-    final textTheme = Theme.of(context).textTheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: CompanionPalette.mint,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: CompanionPalette.border),
+    return Material(
+      color: _mint,
+
+      borderRadius: BorderRadius.circular(19),
+
+      child: InkWell(
+        onTap: _isActive ? () => _openScheduling(context) : null,
+
+        borderRadius: BorderRadius.circular(19),
+
+        child: Container(
+          width: double.infinity,
+
+          constraints: const BoxConstraints(minHeight: 78),
+
+          padding: const EdgeInsets.fromLTRB(15, 12, 13, 12),
+
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(19),
+
+            border: Border.all(color: _border),
+          ),
+
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+
+            children: [
+              Text(
+                strings.nextCheckIn,
+
+                style: const TextStyle(
+                  color: _primaryTeal,
+
+                  fontSize: 12,
+
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+
+              const SizedBox(height: 9),
+
+              if (connection == null ||
+                  connection.status != ConnectionStatus.active)
+                _nextCheckInRow(
+                  text: connection?.status == ConnectionStatus.paused
+                      ? strings.connectionPaused
+                      : strings.checkInNotScheduled,
+                )
+              else
+                StreamBuilder<ElderScheduleData>(
+                  stream: _watchSchedule(connection),
+
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return _nextCheckInRow(text: 'Could not load check-in.');
+                    }
+
+                    if (!snapshot.hasData) {
+                      return const SizedBox(
+                        height: 25,
+
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+
+                          child: SizedBox(
+                            width: 17,
+
+                            height: 17,
+
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+
+                              color: _primaryTeal,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    final now = DateTime.now();
+
+                    final data = snapshot.data!;
+
+                    // Preserve the current Firestore
+
+                    // scheduling status filters.
+
+                    final upcoming =
+                        data.checkIns
+                            .where(
+                              (item) =>
+                                  (item.status == CheckInStatus.ready ||
+                                      item.status == CheckInStatus.scheduled ||
+                                      item.status ==
+                                          CheckInStatus.inProgress) &&
+                                  !item.scheduledAt.isBefore(now),
+                            )
+                            .toList()
+                          ..sort(
+                            (a, b) => a.scheduledAt.compareTo(b.scheduledAt),
+                          );
+
+                    if (upcoming.isNotEmpty) {
+                      final next = upcoming.first;
+
+                      return _nextCheckInRow(
+                        text: _formatNextCheckIn(context, next.scheduledAt),
+
+                        semanticDetails:
+                            '${next.durationMinutes} minutes, '
+                            '${next.mode} check-in',
+                      );
+                    }
+
+                    final recurring =
+                        data.recurringSchedules
+                            .map(
+                              (schedule) => (
+                                schedule: schedule,
+
+                                next: schedule.nextOccurrence(now),
+                              ),
+                            )
+                            .where((item) => item.next != null)
+                            .toList()
+                          ..sort((a, b) => a.next!.compareTo(b.next!));
+
+                    if (recurring.isEmpty) {
+                      return _nextCheckInRow(text: strings.checkInNotScheduled);
+                    }
+
+                    final next = recurring.first;
+
+                    return _nextCheckInRow(
+                      text: _formatNextCheckIn(context, next.next!),
+
+                      semanticDetails:
+                          '${next.schedule.durationMinutes} minutes, '
+                          '${next.schedule.mode} recurring check-in',
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Semantics(
-            header: true,
-            child: Text(
-              strings.nextCheckIn,
-              style: textTheme.titleMedium?.copyWith(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: CompanionPalette.teal,
+    );
+  }
+
+  // ====================================================
+
+  // FIGMA DAY + TIME FORMAT
+
+  // ====================================================
+
+  String _formatNextCheckIn(BuildContext context, DateTime date) {
+    const weekdays = [
+      'Monday',
+
+      'Tuesday',
+
+      'Wednesday',
+
+      'Thursday',
+
+      'Friday',
+
+      'Saturday',
+
+      'Sunday',
+    ];
+
+    final day = weekdays[date.weekday - 1];
+
+    final time = MaterialLocalizations.of(context)
+        .formatTimeOfDay(TimeOfDay.fromDateTime(date));
+
+    return '$day • $time';
+  }
+
+  Widget _nextCheckInRow({required String text, String? semanticDetails}) {
+    return Row(
+      children: [
+        Expanded(
+          child: Semantics(
+            label: semanticDetails == null ? text : '$text, $semanticDetails',
+
+            child: ExcludeSemantics(
+              child: Text(
+                text,
+
+                maxLines: 2,
+
+                overflow: TextOverflow.ellipsis,
+
+                style: const TextStyle(
+                  color: _darkTeal,
+
+                  fontSize: 17,
+
+                  fontWeight: FontWeight.w900,
+
+                  height: 1.2,
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 7),
-          if (connection == null ||
-              connection.status != ConnectionStatus.active)
-            Text(
-              connection?.status == ConnectionStatus.paused
-                  ? strings.connectionPaused
-                  : strings.checkInNotScheduled,
-              style: textTheme.titleLarge?.copyWith(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            )
-          else
-            StreamBuilder<ElderScheduleData>(
-              stream: _watchSchedule(connection),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Text(
-                    'Could not load check-in schedule: ${snapshot.error}',
-                  );
-                }
-                if (!snapshot.hasData) {
-                  return const SizedBox(
-                    height: 28,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  );
-                }
-                final data = snapshot.data!;
-                final now = DateTime.now();
-                final upcoming =
-                    data.checkIns
-                        .where(
-                          (checkIn) =>
-                              (checkIn.status == CheckInStatus.ready ||
-                                  checkIn.status == CheckInStatus.scheduled ||
-                                  checkIn.status == CheckInStatus.inProgress) &&
-                              !checkIn.scheduledAt.isBefore(now),
-                        )
-                        .toList()
-                      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-                if (upcoming.isNotEmpty) {
-                  final next = upcoming.first;
-                  return Text(
-                    '${MaterialLocalizations.of(context).formatMediumDate(next.scheduledAt)} · '
-                    '${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(next.scheduledAt))} · '
-                    '${next.durationMinutes} min · ${next.mode}',
-                    style: textTheme.titleLarge?.copyWith(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  );
-                }
-                final recurring =
-                    data.recurringSchedules
-                        .map(
-                          (schedule) => (
-                            schedule: schedule,
-                            next: schedule.nextOccurrence(now),
-                          ),
-                        )
-                        .where((item) => item.next != null)
-                        .toList()
-                      ..sort((a, b) => a.next!.compareTo(b.next!));
-                if (recurring.isEmpty) {
-                  return Text(
-                    strings.checkInNotScheduled,
-                    style: textTheme.titleLarge?.copyWith(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  );
-                }
-                final next = recurring.first;
-                return Text(
-                  '${MaterialLocalizations.of(context).formatMediumDate(next.next!)} · '
-                  '${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(next.next!))} · '
-                  '${next.schedule.durationMinutes} min · ${next.schedule.mode}',
-                  style: textTheme.titleLarge?.copyWith(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                );
-              },
-            ),
-        ],
+        ),
+
+        const SizedBox(width: 8),
+
+        if (_isActive)
+          const Icon(
+            Icons.chevron_right_rounded,
+
+            color: _primaryTeal,
+
+            size: 25,
+          ),
+      ],
+    );
+  }
+
+  // ====================================================
+
+  // MAIN SCHEDULE BUTTON
+
+  // ====================================================
+
+  Widget _buildScheduleButton(BuildContext context, CompanionStrings strings) {
+    return SizedBox(
+      width: double.infinity,
+
+      height: 53,
+
+      child: ElevatedButton(
+        onPressed: _isActive ? () => _openScheduling(context) : null,
+
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _primaryTeal,
+
+          foregroundColor: Colors.white,
+
+          disabledBackgroundColor: _border,
+
+          disabledForegroundColor: _muted,
+
+          elevation: 3,
+
+          shadowColor: _darkTeal.withValues(alpha: 0.16),
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+        ),
+
+        child: Text(
+          strings.viewOrScheduleCheckIn,
+
+          textAlign: TextAlign.center,
+
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+        ),
       ),
+    );
+  }
+
+  // ====================================================
+
+  // MANAGE CONNECTION SECTION
+
+  // ====================================================
+
+  Widget _buildManageSection(BuildContext context, CompanionStrings strings) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+
+      children: [
+        TextButton(
+          onPressed: () => _openManageConnection(context),
+
+          style: TextButton.styleFrom(
+            foregroundColor: _darkTeal,
+
+            alignment: Alignment.centerLeft,
+
+            minimumSize: const Size(0, 46),
+
+            padding: EdgeInsets.zero,
+          ),
+
+          child: Text(
+            strings.manageConnection,
+
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+          ),
+        ),
+
+        const SizedBox(height: 5),
+
+        Text(
+          strings.completedCheckInsUnaffected,
+
+          style: const TextStyle(color: _muted, fontSize: 12, height: 1.45),
+        ),
+      ],
     );
   }
 }
