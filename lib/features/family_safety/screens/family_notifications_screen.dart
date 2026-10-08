@@ -20,13 +20,13 @@ String _formatDateTime(DateTime date) {
 class FamilyNotificationsScreen extends StatefulWidget {
   const FamilyNotificationsScreen({super.key});
 
-  static const _ink = Color(0xFF00695C);
-  static const _titleInk = Color(0xFF004D40);
-  static const _muted = Color(0xFF55706E);
-  static const _mint = Color(0xFFF2F9F7);
-  static const _line = Color(0xFFD5E5E2);
-  static const _coral = Color(0xFFF26F6A);
-  static const _unreadFill = Color(0xFFE6F4F1);
+  static const _ink = Color(0xFF00776F);
+  static const _titleInk = Color(0xFF073F42);
+  static const _muted = Color(0xFF708486);
+  static const _mint = Color(0xFFF5FBF9);
+  static const _line = Color(0xFFD1EBE7);
+  static const _coral = Color(0xFFFF5369);
+  static const _unreadFill = Color(0xFFE7F6F1);
 
   @override
   State<FamilyNotificationsScreen> createState() =>
@@ -63,18 +63,18 @@ class _FamilyNotificationsScreenState extends State<FamilyNotificationsScreen> {
       backgroundColor: _mint,
       appBar: AppBar(
         toolbarHeight: 60,
-        backgroundColor: _mint,
+        backgroundColor: Color(0xFF073F42),
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           tooltip: 'Back',
           onPressed: () => Navigator.of(context)
               .pushReplacementNamed(AppRoutes.familyLinking),
-          icon: const Icon(Icons.arrow_back_rounded, color: _ink, size: 23),
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 23),
         ),
         title: const Text(
           'Notifications',
           style: TextStyle(
-            color: _ink,
+            color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.2,

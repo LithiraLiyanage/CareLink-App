@@ -21,13 +21,13 @@ String _formatDateTime(DateTime date) {
 class FamilyPendingScreen extends StatefulWidget {
   const FamilyPendingScreen({super.key});
 
-  static const _ink = Color(0xFF00695C);
-  static const _titleInk = Color(0xFF004D40);
-  static const _muted = Color(0xFF55706E);
-  static const _mint = Color(0xFFF2F9F7);
-  static const _line = Color(0xFFD5E5E2);
-  static const _coral = Color(0xFFF26F6A);
-  static const _timelineMuted = Color(0xFFA8B7B5);
+  static const _ink = Color(0xFF00776F);
+  static const _titleInk = Color(0xFF073F42);
+  static const _muted = Color(0xFF708486);
+  static const _mint = Color(0xFFF5FBF9);
+  static const _line = Color(0xFFD1EBE7);
+  static const _coral = Color(0xFFFF5369);
+  static const _timelineMuted = Color(0xFF9AABAC);
 
   @override
   State<FamilyPendingScreen> createState() => _FamilyPendingScreenState();
@@ -51,7 +51,7 @@ class _FamilyPendingScreenState extends State<FamilyPendingScreen> {
       backgroundColor: _mint,
       appBar: AppBar(
         toolbarHeight: 60,
-        backgroundColor: _mint,
+        backgroundColor: Color(0xFF073F42),
         surfaceTintColor: Colors.transparent,
         leadingWidth: 64,
         leading: IconButton(
@@ -59,12 +59,12 @@ class _FamilyPendingScreenState extends State<FamilyPendingScreen> {
           onPressed: () => Navigator.of(context).pushReplacementNamed(
             AppRoutes.familyLinking,
           ),
-          icon: const Icon(Icons.arrow_back_rounded, color: _ink, size: 23),
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 23),
         ),
         title: const Text(
           'CareLink',
           style: TextStyle(
-            color: _ink,
+            color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.2,
@@ -76,8 +76,8 @@ class _FamilyPendingScreenState extends State<FamilyPendingScreen> {
             padding: EdgeInsets.only(right: 20),
             child: CircleAvatar(
               radius: 17,
-              backgroundColor: Color(0xFFE0F2EF),
-              child: Icon(Icons.person_rounded, color: _ink, size: 20),
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person_rounded, color: Color(0xFF073F42), size: 20),
             ),
           ),
         ],
@@ -87,12 +87,12 @@ class _FamilyPendingScreenState extends State<FamilyPendingScreen> {
           const Positioned(
             top: -48,
             left: -54,
-            child: _SoftCircle(size: 172, color: Color(0xFFDFF1ED)),
+            child: _SoftCircle(size: 172, color: Color(0xFFE7F6F1)),
           ),
           const Positioned(
             top: 50,
             left: 56,
-            child: _SoftCircle(size: 38, color: Color(0xFFDFF1ED)),
+            child: _SoftCircle(size: 38, color: Color(0xFFE7F6F1)),
           ),
           SafeArea(
             top: false,
@@ -262,7 +262,7 @@ class _OlderAdultCard extends StatelessWidget {
         border: Border.all(color: FamilyPendingScreen._line),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0A00695C),
+            color: Color(0x14073F42),
             blurRadius: 14,
             offset: Offset(0, 5),
           ),
@@ -272,7 +272,7 @@ class _OlderAdultCard extends StatelessWidget {
         children: [
           const CircleAvatar(
             radius: 27,
-            backgroundColor: Color(0xFFE0F2EF),
+            backgroundColor: Color(0xFFE7F6F1),
             child: Icon(
               Icons.person_rounded,
               size: 31,
@@ -304,7 +304,7 @@ class _OlderAdultCard extends StatelessWidget {
                 Text(
                   'Requested on ${_formatDate(sentAt)}',
                   style: const TextStyle(
-                    color: Color(0xFF829390),
+                    color: Color(0xFF9AABAC),
                     fontSize: 11,
                   ),
                 ),

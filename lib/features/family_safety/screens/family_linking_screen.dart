@@ -7,23 +7,22 @@ import 'family_notifications_screen.dart';
 class FamilyLinkingScreen extends StatefulWidget {
   const FamilyLinkingScreen({super.key});
 
-  static const _ink = Color(0xFF00695C);
-  static const _titleInk = Color(0xFF004D40);
-  static const _muted = Color(0xFF55706E);
-  static const _hint = Color(0xFF8AA09D);
-  static const _mint = Color(0xFFF2F9F7);
-  static const _coral = Color(0xFFF26F6A);
-  static const _line = Color(0xFFD5E5E2);
+  static const _ink = Color(0xFF00776F);
+  static const _titleInk = Color(0xFF073F42);
+  static const _muted = Color(0xFF708486);
+  static const _hint = Color(0xFF9AABAC);
+  static const _background = Color(0xFFF5FBF9);
+  static const _coral = Color(0xFFFF5369);
+  static const _line = Color(0xFFD1EBE7);
 
   @override
   State<FamilyLinkingScreen> createState() => _FamilyLinkingScreenState();
 }
 
 class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
-  static const _ink = FamilyLinkingScreen._ink;
   static const _titleInk = FamilyLinkingScreen._titleInk;
   static const _muted = FamilyLinkingScreen._muted;
-  static const _mint = FamilyLinkingScreen._mint;
+  static const _background = FamilyLinkingScreen._background;
   static const _coral = FamilyLinkingScreen._coral;
   static const _line = FamilyLinkingScreen._line;
 
@@ -74,17 +73,17 @@ class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _mint,
+      backgroundColor: _background,
       appBar: AppBar(
         toolbarHeight: 60,
-        backgroundColor: _mint,
+        backgroundColor: _titleInk,
         surfaceTintColor: Colors.transparent,
         leadingWidth: 48,
         leading: Semantics(
           label: 'Back',
           button: true,
           child: const Center(
-            child: Icon(Icons.arrow_back_rounded, color: _ink, size: 23),
+            child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: 23),
           ),
         ),
         titleSpacing: 0,
@@ -93,7 +92,7 @@ class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: _ink,
+            color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.2,
@@ -112,12 +111,12 @@ class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
           const Positioned(
             top: -48,
             left: -54,
-            child: _SoftCircle(size: 172, color: Color(0xFFDFF1ED)),
+            child: _SoftCircle(size: 172, color: Color(0xFFE7F6F1)),
           ),
           const Positioned(
             top: 50,
             left: 56,
-            child: _SoftCircle(size: 38, color: Color(0xFFDFF1ED)),
+            child: _SoftCircle(size: 38, color: Color(0xFFE7F6F1)),
           ),
           SafeArea(
             top: false,
@@ -160,7 +159,7 @@ class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
                           border: Border.all(color: _line),
                           boxShadow: const [
                             BoxShadow(
-                              color: Color(0x0A00695C),
+                              color: Color(0x14073F42),
                               blurRadius: 14,
                               offset: Offset(0, 5),
                             ),
@@ -214,7 +213,7 @@ class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: const [
                                   BoxShadow(
-                                    color: Color(0x20E85D5A),
+                                    color: Color(0x33FF5369),
                                     blurRadius: 10,
                                     offset: Offset(0, 4),
                                   ),
@@ -301,10 +300,10 @@ class _ProfileApprovalButtonState extends State<_ProfileApprovalButton> {
               children: [
                 const CircleAvatar(
                   radius: 17,
-                  backgroundColor: Color(0xFFE0F2EF),
+                  backgroundColor: Colors.white,
                   child: Icon(
                     Icons.person_rounded,
-                    color: FamilyLinkingScreen._ink,
+                    color: FamilyLinkingScreen._titleInk,
                     size: 20,
                   ),
                 ),
@@ -323,7 +322,7 @@ class _ProfileApprovalButtonState extends State<_ProfileApprovalButton> {
                         color: FamilyLinkingScreen._coral,
                         borderRadius: BorderRadius.circular(9),
                         border: Border.all(
-                          color: FamilyLinkingScreen._mint,
+                          color: FamilyLinkingScreen._titleInk,
                           width: 1.5,
                         ),
                       ),
@@ -497,7 +496,7 @@ class _FamilyIllustration extends StatelessWidget {
             width: 126,
             height: 80,
             decoration: BoxDecoration(
-              color: const Color(0xFFDFF1ED),
+              color: const Color(0xFFE7F6F1),
               borderRadius: BorderRadius.circular(42),
             ),
           ),
@@ -507,7 +506,7 @@ class _FamilyIllustration extends StatelessWidget {
             child: _PersonFigure(
               skin: const Color(0xFFE9B99B),
               hair: const Color(0xFF465B55),
-              shirt: const Color(0xFF5C8F88),
+              shirt: const Color(0xFF00776F),
               size: 61,
               elder: false,
             ),
@@ -518,7 +517,7 @@ class _FamilyIllustration extends StatelessWidget {
             child: _PersonFigure(
               skin: const Color(0xFFD9A986),
               hair: const Color(0xFF89938A),
-              shirt: const Color(0xFF557F78),
+              shirt: const Color(0xFF073F42),
               size: 75,
               elder: true,
             ),

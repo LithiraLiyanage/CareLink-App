@@ -7,18 +7,18 @@ import '../../../app/routes.dart';
 class CaseClosedScreen extends StatelessWidget {
   const CaseClosedScreen({super.key});
 
-  static const _teal = Color(0xFF00695C);
-  static const _darkTeal = Color(0xFF004D40);
-  static const _coral = Color(0xFFF26F6A);
-  static const _darkCoral = Color(0xFFE85D5A);
-  static const _mint = Color(0xFFF2F9F7);
-  static const _lightTeal = Color(0xFFE0F2EF);
-  static const _secondary = Color(0xFF55706E);
-  static const _muted = Color(0xFF829390);
-  static const _line = Color(0xFFD5E5E2);
+  static const _teal = Color(0xFF00776F);
+  static const _darkTeal = Color(0xFF073F42);
+  static const _coral = Color(0xFFFF5369);
+  static const _darkCoral = Color(0xFFE63E55);
+  static const _mint = Color(0xFFF5FBF9);
+  static const _lightTeal = Color(0xFFE7F6F1);
+  static const _secondary = Color(0xFF708486);
+  static const _muted = Color(0xFF9AABAC);
+  static const _line = Color(0xFFD1EBE7);
   static const _success = Color(0xFF00A878);
   static const _lightSuccess = Color(0xFFDFF5ED);
-  static const _timelineLine = Color(0xFF9AD8C7);
+  static const _timelineLine = Color(0xFFB5DFD2);
 
   static const _events = [
     ('10:30 AM', 'Check-in missed'),
@@ -34,17 +34,17 @@ class CaseClosedScreen extends StatelessWidget {
       backgroundColor: _mint,
       appBar: AppBar(
         toolbarHeight: 60,
-        backgroundColor: _mint,
+        backgroundColor: Color(0xFF073F42),
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           tooltip: 'Back',
           onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back_ios_new, color: _teal, size: 21),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 21),
         ),
         title: const Text(
           'CareLink',
           style: TextStyle(
-            color: _teal,
+            color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.2,
@@ -56,8 +56,8 @@ class CaseClosedScreen extends StatelessWidget {
             padding: EdgeInsets.only(right: 18),
             child: CircleAvatar(
               radius: 16,
-              backgroundColor: _lightTeal,
-              child: Icon(Icons.person_rounded, color: _teal, size: 19),
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person_rounded, color: Color(0xFF073F42), size: 19),
             ),
           ),
         ],
@@ -169,7 +169,7 @@ class _CaseCard extends StatelessWidget {
           border: Border.all(color: CaseClosedScreen._line),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x0800695C),
+              color: Color(0x0A073F42),
               blurRadius: 10,
               offset: Offset(0, 2),
             ),
@@ -368,7 +368,7 @@ class _SoftCircle extends StatelessWidget {
         width: size,
         height: size,
         decoration: const BoxDecoration(
-          color: Color(0xFFDFF1ED),
+          color: Color(0xFFE7F6F1),
           shape: BoxShape.circle,
         ),
       );

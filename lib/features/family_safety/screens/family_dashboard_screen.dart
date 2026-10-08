@@ -13,11 +13,11 @@ import '../services/family_link_service.dart';
 class FamilyDashboardScreen extends StatefulWidget {
   const FamilyDashboardScreen({super.key});
 
-  static const _ink = Color(0xFF00695C);
-  static const _titleInk = Color(0xFF004D40);
-  static const _muted = Color(0xFF55706E);
-  static const _mint = Color(0xFFF2F9F7);
-  static const _line = Color(0xFFD5E5E2);
+  static const _ink = Color(0xFF00776F);
+  static const _titleInk = Color(0xFF073F42);
+  static const _muted = Color(0xFF708486);
+  static const _mint = Color(0xFFF5FBF9);
+  static const _line = Color(0xFFD1EBE7);
   static const _success = Color(0xFF00A878);
   static const _lightSuccess = Color(0xFFDFF5ED);
 
@@ -26,7 +26,6 @@ class FamilyDashboardScreen extends StatefulWidget {
 }
 
 class _FamilyDashboardScreenState extends State<FamilyDashboardScreen> {
-  static const _ink = FamilyDashboardScreen._ink;
   static const _titleInk = FamilyDashboardScreen._titleInk;
   static const _muted = FamilyDashboardScreen._muted;
   static const _mint = FamilyDashboardScreen._mint;
@@ -53,19 +52,19 @@ class _FamilyDashboardScreenState extends State<FamilyDashboardScreen> {
       backgroundColor: _mint,
       appBar: AppBar(
         toolbarHeight: 60,
-        backgroundColor: _mint,
+        backgroundColor: Color(0xFF073F42),
         surfaceTintColor: Colors.transparent,
         leadingWidth: 56,
         leading: IconButton(
           tooltip: 'Open approved connection',
           onPressed: () =>
               Navigator.of(context).pushNamed(AppRoutes.familyApproved),
-          icon: const Icon(Icons.menu_rounded, color: _ink, size: 24),
+          icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
         ),
         title: const Text(
           'CareLink',
           style: TextStyle(
-            color: _ink,
+            color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.2,
@@ -77,8 +76,8 @@ class _FamilyDashboardScreenState extends State<FamilyDashboardScreen> {
             padding: EdgeInsets.only(right: 18),
             child: CircleAvatar(
               radius: 16,
-              backgroundColor: Color(0xFFE0F2EF),
-              child: Icon(Icons.person_rounded, color: _ink, size: 19),
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person_rounded, color: Color(0xFF073F42), size: 19),
             ),
           ),
         ],
@@ -210,7 +209,7 @@ class _MemberCard extends StatelessWidget {
           else
             const CircleAvatar(
               radius: 27,
-              backgroundColor: Color(0xFFE0F2EF),
+              backgroundColor: Color(0xFFE7F6F1),
               child: Icon(Icons.person_rounded,
                   size: 31, color: FamilyDashboardScreen._ink),
             ),
@@ -617,7 +616,7 @@ class _UpdatesCard extends StatelessWidget {
             title: 'Check-in completed',
             time: 'Today, 9:15 AM',
           ),
-          Divider(height: 1, thickness: 1, color: Color(0xFFEAF1EF)),
+          Divider(height: 1, thickness: 1, color: Color(0xFFE7F6F1)),
           _UpdateRow(
             icon: Icons.calendar_month_rounded,
             iconColor: FamilyDashboardScreen._ink,
@@ -736,7 +735,7 @@ class _NavigationItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? FamilyDashboardScreen._ink : const Color(0xFF6F8582);
+    final color = selected ? FamilyDashboardScreen._ink : const Color(0xFF708486);
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -769,7 +768,7 @@ BoxDecoration _cardDecoration() => BoxDecoration(
       border: Border.all(color: FamilyDashboardScreen._line),
       boxShadow: const [
         BoxShadow(
-          color: Color(0x0800695C),
+          color: Color(0x0A073F42),
           blurRadius: 12,
           offset: Offset(0, 3),
         ),
@@ -786,7 +785,7 @@ class _SoftCircle extends StatelessWidget {
         width: size,
         height: size,
         decoration: const BoxDecoration(
-          color: Color(0xFFDFF1ED),
+          color: Color(0xFFE7F6F1),
           shape: BoxShape.circle,
         ),
       );

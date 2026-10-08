@@ -6,12 +6,12 @@ import '../../../app/routes.dart';
 class CoordinatorCaseDetailScreen extends StatelessWidget {
   const CoordinatorCaseDetailScreen({super.key});
 
-  static const _teal = Color(0xFF00695C);
-  static const _darkTeal = Color(0xFF004D40);
-  static const _mint = Color(0xFFF2F9F7);
-  static const _lightTeal = Color(0xFFE0F2EF);
-  static const _secondary = Color(0xFF55706E);
-  static const _line = Color(0xFFD5E5E2);
+  static const _teal = Color(0xFF00776F);
+  static const _darkTeal = Color(0xFF073F42);
+  static const _mint = Color(0xFFF5FBF9);
+  static const _lightTeal = Color(0xFFE7F6F1);
+  static const _secondary = Color(0xFF708486);
+  static const _line = Color(0xFFD1EBE7);
   static const _orange = Color(0xFFF59E0B);
   static const _lightWarning = Color(0xFFFFF4DF);
   static const _success = Color(0xFF00A878);
@@ -22,17 +22,17 @@ class CoordinatorCaseDetailScreen extends StatelessWidget {
       backgroundColor: _mint,
       appBar: AppBar(
         toolbarHeight: 60,
-        backgroundColor: _mint,
+        backgroundColor: Color(0xFF073F42),
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           tooltip: 'Back',
           onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back_ios_new, color: _teal, size: 21),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 21),
         ),
         title: const Text(
           'CareLink',
           style: TextStyle(
-            color: _teal,
+            color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.2,
@@ -44,8 +44,8 @@ class CoordinatorCaseDetailScreen extends StatelessWidget {
             padding: EdgeInsets.only(right: 18),
             child: CircleAvatar(
               radius: 16,
-              backgroundColor: _lightTeal,
-              child: Icon(Icons.person_rounded, color: _teal, size: 19),
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person_rounded, color: Color(0xFF073F42), size: 19),
             ),
           ),
         ],
@@ -171,7 +171,7 @@ class _ProfileCard extends StatelessWidget {
                   SizedBox(height: 2),
                   Text('Elder ID: EL001',
                       style: TextStyle(
-                          color: Color(0xFF829390), fontSize: 10)),
+                          color: Color(0xFF9AABAC), fontSize: 10)),
                 ],
               ),
             ),
@@ -244,7 +244,7 @@ class _InformationRow extends StatelessWidget {
           border: last
               ? null
               : const Border(
-                  bottom: BorderSide(color: Color(0xFFEAF1EF)),
+                  bottom: BorderSide(color: Color(0xFFE7F6F1)),
                 ),
         ),
         child: Row(
@@ -348,7 +348,7 @@ BoxDecoration _cardDecoration() => BoxDecoration(
       border: Border.all(color: CoordinatorCaseDetailScreen._line),
       boxShadow: const [
         BoxShadow(
-          color: Color(0x0800695C),
+          color: Color(0x0A073F42),
           blurRadius: 10,
           offset: Offset(0, 2),
         ),
@@ -365,7 +365,7 @@ class _SoftCircle extends StatelessWidget {
         width: size,
         height: size,
         decoration: const BoxDecoration(
-          color: Color(0xFFDFF1ED),
+          color: Color(0xFFE7F6F1),
           shape: BoxShape.circle,
         ),
       );

@@ -6,13 +6,13 @@ import '../../../app/routes.dart';
 class MissedSessionNotificationScreen extends StatelessWidget {
   const MissedSessionNotificationScreen({super.key});
 
-  static const _teal = Color(0xFF00695C);
-  static const _darkTeal = Color(0xFF004D40);
-  static const _coral = Color(0xFFF26F6A);
-  static const _mint = Color(0xFFF2F9F7);
-  static const _lightTeal = Color(0xFFE0F2EF);
-  static const _line = Color(0xFFD5E5E2);
-  static const _secondary = Color(0xFF55706E);
+  static const _teal = Color(0xFF00776F);
+  static const _darkTeal = Color(0xFF073F42);
+  static const _coral = Color(0xFFFF5369);
+  static const _mint = Color(0xFFF5FBF9);
+  static const _lightTeal = Color(0xFFE7F6F1);
+  static const _line = Color(0xFFD1EBE7);
+  static const _secondary = Color(0xFF708486);
   static const _orange = Color(0xFFF59E0B);
   static const _lightWarning = Color(0xFFFFF4DF);
 
@@ -22,7 +22,7 @@ class MissedSessionNotificationScreen extends StatelessWidget {
       backgroundColor: _mint,
       appBar: AppBar(
         toolbarHeight: 60,
-        backgroundColor: _mint,
+        backgroundColor: Color(0xFF073F42),
         surfaceTintColor: Colors.transparent,
         leadingWidth: 64,
         leading: IconButton(
@@ -33,14 +33,14 @@ class MissedSessionNotificationScreen extends StatelessWidget {
           ),
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: _teal,
+            color: Colors.white,
             size: 21,
           ),
         ),
         title: const Text(
           'CareLink',
           style: TextStyle(
-            color: _teal,
+            color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.2,
@@ -52,8 +52,8 @@ class MissedSessionNotificationScreen extends StatelessWidget {
             padding: EdgeInsets.only(right: 20),
             child: CircleAvatar(
               radius: 17,
-              backgroundColor: _lightTeal,
-              child: Icon(Icons.person_rounded, color: _teal, size: 20),
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person_rounded, color: Color(0xFF073F42), size: 20),
             ),
           ),
         ],
@@ -160,7 +160,7 @@ class _OlderAdultCard extends StatelessWidget {
           border: Border.all(color: MissedSessionNotificationScreen._line),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x0800695C),
+              color: Color(0x0A073F42),
               blurRadius: 12,
               offset: Offset(0, 3),
             ),
@@ -192,7 +192,7 @@ class _OlderAdultCard extends StatelessWidget {
                           fontSize: 12)),
                   SizedBox(height: 3),
                   Text('30 Sep 2026, 10:30 AM',
-                      style: TextStyle(color: Color(0xFF829390), fontSize: 11)),
+                      style: TextStyle(color: Color(0xFF9AABAC), fontSize: 11)),
                 ],
               ),
             ),
@@ -242,7 +242,7 @@ class _ExplanationCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFEAF5F2),
+          color: const Color(0xFFE7F6F1),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: MissedSessionNotificationScreen._line),
         ),
@@ -356,7 +356,7 @@ class _NavigationItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = selected
         ? MissedSessionNotificationScreen._teal
-        : const Color(0xFF6F8582);
+        : const Color(0xFF708486);
     return Expanded(
       child: SizedBox(
         height: 58,
@@ -417,7 +417,7 @@ class _SoftCircle extends StatelessWidget {
         width: size,
         height: size,
         decoration: const BoxDecoration(
-          color: Color(0xFFDFF1ED),
+          color: Color(0xFFE7F6F1),
           shape: BoxShape.circle,
         ),
       );

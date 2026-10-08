@@ -25,12 +25,12 @@ String _formatDateTime(DateTime date) {
 class FamilyApprovedScreen extends StatefulWidget {
   const FamilyApprovedScreen({super.key});
 
-  static const _ink = Color(0xFF00695C);
-  static const _titleInk = Color(0xFF004D40);
-  static const _muted = Color(0xFF55706E);
-  static const _mint = Color(0xFFF2F9F7);
-  static const _line = Color(0xFFD5E5E2);
-  static const _coral = Color(0xFFF26F6A);
+  static const _ink = Color(0xFF00776F);
+  static const _titleInk = Color(0xFF073F42);
+  static const _muted = Color(0xFF708486);
+  static const _mint = Color(0xFFF5FBF9);
+  static const _line = Color(0xFFD1EBE7);
+  static const _coral = Color(0xFFFF5369);
   static const _success = Color(0xFF00A878);
 
   @override
@@ -64,7 +64,7 @@ class _FamilyApprovedScreenState extends State<FamilyApprovedScreen> {
       backgroundColor: _mint,
       appBar: AppBar(
         toolbarHeight: 60,
-        backgroundColor: _mint,
+        backgroundColor: Color(0xFF073F42),
         surfaceTintColor: Colors.transparent,
         leadingWidth: 64,
         leading: IconButton(
@@ -75,12 +75,12 @@ class _FamilyApprovedScreenState extends State<FamilyApprovedScreen> {
             ),
           ),
           icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: _ink, size: 21),
+              color: Colors.white, size: 21),
         ),
         title: const Text(
           'CareLink',
           style: TextStyle(
-            color: _ink,
+            color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.2,
@@ -92,8 +92,8 @@ class _FamilyApprovedScreenState extends State<FamilyApprovedScreen> {
             padding: EdgeInsets.only(right: 20),
             child: CircleAvatar(
               radius: 17,
-              backgroundColor: Color(0xFFE0F2EF),
-              child: Icon(Icons.person_rounded, color: _ink, size: 20),
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person_rounded, color: Color(0xFF073F42), size: 20),
             ),
           ),
         ],
@@ -103,12 +103,12 @@ class _FamilyApprovedScreenState extends State<FamilyApprovedScreen> {
           const Positioned(
             top: -48,
             left: -54,
-            child: _SoftCircle(size: 172, color: Color(0xFFDFF1ED)),
+            child: _SoftCircle(size: 172, color: Color(0xFFE7F6F1)),
           ),
           const Positioned(
             top: 50,
             left: 56,
-            child: _SoftCircle(size: 38, color: Color(0xFFDFF1ED)),
+            child: _SoftCircle(size: 38, color: Color(0xFFE7F6F1)),
           ),
           SafeArea(
             top: false,
@@ -192,7 +192,7 @@ class _FamilyApprovedScreenState extends State<FamilyApprovedScreen> {
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: const [
                                   BoxShadow(
-                                    color: Color(0x20E85D5A),
+                                    color: Color(0x33FF5369),
                                     blurRadius: 10,
                                     offset: Offset(0, 4),
                                   ),
@@ -270,7 +270,7 @@ class _CaregiverCard extends StatelessWidget {
         border: Border.all(color: FamilyApprovedScreen._line),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0A00695C),
+            color: Color(0x14073F42),
             blurRadius: 14,
             offset: Offset(0, 5),
           ),
@@ -280,7 +280,7 @@ class _CaregiverCard extends StatelessWidget {
         children: [
           const CircleAvatar(
             radius: 27,
-            backgroundColor: Color(0xFFE0F2EF),
+            backgroundColor: Color(0xFFE7F6F1),
             child: Icon(Icons.person_rounded,
                 size: 31, color: FamilyApprovedScreen._ink),
           ),
@@ -321,7 +321,7 @@ class _CaregiverCard extends StatelessWidget {
                 Text(
                   'Approved on ${_formatDateTime(approvedAt)}',
                   style:
-                      const TextStyle(color: Color(0xFF829390), fontSize: 11),
+                      const TextStyle(color: Color(0xFF9AABAC), fontSize: 11),
                 ),
               ],
             ),
@@ -351,7 +351,7 @@ class _ApprovedInformationCard extends StatelessWidget {
         border: Border.all(color: FamilyApprovedScreen._line),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0A00695C),
+            color: Color(0x14073F42),
             blurRadius: 14,
             offset: Offset(0, 5),
           ),
@@ -389,7 +389,7 @@ class _ApprovedInformationCard extends StatelessWidget {
             if (i < _rows.length - 1)
               const Padding(
                 padding: EdgeInsets.only(left: 47),
-                child: Divider(height: 1, thickness: 1, color: Color(0xFFEAF1EF)),
+                child: Divider(height: 1, thickness: 1, color: Color(0xFFE7F6F1)),
               ),
           ],
         ],
