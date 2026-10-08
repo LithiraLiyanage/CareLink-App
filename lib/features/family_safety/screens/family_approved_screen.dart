@@ -1,9 +1,28 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
+import '../services/family_link_service.dart';
+import 'family_notifications_screen.dart';
 
-/// Static success state shown after an older adult approves a family request.
-class FamilyApprovedScreen extends StatelessWidget {
+const _months = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+String _formatDateTime(DateTime date) {
+  final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+  final minute = date.minute.toString().padLeft(2, '0');
+  final period = date.hour < 12 ? 'AM' : 'PM';
+  return '${date.day} ${_months[date.month - 1]} ${date.year}, '
+      '$hour:$minute $period';
+}
+
+/// Success state shown after an older adult approves a family request.
+///
+/// Takes the approved request's id as the route argument; without one it
+/// shows the family member's most recent approval.
+class FamilyApprovedScreen extends StatefulWidget {
   const FamilyApprovedScreen({super.key});
 
   static const _ink = Color(0xFF00695C);
@@ -15,6 +34,31 @@ class FamilyApprovedScreen extends StatelessWidget {
   static const _success = Color(0xFF00A878);
 
   @override
+  State<FamilyApprovedScreen> createState() => _FamilyApprovedScreenState();
+}
+
+class _FamilyApprovedScreenState extends State<FamilyApprovedScreen> {
+  static const _ink = FamilyApprovedScreen._ink;
+  static const _titleInk = FamilyApprovedScreen._titleInk;
+  static const _muted = FamilyApprovedScreen._muted;
+  static const _mint = FamilyApprovedScreen._mint;
+  static const _coral = FamilyApprovedScreen._coral;
+
+  late final Stream<List<FamilyLinkRequest>> _approvals =
+      FamilyLinkService.instance.watchApprovals();
+
+  FamilyLinkRequest? _selectedApproval(List<FamilyLinkRequest> approvals) {
+    if (approvals.isEmpty) return null;
+    final requestId = ModalRoute.of(context)?.settings.arguments;
+    if (requestId is String) {
+      for (final approval in approvals) {
+        if (approval.id == requestId) return approval;
+      }
+    }
+    return approvals.first;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _mint,
@@ -24,9 +68,11 @@ class FamilyApprovedScreen extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         leadingWidth: 64,
         leading: IconButton(
-          tooltip: 'Back to pending request',
-          onPressed: () => Navigator.of(context).pushReplacementNamed(
-            AppRoutes.familyPending,
+          tooltip: 'Back to notifications',
+          onPressed: () => Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => const FamilyNotificationsScreen(),
+            ),
           ),
           icon: const Icon(Icons.arrow_back_ios_new_rounded,
               color: _ink, size: 21),
@@ -97,7 +143,35 @@ class FamilyApprovedScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 19),
-                      const _OlderAdultCard(),
+                      StreamBuilder<List<FamilyLinkRequest>>(
+                        stream: _approvals,
+                        builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return Text(
+                              'Could not load the approval: ${snapshot.error}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: _coral),
+                            );
+                          }
+                          if (!snapshot.hasData) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 24),
+                              child: Center(
+                                child: CircularProgressIndicator(color: _ink),
+                              ),
+                            );
+                          }
+                          final approval = _selectedApproval(snapshot.data!);
+                          if (approval == null) {
+                            return const Text(
+                              'No approved connections yet.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: _muted, fontSize: 13),
+                            );
+                          }
+                          return _CaregiverCard(approval: approval);
+                        },
+                      ),
                       const SizedBox(height: 13),
                       const _ApprovedInformationCard(),
                       const SizedBox(height: 20),
@@ -175,11 +249,19 @@ class _SuccessMark extends StatelessWidget {
   }
 }
 
-class _OlderAdultCard extends StatelessWidget {
-  const _OlderAdultCard();
+class _CaregiverCard extends StatelessWidget {
+  const _CaregiverCard({required this.approval});
+
+  final FamilyLinkRequest approval;
 
   @override
   Widget build(BuildContext context) {
+    final email = FirebaseAuth.instance.currentUser?.email;
+    final elderName =
+        approval.elderName.isEmpty ? 'the older adult' : approval.elderName;
+    // respondedAt is null until the server timestamp lands.
+    final approvedAt = approval.respondedAt?.toLocal() ?? DateTime.now();
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
       decoration: BoxDecoration(
@@ -194,39 +276,52 @@ class _OlderAdultCard extends StatelessWidget {
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             radius: 27,
             backgroundColor: Color(0xFFE0F2EF),
             child: Icon(Icons.person_rounded,
                 size: 31, color: FamilyApprovedScreen._ink),
           ),
-          SizedBox(width: 13),
+          const SizedBox(width: 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mrs. Silva',
-                  style: TextStyle(
+                  approval.requesterName,
+                  style: const TextStyle(
                     color: FamilyApprovedScreen._titleInk,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Daughter',
-                  style: TextStyle(
+                  approval.relationship.isEmpty
+                      ? 'Family caregiver'
+                      : '${approval.relationship} of $elderName',
+                  style: const TextStyle(
                     color: FamilyApprovedScreen._muted,
                     fontSize: 12,
                   ),
                 ),
-                SizedBox(height: 4),
+                if (email != null && email.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    email,
+                    style: const TextStyle(
+                      color: FamilyApprovedScreen._muted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 4),
                 Text(
-                  'Connected on 30 Sep 2026',
-                  style: TextStyle(color: Color(0xFF829390), fontSize: 11),
+                  'Approved on ${_formatDateTime(approvedAt)}',
+                  style:
+                      const TextStyle(color: Color(0xFF829390), fontSize: 11),
                 ),
               ],
             ),
@@ -285,8 +380,8 @@ class _ApprovedInformationCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const Icon(Icons.chevron_right_rounded,
-                        color: FamilyApprovedScreen._muted, size: 22),
+                    const Icon(Icons.check_rounded,
+                        color: FamilyApprovedScreen._success, size: 22),
                   ],
                 ),
               ),

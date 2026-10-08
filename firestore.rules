@@ -403,6 +403,14 @@ service cloud.firestore {
         && request.resource.data.respondedAt == request.time
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'respondedAt']);
+      // The requester marks an accepted request as seen once they open the
+      // approval notification.
+      allow update: if request.auth != null
+        && resource.data.requesterId == request.auth.uid
+        && resource.data.status == 'accepted'
+        && request.resource.data.requesterSeenAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['requesterSeenAt']);
     }
 
     match /companion_profiles/{studentUid} {
@@ -685,6 +693,74 @@ service cloud.firestore {
       allow read, create, update, delete:
         if request.auth != null
         && isOlderAdult(request.auth.uid);
+    }
+
+    // =========================================================
+    // FAMILY LINKING
+    // =========================================================
+
+    function isFamilyCaregiver(userId) {
+      return isOwner(userId)
+        && get(
+          /databases/$(database)/documents/users/$(userId)
+        ).data.role == 'Family Caregiver';
+    }
+
+    // Requests are addressed by the elder's first name; keep in sync with
+    // FamilyLinkService.firstNameKey.
+    function isAddressedElder(data) {
+      return isOlderAdult(request.auth.uid)
+        && data.elderFirstNameLower == get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.fullName.trim().lower().split(' ')[0];
+    }
+
+    match /family_link_requests/{requestId} {
+      allow get, list: if request.auth != null
+        && (
+          resource.data.requesterId == request.auth.uid
+          || isAddressedElder(resource.data)
+        );
+      allow create: if request.auth != null
+        && isFamilyCaregiver(request.auth.uid)
+        && request.resource.data.keys().hasOnly([
+          'requesterId',
+          'requesterName',
+          'elderName',
+          'elderFirstNameLower',
+          'relationship',
+          'idNumber',
+          'status',
+          'createdAt',
+          'respondedAt'
+        ])
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.requesterName is string
+        && request.resource.data.elderName is string
+        && request.resource.data.elderName.matches('.*\\S.*')
+        && request.resource.data.elderFirstNameLower
+          == request.resource.data.elderName.trim().lower().split(' ')[0]
+        && request.resource.data.relationship in ['Daughter', 'Son']
+        && request.resource.data.idNumber is string
+        && request.resource.data.idNumber.matches('.*\\S.*')
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.respondedAt == null;
+      allow update: if request.auth != null
+        && isAddressedElder(resource.data)
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['accepted', 'declined']
+        && request.resource.data.respondedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'respondedAt']);
+      // The requester marks an accepted request as seen once they open the
+      // approval notification.
+      allow update: if request.auth != null
+        && resource.data.requesterId == request.auth.uid
+        && resource.data.status == 'accepted'
+        && request.resource.data.requesterSeenAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['requesterSeenAt']);
     }
 
   }

@@ -1,8 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
+import '../services/family_link_service.dart';
 
-class FamilyPendingScreen extends StatelessWidget {
+const _months = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+String _formatDate(DateTime date) =>
+    '${date.day} ${_months[date.month - 1]} ${date.year}';
+
+String _formatDateTime(DateTime date) {
+  final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+  final minute = date.minute.toString().padLeft(2, '0');
+  final period = date.hour < 12 ? 'AM' : 'PM';
+  return '${_formatDate(date)}, $hour:$minute $period';
+}
+
+class FamilyPendingScreen extends StatefulWidget {
   const FamilyPendingScreen({super.key});
 
   static const _ink = Color(0xFF00695C);
@@ -12,6 +28,22 @@ class FamilyPendingScreen extends StatelessWidget {
   static const _line = Color(0xFFD5E5E2);
   static const _coral = Color(0xFFF26F6A);
   static const _timelineMuted = Color(0xFFA8B7B5);
+
+  @override
+  State<FamilyPendingScreen> createState() => _FamilyPendingScreenState();
+}
+
+class _FamilyPendingScreenState extends State<FamilyPendingScreen> {
+  static const _ink = FamilyPendingScreen._ink;
+  static const _titleInk = FamilyPendingScreen._titleInk;
+  static const _muted = FamilyPendingScreen._muted;
+  static const _mint = FamilyPendingScreen._mint;
+  static const _coral = FamilyPendingScreen._coral;
+
+  // The family member's own requests, newest first; the latest one is the
+  // request they just sent.
+  late final Stream<List<FamilyLinkRequest>> _requests =
+      FamilyLinkService.instance.watchPendingRequests();
 
   @override
   Widget build(BuildContext context) {
@@ -95,9 +127,51 @@ class FamilyPendingScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 19),
-                      const _OlderAdultCard(),
-                      const SizedBox(height: 22),
-                      const _RequestTimeline(),
+                      StreamBuilder<List<FamilyLinkRequest>>(
+                        stream: _requests,
+                        builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return Text(
+                              'Could not load your request: ${snapshot.error}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: _coral),
+                            );
+                          }
+                          if (!snapshot.hasData) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 24),
+                              child: Center(
+                                child: CircularProgressIndicator(color: _ink),
+                              ),
+                            );
+                          }
+                          final requests = snapshot.data!;
+                          if (requests.isEmpty) {
+                            return const Text(
+                              'You have no pending requests.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: _muted, fontSize: 13),
+                            );
+                          }
+                          final request = requests.first;
+                          // createdAt is null until the server timestamp
+                          // lands, so fall back to the local time.
+                          final sentAt =
+                              request.createdAt?.toLocal() ?? DateTime.now();
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _OlderAdultCard(
+                                requesterName: request.requesterName,
+                                relationship: request.relationship,
+                                sentAt: sentAt,
+                              ),
+                              const SizedBox(height: 22),
+                              _RequestTimeline(sentAt: sentAt),
+                            ],
+                          );
+                        },
+                      ),
                       const SizedBox(height: 24),
                       Semantics(
                         button: true,
@@ -107,7 +181,7 @@ class FamilyPendingScreen extends StatelessWidget {
                           child: InkWell(
                             borderRadius: BorderRadius.circular(14),
                             onTap: () => Navigator.of(context)
-                                .pushNamed(AppRoutes.familyApproved),
+                                .pushReplacementNamed(AppRoutes.familyLinking),
                             child: Container(
                               height: 48,
                               alignment: Alignment.center,
@@ -168,7 +242,15 @@ class _PendingIllustration extends StatelessWidget {
 }
 
 class _OlderAdultCard extends StatelessWidget {
-  const _OlderAdultCard();
+  const _OlderAdultCard({
+    required this.requesterName,
+    required this.relationship,
+    required this.sentAt,
+  });
+
+  final String requesterName;
+  final String relationship;
+  final DateTime sentAt;
 
   @override
   Widget build(BuildContext context) {
@@ -186,9 +268,9 @@ class _OlderAdultCard extends StatelessWidget {
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             radius: 27,
             backgroundColor: Color(0xFFE0F2EF),
             child: Icon(
@@ -197,31 +279,31 @@ class _OlderAdultCard extends StatelessWidget {
               color: FamilyPendingScreen._ink,
             ),
           ),
-          SizedBox(width: 13),
+          const SizedBox(width: 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mrs. Silva',
-                  style: TextStyle(
+                  requesterName,
+                  style: const TextStyle(
                     color: FamilyPendingScreen._titleInk,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Daughter',
-                  style: TextStyle(
+                  relationship,
+                  style: const TextStyle(
                     color: FamilyPendingScreen._muted,
                     fontSize: 12,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'Requested on 30 Sep 2026',
-                  style: TextStyle(
+                  'Requested on ${_formatDate(sentAt)}',
+                  style: const TextStyle(
                     color: Color(0xFF829390),
                     fontSize: 11,
                   ),
@@ -236,25 +318,27 @@ class _OlderAdultCard extends StatelessWidget {
 }
 
 class _RequestTimeline extends StatelessWidget {
-  const _RequestTimeline();
+  const _RequestTimeline({required this.sentAt});
+
+  final DateTime sentAt;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       children: [
         _TimelineEntry(
           title: 'Request sent',
-          detail: '30 Sep 2026, 10:30 AM',
+          detail: _formatDateTime(sentAt),
           indicatorColor: FamilyPendingScreen._coral,
           isLast: false,
         ),
-        _TimelineEntry(
+        const _TimelineEntry(
           title: 'Pending approval',
           detail: 'Waiting for elder approval',
           indicatorColor: FamilyPendingScreen._timelineMuted,
           isLast: false,
         ),
-        _TimelineEntry(
+        const _TimelineEntry(
           title: 'Access will be enabled',
           detail: 'after approval',
           indicatorColor: FamilyPendingScreen._timelineMuted,

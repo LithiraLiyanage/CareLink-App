@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
+import '../widgets/family_requests_bell.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
@@ -89,28 +90,7 @@ class ElderHomeScreen extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(
-                    Icons.notifications_none_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                  Positioned(
-                    right: 1,
-                    top: 0,
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: ElderColors.coral,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              const FamilyRequestsBell(),
             ],
           ),
           const SizedBox(height: 14),
