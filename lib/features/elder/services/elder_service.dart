@@ -6,6 +6,8 @@ abstract class ElderService {
   Future<List<CheckIn>> getCheckIns();
   Future<CheckIn?> getCheckInById(String id);
 
+  Future<CheckIn> createCheckIn(CheckIn checkIn);
+
   Future<CheckIn> rescheduleCheckIn(
     String checkInId,
     DateTime newDateTime,

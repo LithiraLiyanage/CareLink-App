@@ -217,11 +217,17 @@ service cloud.firestore {
         || validReviewerVerificationUpdate(userId);
     }
 
-    function isOlderAdult(userId) {
-      return isOwner(userId)
+    function hasOlderAdultRole(userId) {
+      return exists(
+          /databases/$(database)/documents/users/$(userId)
+        )
         && get(
           /databases/$(database)/documents/users/$(userId)
         ).data.role == 'Older Adult';
+    }
+
+    function isOlderAdult(userId) {
+      return isOwner(userId) && hasOlderAdultRole(userId);
     }
 
     function isVerifiedStudent(userId) {
@@ -427,7 +433,9 @@ service cloud.firestore {
       allow list: if request.auth != null
         && get(
           /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.role == 'Older Adult';
+        ).data.role == 'Older Adult'
+        && resource.data.active == true
+        && resource.data.verificationStatus == 'verified';
       allow create, update: if isOwner(studentUid)
         && get(
           /databases/$(database)/documents/users/$(studentUid)
@@ -609,7 +617,7 @@ service cloud.firestore {
         && request.resource.data.companionId == request.auth.uid
         && isVerifiedStudent(request.auth.uid)
         && request.resource.data.elderId is string
-        && isOlderAdult(request.resource.data.elderId)
+        && hasOlderAdultRole(request.resource.data.elderId)
         && request.resource.data.status == 'active'
         && request.resource.data.startedAt == request.time
         && request.resource.data.pausedAt == null
@@ -677,15 +685,196 @@ service cloud.firestore {
     // ELDER CHECK-IN & MEMORY LANE
     // =========================================================
 
+    function isActiveConnectionBetween(elderId, companionId) {
+      let pairPath = /databases/$(database)/documents/match_request_pairs/$(requestPairId(elderId, companionId));
+      return exists(pairPath)
+        && get(pairPath).data.currentConnectionId is string
+        && exists(
+          /databases/$(database)/documents/connections/$(get(pairPath).data.currentConnectionId)
+        )
+        && get(
+          /databases/$(database)/documents/connections/$(get(pairPath).data.currentConnectionId)
+        ).data.elderId == elderId
+        && get(
+          /databases/$(database)/documents/connections/$(get(pairPath).data.currentConnectionId)
+        ).data.companionId == companionId
+        && get(
+          /databases/$(database)/documents/connections/$(get(pairPath).data.currentConnectionId)
+        ).data.status == 'active';
+    }
+
+    function isConnectedStudentSchedule(data) {
+      return request.auth != null
+        && data.companionId == request.auth.uid
+        && isVerifiedStudent(request.auth.uid)
+        && data.elderId is string
+        && isActiveConnectionBetween(data.elderId, request.auth.uid);
+    }
+
+    function hasCompanionSafeCheckInFields(data) {
+      return data.keys().hasOnly([
+        'elderId',
+        'elderName',
+        'elderImageUrl',
+        'companionId',
+        'companionName',
+        'scheduledAt',
+        'durationMinutes',
+        'mode',
+        'status',
+        'updatedAt',
+        'createdAt',
+        'reflection'
+      ])
+        && (
+          !data.keys().hasAny(['reflection'])
+          || data.reflection == null
+        );
+    }
+
+    function hasCompanionSafeScheduleFields(data) {
+      return data.keys().hasOnly([
+        'elderId',
+        'elderName',
+        'companionId',
+        'companionName',
+        'connectionId',
+        'weekdays',
+        'hour',
+        'minute',
+        'durationMinutes',
+        'isActive',
+        'createdAt',
+        'mode'
+      ]);
+    }
+
     match /check_ins/{documentId} {
-      allow read, create, update, delete:
-        if request.auth != null
-        && isOlderAdult(request.auth.uid);
+      allow get, list: if request.auth != null
+        && (
+          (
+            resource.data.elderId == request.auth.uid
+            && isOlderAdult(request.auth.uid)
+          )
+          || (
+            isConnectedStudentSchedule(resource.data)
+            && hasCompanionSafeCheckInFields(resource.data)
+          )
+        );
+
+      allow create: if request.auth != null
+        && isOlderAdult(request.auth.uid)
+        && request.resource.data.elderId == request.auth.uid
+        && request.resource.data.companionId is string
+        && isActiveConnectionBetween(
+          request.auth.uid,
+          request.resource.data.companionId
+        )
+        && hasCompanionSafeCheckInFields(request.resource.data)
+        && request.resource.data.elderName is string
+        && request.resource.data.companionName is string
+        && request.resource.data.scheduledAt is timestamp
+        && request.resource.data.durationMinutes is int
+        && request.resource.data.durationMinutes > 0
+        && request.resource.data.mode in ['Video', 'Voice']
+        && request.resource.data.status == 'scheduled'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && (
+          !request.resource.data.keys().hasAny(['elderImageUrl'])
+          || request.resource.data.elderImageUrl == null
+          || request.resource.data.elderImageUrl is string
+        );
+
+      allow delete: if request.auth != null
+        && isOlderAdult(request.auth.uid)
+        && resource.data.elderId == request.auth.uid;
+
+      allow update: if request.auth != null
+        && (
+          (
+            isOlderAdult(request.auth.uid)
+            && resource.data.elderId == request.auth.uid
+            && request.resource.data.elderId == resource.data.elderId
+            && request.resource.data.companionId == resource.data.companionId
+            && hasCompanionSafeCheckInFields(request.resource.data)
+          )
+          || (
+            isConnectedStudentSchedule(resource.data)
+            && hasCompanionSafeCheckInFields(resource.data)
+            && resource.data.status == 'scheduled'
+            && request.resource.data.status == 'ready'
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          )
+          || (
+            isConnectedStudentSchedule(resource.data)
+            && hasCompanionSafeCheckInFields(resource.data)
+            && resource.data.status in ['scheduled', 'ready']
+            && request.resource.data.status == 'completed'
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'updatedAt'])
+          )
+        );
     }
 
     match /recurring_schedules/{documentId} {
-      allow read, create, update, delete:
-        if request.auth != null
+      allow get, list: if request.auth != null
+        && (
+          (
+            resource.data.elderId == request.auth.uid
+            && isOlderAdult(request.auth.uid)
+          )
+          || (
+            isConnectedStudentSchedule(resource.data)
+            && hasCompanionSafeScheduleFields(resource.data)
+            && resource.data.isActive == true
+          )
+        );
+      allow create: if request.auth != null
+        && isOlderAdult(request.auth.uid)
+        && request.resource.data.keys().hasOnly([
+          'elderId',
+          'elderName',
+          'companionId',
+          'companionName',
+          'connectionId',
+          'weekdays',
+          'hour',
+          'minute',
+          'durationMinutes',
+          'isActive',
+          'createdAt',
+          'mode'
+        ])
+        && request.resource.data.elderId == request.auth.uid
+        && request.resource.data.companionId is string
+        && request.resource.data.connectionId is string
+        && get(
+          /databases/$(database)/documents/connections/$(request.resource.data.connectionId)
+        ).data.elderId == request.auth.uid
+        && get(
+          /databases/$(database)/documents/connections/$(request.resource.data.connectionId)
+        ).data.companionId == request.resource.data.companionId
+        && get(
+          /databases/$(database)/documents/connections/$(request.resource.data.connectionId)
+        ).data.status == 'active'
+        && request.resource.data.weekdays is list
+        && request.resource.data.hour is int
+        && request.resource.data.hour >= 0
+        && request.resource.data.hour <= 23
+        && request.resource.data.minute is int
+        && request.resource.data.minute >= 0
+        && request.resource.data.minute <= 59
+        && request.resource.data.durationMinutes is int
+        && request.resource.data.durationMinutes > 0
+        && request.resource.data.mode in ['Video', 'Voice']
+        && request.resource.data.isActive == true
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if request.auth != null
+        && resource.data.elderId == request.auth.uid
         && isOlderAdult(request.auth.uid);
     }
 

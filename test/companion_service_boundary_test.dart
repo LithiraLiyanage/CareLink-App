@@ -6,6 +6,7 @@ import 'package:carelink_app/features/companion/models/companion_strings.dart';
 import 'package:carelink_app/features/companion/models/match_preferences.dart';
 import 'package:carelink_app/features/companion/models/match_request.dart';
 import 'package:carelink_app/features/companion/screens/request_pending_screen.dart';
+import 'package:carelink_app/features/companion/screens/connection_accepted_screen.dart';
 import 'package:carelink_app/features/companion/screens/scheduling_handoff_screen.dart';
 import 'package:carelink_app/features/companion/services/firebase_companion_service.dart';
 import 'package:carelink_app/features/companion/services/mock_companion_service.dart';
@@ -95,6 +96,10 @@ void main() {
       expect(controller.currentConnection, isNull);
       await controller.acceptCurrentRequest();
       expect(controller.currentConnection?.status, ConnectionStatus.active);
+      final accepted = await controller.service.getAcceptedRequest(
+        controller.currentRequest!.id,
+      );
+      expect(accepted?.status, MatchRequestStatus.accepted);
 
       final handoff = SchedulingHandoffScreen(
         profile: controller.selectedCompanion!,
@@ -207,6 +212,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.byType(ConnectionAcceptedScreen), findsOneWidget);
     expect(find.text('Connection Accepted!'), findsOneWidget);
     expect(find.text('View Connection'), findsOneWidget);
   });

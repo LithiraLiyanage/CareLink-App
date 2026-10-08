@@ -10,7 +10,9 @@ import 'elder_home_screen.dart';
 import 'my_schedule_screen.dart';
 
 class MemoryLaneScreen extends StatefulWidget {
-  const MemoryLaneScreen({super.key});
+  const MemoryLaneScreen({super.key, this.navigationOnly = false});
+
+  final bool navigationOnly;
 
   @override
   State<MemoryLaneScreen> createState() => _MemoryLaneScreenState();
@@ -26,7 +28,11 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMemories();
+    if (widget.navigationOnly) {
+      _loading = false;
+    } else {
+      _loadMemories();
+    }
   }
 
   Future<void> _loadMemories() async {
@@ -44,7 +50,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
     if (!mounted) return;
-    await _loadMemories();
+    if (!widget.navigationOnly) await _loadMemories();
   }
 
   void _open(Widget screen) {
@@ -84,8 +90,11 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                           label: '+  Add a memory',
                           color: ElderColors.coral,
                           height: 54,
-                          onPressed: () =>
-                              _openAndRefresh(const AddMemoryScreen()),
+                          onPressed: () => _openAndRefresh(
+                            AddMemoryScreen(
+                              navigationOnly: widget.navigationOnly,
+                            ),
+                          ),
                         ),
                       ],
                     ),

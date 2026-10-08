@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -54,42 +53,12 @@ class FirebaseCompanionService implements CompanionService {
   DocumentReference<Map<String, dynamic>> _connection(String id) =>
       _db.collection('connections').doc(id);
 
-  Future<T> _traceFirestoreStep<T>(
-    String step,
-    Future<T> Function() operation,
-  ) async {
-    try {
-      final result = await operation();
-      if (kDebugMode) debugPrint('$step succeeded');
-      return result;
-    } on FirebaseException catch (error, stackTrace) {
-      if (kDebugMode) {
-        debugPrint('$step failed: ${error.code}: ${error.message}');
-        debugPrintStack(stackTrace: stackTrace, label: '$step stack trace');
-      }
-      rethrow;
-    }
-  }
-
-  void _traceTransactionWrite(String step) {
-    if (kDebugMode) debugPrint('$step queued in Accept transaction');
-  }
-
   // A deterministic pair key prevents concurrent duplicate open requests.
   String _pairId(String elderUid, String studentUid) =>
       '${elderUid.length}_$elderUid$studentUid';
 
   Future<void> _requireRole(String uid, String role) async {
-    final user = await _traceFirestoreStep(
-      'STEP 1 current user read',
-      () => _user(uid).get(),
-    );
-    if (kDebugMode) {
-      debugPrint(
-        'Companion authenticated UID=$uid, '
-        'Firestore role=${user.data()?['role']}',
-      );
-    }
+    final user = await _user(uid).get();
     if (user.data()?['role'] != role) {
       throw StateError('Only a $role account can use this companion action.');
     }
@@ -201,14 +170,11 @@ class FirebaseCompanionService implements CompanionService {
   Future<void> saveMatchPreferences(MatchPreferences preferences) async {
     final uid = _uid;
     await _requireRole(uid, _elderRole);
-    await _traceFirestoreStep(
-      'STEP 2 matching preferences write',
-      () => _db.collection('matching_preferences').doc(uid).set({
-        ...preferences.toMap(),
-        'elderId': uid,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }),
-    );
+    await _db.collection('matching_preferences').doc(uid).set({
+      ...preferences.toMap(),
+      'elderId': uid,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   @override
@@ -217,130 +183,27 @@ class FirebaseCompanionService implements CompanionService {
   ) async {
     final uid = _uid;
     await _requireRole(uid, _elderRole);
-    if (kDebugMode) {
-      debugPrint(
-        'W02 matching preferences: '
-        'preferredLanguage=${preferences.preferredLanguage}, '
-        'interests=${preferences.interests}, '
-        'availability=${preferences.availability}, '
-        'preferredTime=${preferences.preferredTime}',
-      );
-      debugPrint(
-        'W02 Firestore project: ${_db.app.options.projectId}; '
-        'collection: companion_profiles',
-      );
-      try {
-        final rawProfiles = await _db
-            .collection('companion_profiles')
-            .get(const GetOptions(source: Source.server));
-        debugPrint(
-          'RAW companion_profiles document count: ${rawProfiles.docs.length}',
-        );
-        for (final doc in rawProfiles.docs) {
-          final data = doc.data();
-          debugPrint('RAW doc.id: ${doc.id}');
-          debugPrint('RAW keys: ${data.keys.toList()}');
-          debugPrint('RAW data: $data');
-          debugPrint("RAW active: ${data['active']}");
-          debugPrint("RAW verificationStatus: ${data['verificationStatus']}");
-        }
-      } on FirebaseException catch (error, stackTrace) {
-        debugPrint(
-          'RAW companion_profiles query failed: '
-          '${error.code}: ${error.message}',
-        );
-        debugPrintStack(
-          stackTrace: stackTrace,
-          label: 'RAW companion_profiles query stack trace',
-        );
-      }
-      const diagnosticStudentUid = 'tuEHoDT34KTwuS6pJvd858QjqS93';
-      try {
-        final diagnosticProfile = await _profile(diagnosticStudentUid)
-            .get(const GetOptions(source: Source.server));
-        debugPrint(
-          'W02 diagnostic direct GET '
-          'companion_profiles/$diagnosticStudentUid: '
-          'exists=${diagnosticProfile.exists}, permissionDenied=false',
-        );
-      } on FirebaseException catch (error, stackTrace) {
-        debugPrint(
-          'W02 diagnostic direct GET '
-          'companion_profiles/$diagnosticStudentUid failed: '
-          'exists=unknown, permissionDenied=${error.code == 'permission-denied'}, '
-          '${error.code}: ${error.message}',
-        );
-        debugPrintStack(
-          stackTrace: stackTrace,
-          label: 'W02 diagnostic direct GET stack trace',
-        );
-      }
-    }
-    final candidates = await _traceFirestoreStep(
-      'STEP 3 companion profiles query',
-      () => _db
-          .collection('companion_profiles')
-          .where('active', isEqualTo: true)
-          .where('verificationStatus', isEqualTo: _verified)
-          .get(const GetOptions(source: Source.server)),
-    );
-    if (kDebugMode) {
-      debugPrint(
-        'W02 companion_profiles query returned '
-        '${candidates.docs.length} matching profile(s)',
-      );
-    }
+    final candidates = await _db
+        .collection('companion_profiles')
+        .where('active', isEqualTo: true)
+        .where('verificationStatus', isEqualTo: _verified)
+        .get(const GetOptions(source: Source.server));
     final eligibleProfiles = <CompanionProfile>[];
     for (final doc in candidates.docs) {
-      final data = doc.data();
-      final excludedFor = <String>[];
-      if (doc.id == uid) excludedFor.add('profile belongs to current user');
-      if (data['active'] != true) excludedFor.add('active is not true');
-      if (data['verificationStatus'] != _verified) {
-        excludedFor.add('verificationStatus is not verified');
+      if (doc.id == uid) continue;
+      Map<String, dynamic>? data;
+      try {
+        // The indexed list query is scoped by profile status. A direct read
+        // additionally checks the linked user and verification documents.
+        data = (await _profile(doc.id).get()).data();
+      } on FirebaseException catch (error) {
+        if (error.code == 'permission-denied') continue;
+        rethrow;
       }
-      if (data['fullName'] is! String ||
-          (data['fullName'] as String).trim().isEmpty) {
-        excludedFor.add('fullName is missing or empty');
-      }
-      if (data['userId'] != doc.id) {
-        excludedFor.add('userId does not match document ID');
-      }
-      if (kDebugMode) {
-        debugPrint(
-          'W02 profile ${doc.id}: '
-          'active=${data['active']}, '
-          'verificationStatus=${data['verificationStatus']}, '
-          'languages=${data['languages']}, '
-          'interests=${data['interests']}, '
-          'availability=${data['availability']}, '
-          'preferredTimes=${data['preferredTimes']}, '
-          'userId=${data['userId']}, fullName=${data['fullName']}',
-        );
-      }
-      if (excludedFor.isNotEmpty) {
-        if (kDebugMode) {
-          debugPrint(
-            'W02 profile ${doc.id} excluded: ${excludedFor.join('; ')}',
-          );
-        }
-        continue;
-      }
-      if (!_isEligibleStudentProfile(doc.id, data)) {
-        if (kDebugMode) {
-          debugPrint(
-            'W02 profile ${doc.id} excluded: failed student-profile eligibility',
-          );
-        }
-        continue;
-      }
-      eligibleProfiles.add(_candidate(doc.id, data));
+      if (!_isEligibleStudentProfile(doc.id, data)) continue;
+      eligibleProfiles.add(_candidate(doc.id, data!));
     }
-    return rankCompanions(
-      eligibleProfiles,
-      preferences,
-      debugLog: kDebugMode ? debugPrint : null,
-    );
+    return rankCompanions(eligibleProfiles, preferences);
   }
 
   @override
@@ -472,171 +335,78 @@ class FirebaseCompanionService implements CompanionService {
       throw StateError('A response must accept, decline, or cancel.');
     }
     final uid = _uid;
-    if (kDebugMode) {
-      debugPrint(
-        'Accept STEP 1 current Firebase UID: $uid; '
-        'requestId=$requestId; requestedStatus=${status.name}',
-      );
-    }
     final requestRef = _request(requestId);
     final newConnectionRef = _db.collection('connections').doc();
-    final queuedWrites = <String>[];
-    try {
-      await _db.runTransaction((tx) async {
-        final request = await _traceFirestoreStep(
-          'Accept STEP 2 request document read',
-          () => tx.get(requestRef),
-        );
-        final data = request.data();
-        if (kDebugMode) {
-          debugPrint(
-            'Accept STEP 2 request status=${data?['status']}, '
-            'elderId=${data?['elderId']}, '
-            'companionId=${data?['companionId']}',
-          );
-        }
-        if (data == null || data['status'] != 'pending') {
-          throw StateError('This request is no longer pending.');
-        }
-        final elderUid = data['elderId'] as String;
-        final studentUid = data['companionId'] as String;
-        final pairId = _pairId(elderUid, studentUid);
-        final currentUser = await _traceFirestoreStep(
-          'Accept STEP 3 current user document read',
-          () => tx.get(_user(uid)),
-        );
-        if (kDebugMode) {
-          debugPrint(
-            'Accept STEP 3 user role=${currentUser.data()?['role']}, '
-            'verificationStatus=${currentUser.data()?['verificationStatus']}',
-          );
-        }
-        DocumentSnapshot<Map<String, dynamic>>? verification;
-        if (status == MatchRequestStatus.accepted) {
-          final verificationSnapshot = await _traceFirestoreStep(
-            'Accept STEP 4 student_verifications document read',
-            () =>
-                tx.get(_db.collection('student_verifications').doc(studentUid)),
-          );
-          verification = verificationSnapshot;
-          if (kDebugMode) {
-            debugPrint(
-              'Accept STEP 4 verification '
-              'exists=${verificationSnapshot.exists}, '
-              'status=${verificationSnapshot.data()?['status']}',
-            );
-          }
-        }
-        final pairState = await _traceFirestoreStep(
-          'Accept match_request_pairs current connection pointer read',
-          () => tx.get(_requestPair(pairId)),
-        );
-        if (pairState.data()?['currentRequestId'] != requestId) {
-          throw StateError('Invalid match request.');
-        }
-        final isCancellation = status == MatchRequestStatus.cancelled;
-        if ((isCancellation &&
-                (uid != elderUid ||
-                    currentUser.data()?['role'] != _elderRole)) ||
-            (!isCancellation &&
-                (uid != studentUid ||
-                    currentUser.data()?['role'] != _studentRole ||
-                    currentUser.data()?['verificationStatus'] != _verified))) {
-          throw StateError('You cannot respond to this request.');
-        }
-        if (status == MatchRequestStatus.accepted) {
-          final student = await _traceFirestoreStep(
-            'Accept STEP 5 companion profile read',
-            () => tx.get(_profile(studentUid)),
-          );
-          if (kDebugMode) {
-            debugPrint(
-              'Accept STEP 5 profile active=${student.data()?['active']}, '
-              'verificationStatus=${student.data()?['verificationStatus']}',
-            );
-          }
-          if (!_eligible(student.data()) ||
-              student.data()?['userId'] != studentUid ||
-              (verification?.exists == true &&
-                  verification?.data()?['status'] != _verified)) {
-            throw StateError(
-              'The student profile is no longer active/verified.',
-            );
-          }
-          final existingId =
-              pairState.data()?['currentConnectionId'] as String?;
-          final existing = existingId == null
-              ? null
-              : await _traceFirestoreStep(
-                  'Accept STEP 6 existing connection lookup',
-                  () => tx.get(_connection(existingId)),
-                );
-          if (kDebugMode) {
-            debugPrint(
-              'Accept STEP 6 existing connection ID=$existingId, '
-              'status=${existing?.data()?['status'] ?? 'none'}',
-            );
-          }
-          if (existing != null && existing.data()?['status'] != 'ended') {
-            throw StateError('A connection already exists.');
-          }
-          tx.update(requestRef, {
-            'status': status.name,
-            'respondedAt': FieldValue.serverTimestamp(),
-          });
-          queuedWrites.add('match_requests update');
-          _traceTransactionWrite(
-            'Accept STEP 7 match_requests update '
-            '(status=${status.name}, respondedAt=serverTimestamp)',
-          );
-          tx.update(_requestPair(pairId), {
-            'currentConnectionId': newConnectionRef.id,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-          queuedWrites.add('match_request_pairs update');
-          _traceTransactionWrite('Accept STEP 8 match_request_pairs update');
-          tx.set(newConnectionRef, {
-            'elderId': elderUid,
-            'companionId': studentUid,
-            'matchRequestId': requestId,
-            'pairId': pairId,
-            'status': ConnectionStatus.active.name,
-            'startedAt': FieldValue.serverTimestamp(),
-            'pausedAt': null,
-            'endedAt': null,
-          });
-          queuedWrites.add('connections create');
-          _traceTransactionWrite('Accept STEP 9 connections document create');
-        } else {
-          tx.update(requestRef, {
-            'status': status.name,
-            'respondedAt': FieldValue.serverTimestamp(),
-          });
-          queuedWrites.add('match_requests update');
-          _traceTransactionWrite(
-            'Accept STEP 7 match_requests update '
-            '(status=${status.name}, respondedAt=serverTimestamp)',
-          );
-        }
-      });
-    } on FirebaseException catch (error, stackTrace) {
-      if (kDebugMode) {
-        debugPrint(
-          'Accept transaction ${queuedWrites.isEmpty ? 'read phase' : 'commit'} '
-          'failed${queuedWrites.isEmpty ? '' : ' after queued writes ${queuedWrites.join(', ')}'}: '
-          '${error.code}: ${error.message}',
-        );
-        debugPrintStack(
-          stackTrace: stackTrace,
-          label: 'Accept transaction commit stack trace',
+    await _db.runTransaction((tx) async {
+      final request = await tx.get(requestRef);
+      final data = request.data();
+      if (data == null || data['status'] != 'pending') {
+        throw StateError('This request is no longer pending.');
+      }
+      final elderUid = data['elderId'] as String;
+      final studentUid = data['companionId'] as String;
+      final pairId = _pairId(elderUid, studentUid);
+      final currentUser = await tx.get(_user(uid));
+      DocumentSnapshot<Map<String, dynamic>>? verification;
+      if (status == MatchRequestStatus.accepted) {
+        verification = await tx.get(
+          _db.collection('student_verifications').doc(studentUid),
         );
       }
-      rethrow;
-    }
-    final saved = await _traceFirestoreStep(
-      'Accept STEP 11 accepted request post-transaction read',
-      () => requestRef.get(),
-    );
+      final pairState = await tx.get(_requestPair(pairId));
+      if (pairState.data()?['currentRequestId'] != requestId) {
+        throw StateError('Invalid match request.');
+      }
+      final isCancellation = status == MatchRequestStatus.cancelled;
+      if ((isCancellation &&
+              (uid != elderUid || currentUser.data()?['role'] != _elderRole)) ||
+          (!isCancellation &&
+              (uid != studentUid ||
+                  currentUser.data()?['role'] != _studentRole ||
+                  currentUser.data()?['verificationStatus'] != _verified))) {
+        throw StateError('You cannot respond to this request.');
+      }
+      if (status == MatchRequestStatus.accepted) {
+        final student = await tx.get(_profile(studentUid));
+        if (!_eligible(student.data()) ||
+            student.data()?['userId'] != studentUid ||
+            (verification?.exists == true &&
+                verification?.data()?['status'] != _verified)) {
+          throw StateError('The student profile is no longer active/verified.');
+        }
+        final existingId = pairState.data()?['currentConnectionId'] as String?;
+        final existing = existingId == null
+            ? null
+            : await tx.get(_connection(existingId));
+        if (existing != null && existing.data()?['status'] != 'ended') {
+          throw StateError('A connection already exists.');
+        }
+        tx.update(requestRef, {
+          'status': status.name,
+          'respondedAt': FieldValue.serverTimestamp(),
+        });
+        tx.update(_requestPair(pairId), {
+          'currentConnectionId': newConnectionRef.id,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        tx.set(newConnectionRef, {
+          'elderId': elderUid,
+          'companionId': studentUid,
+          'matchRequestId': requestId,
+          'pairId': pairId,
+          'status': ConnectionStatus.active.name,
+          'startedAt': FieldValue.serverTimestamp(),
+          'pausedAt': null,
+          'endedAt': null,
+        });
+      } else {
+        tx.update(requestRef, {
+          'status': status.name,
+          'respondedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    });
+    final saved = await requestRef.get();
     return _requestModel(saved.id, saved.data()!);
   }
 
@@ -664,11 +434,32 @@ class FirebaseCompanionService implements CompanionService {
         .where('status', isEqualTo: MatchRequestStatus.pending.name)
         .snapshots()
         .asyncMap((snapshot) async {
-          final requests = snapshot.docs.map(
-            (doc) => _incomingRequest(_requestModel(doc.id, doc.data())),
-          );
+          final requests =
+              snapshot.docs
+                  .map(
+                    (doc) =>
+                        _incomingRequest(_requestModel(doc.id, doc.data())),
+                  )
+                  .toList()
+                ..sort(
+                  (a, b) => b.request.createdAt.compareTo(a.request.createdAt),
+                );
           return List.unmodifiable(requests);
         });
+  }
+
+  @override
+  Future<MatchRequest?> getAcceptedRequest(String requestId) async {
+    final uid = _uid;
+    await _requireRole(uid, _studentRole);
+    final snapshot = await _request(requestId).get();
+    final data = snapshot.data();
+    if (data == null ||
+        data['status'] != MatchRequestStatus.accepted.name ||
+        data['companionId'] != uid) {
+      return null;
+    }
+    return _requestModel(snapshot.id, data);
   }
 
   @override
@@ -682,18 +473,14 @@ class FirebaseCompanionService implements CompanionService {
         (uid != request.elderId && uid != request.companionId)) {
       throw StateError('Only an accepted request can have a connection.');
     }
-    final pair = await _traceFirestoreStep(
-      'Accept STEP 12 accepted pair post-transaction read',
-      () => _requestPair(_pairId(request.elderId, request.companionId)).get(),
-    );
+    final pair = await _requestPair(
+      _pairId(request.elderId, request.companionId),
+    ).get();
     final connectionId = pair.data()?['currentConnectionId'] as String?;
     if (connectionId == null) {
       throw StateError('The accepted connection is not available yet.');
     }
-    final saved = await _traceFirestoreStep(
-      'Accept STEP 13 created connection post-transaction read',
-      () => _connection(connectionId).get(),
-    );
+    final saved = await _connection(connectionId).get();
     final data = saved.data();
     if (data == null ||
         data['matchRequestId'] != request.id ||

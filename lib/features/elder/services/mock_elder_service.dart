@@ -1,4 +1,5 @@
 import '../models/check_in.dart';
+import '../models/check_in_scheduling.dart';
 import '../models/memory_item.dart';
 import '../models/recurring_schedule.dart';
 import 'elder_service.dart';
@@ -107,13 +108,43 @@ class MockElderService implements ElderService {
   }
 
   @override
+  Future<CheckIn> createCheckIn(CheckIn checkIn) async {
+    await _delay();
+    final error = CheckInScheduling.validateSelection(
+      scheduledAt: checkIn.scheduledAt,
+      durationMinutes: checkIn.durationMinutes,
+      mode: checkIn.mode,
+    );
+    if (error != null) {
+      throw StateError(error);
+    }
+    final created = checkIn.copyWith(
+      id: checkIn.id.isEmpty
+          ? 'checkin-${DateTime.now().microsecondsSinceEpoch}'
+          : checkIn.id,
+      status: CheckInStatus.scheduled,
+    );
+    _checkIns.add(created);
+    return created;
+  }
+
+  @override
   Future<CheckIn> rescheduleCheckIn(
     String checkInId,
     DateTime newDateTime,
   ) async {
     await _delay();
     final index = _indexOfCheckIn(checkInId);
-    final updated = _checkIns[index].copyWith(
+    final existing = _checkIns[index];
+    final error = CheckInScheduling.validateSelection(
+      scheduledAt: newDateTime,
+      durationMinutes: existing.durationMinutes,
+      mode: existing.mode,
+    );
+    if (error != null) {
+      throw StateError(error);
+    }
+    final updated = existing.copyWith(
       scheduledAt: newDateTime,
       status: CheckInStatus.scheduled,
     );

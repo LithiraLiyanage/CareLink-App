@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../features/companion/controllers/companion_controller.dart';
 import '../features/companion/screens/incoming_requests_screen.dart';
 import '../features/companion/screens/matching_preferences_screen.dart';
 import '../features/companion/screens/student_companion_home_screen.dart';
@@ -51,8 +52,12 @@ class CareLinkApp extends StatelessWidget {
             const StudentCompanionHomeScreen(),
         AppRoutes.companionMatching: (context) =>
             const MatchingPreferencesScreen(),
-        AppRoutes.companionIncomingRequests: (_) =>
-            const IncomingRequestsScreen(),
+        AppRoutes.companionIncomingRequests: (context) {
+          final argument = ModalRoute.of(context)?.settings.arguments;
+          return IncomingRequestsScreen(
+            controller: argument is CompanionController ? argument : null,
+          );
+        },
       },
     );
   }

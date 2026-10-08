@@ -6,7 +6,6 @@ import 'package:carelink_app/features/companion/models/companion_strings.dart';
 import 'package:carelink_app/features/companion/models/match_preferences.dart';
 import 'package:carelink_app/features/companion/models/match_request.dart';
 import 'package:carelink_app/features/companion/screens/connection_paused_screen.dart';
-import 'package:carelink_app/features/companion/screens/conversation_ideas_screen.dart';
 import 'package:carelink_app/features/companion/screens/current_connection_screen.dart';
 import 'package:carelink_app/features/companion/screens/recommended_companions_screen.dart';
 import 'package:carelink_app/features/companion/screens/scheduling_handoff_screen.dart';
@@ -150,13 +149,7 @@ void main() {
           ),
         ),
       );
-      await tap(find.text(strings.conversationIdeas));
-      expect(find.byType(ConversationIdeasScreen), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('conversation-idea-books')),
-        findsOneWidget,
-      );
-      await tap(find.byTooltip(strings.backToCheckIn));
+      expect(find.text(strings.conversationIdeas), findsNothing);
 
       await tap(find.text(strings.viewOrScheduleCheckIn));
       final handoff = tester.widget<SchedulingHandoffScreen>(

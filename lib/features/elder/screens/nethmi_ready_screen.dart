@@ -1,12 +1,132 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/elder_assets.dart';
+import '../../companion/models/companion_language.dart';
+import '../../companion/models/companion_profile.dart';
+import '../../companion/screens/conversation_ideas_screen.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
-import 'active_video_call_kamala_screen.dart';
+import 'active_video_call_screen.dart';
+import 'checkin_complete_nethmi_screen.dart';
 
 class NethmiReadyScreen extends StatelessWidget {
-  const NethmiReadyScreen({super.key});
+  const NethmiReadyScreen({
+    super.key,
+    this.companionName = 'Student Companion',
+    this.companionImageUrl,
+    this.scheduledAt,
+    this.durationMinutes = 30,
+    this.mode = 'Video',
+    this.onStartCall,
+    this.onVoiceCall,
+    this.onConversationIdeas,
+  });
+
+  final String companionName;
+  final String? companionImageUrl;
+  final DateTime? scheduledAt;
+  final int durationMinutes;
+  final String mode;
+  final VoidCallback? onStartCall;
+  final VoidCallback? onVoiceCall;
+  final VoidCallback? onConversationIdeas;
+
+  void _startVideoCall(BuildContext context) {
+    if (onStartCall != null) {
+      onStartCall!();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ActiveVideoCallScreen(
+          elderId: 'elder-kamala',
+          elderName: 'Older Adult',
+          companionId: 'companion-1',
+          companionName: companionName,
+          companionImageUrl: companionImageUrl,
+          connectionId: '',
+          checkInId: 'checkin-1',
+          scheduledAt: scheduledAt ?? DateTime.now(),
+          durationMinutes: durationMinutes,
+          callType: mode,
+          onEndCall: () async {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute<void>(
+                builder: (_) => CheckInCompleteNethmiScreen(
+                  companionName: companionName,
+                  companionImageUrl: companionImageUrl,
+                  scheduledAt: scheduledAt,
+                  durationMinutes: durationMinutes,
+                  mode: mode,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _startVoiceCall(BuildContext context) {
+    if (onVoiceCall != null) {
+      onVoiceCall!();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ActiveVideoCallScreen(
+          elderId: 'elder-kamala',
+          elderName: 'Older Adult',
+          companionId: 'companion-1',
+          companionName: companionName,
+          companionImageUrl: companionImageUrl,
+          connectionId: '',
+          checkInId: 'checkin-1',
+          scheduledAt: scheduledAt ?? DateTime.now(),
+          durationMinutes: durationMinutes,
+          callType: 'Voice',
+          onEndCall: () async {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute<void>(
+                builder: (_) => CheckInCompleteNethmiScreen(
+                  companionName: companionName,
+                  companionImageUrl: companionImageUrl,
+                  scheduledAt: scheduledAt,
+                  durationMinutes: durationMinutes,
+                  mode: 'Voice',
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _openConversationIdeas(BuildContext context) {
+    if (onConversationIdeas != null) {
+      onConversationIdeas!();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ConversationIdeasScreen(
+          profile: CompanionProfile(
+            id: 'companion-1',
+            name: companionName,
+            imagePath: '',
+            profileImageUrl: companionImageUrl,
+            verified: true,
+            languages: const ['English', 'Sinhala'],
+            interests: const ['Gardening', 'Music', 'Stories'],
+            availability: 'Available today',
+            about: 'Verified Student Companion',
+          ),
+          selectedLanguage: CompanionLanguage.english,
+          openedFromCheckIn: true,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,22 +150,16 @@ class NethmiReadyScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const _IdentityRow(
-                      name: 'Nethmi Jayasooriya',
+                    _IdentityRow(
+                      name: companionName,
                       role: 'Verified student companion',
-                      avatar: ElderAssets.nethmiAvatar,
+                      imageUrl: companionImageUrl,
                     ),
-                    const _ReadyMetrics(),
+                    _ReadyMetrics(durationMinutes: durationMinutes, mode: mode),
                     ElderPrimaryButton(
                       label: 'Start video call',
                       height: 54,
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ActiveVideoCallKamalaScreen(),
-                          ),
-                        );
-                      },
+                      onPressed: () => _startVideoCall(context),
                     ),
                     Row(
                       children: [
@@ -53,7 +167,7 @@ class NethmiReadyScreen extends StatelessWidget {
                           child: ElderOutlineButton(
                             label: 'Voice only',
                             height: 48,
-                            onPressed: () {},
+                            onPressed: () => _startVoiceCall(context),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -61,7 +175,15 @@ class NethmiReadyScreen extends StatelessWidget {
                           child: ElderOutlineButton(
                             label: 'Message instead',
                             height: 48,
-                            onPressed: () {},
+                            onPressed: () => ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Messaging is not available in CareLink yet.',
+                                  ),
+                                ),
+                              ),
                           ),
                         ),
                       ],
@@ -73,7 +195,7 @@ class NethmiReadyScreen extends StatelessWidget {
                         height: 48,
                         foregroundColor: ElderColors.darkTeal,
                         backgroundColor: const Color(0xFFBDF1F3),
-                        onPressed: () {},
+                        onPressed: () => _openConversationIdeas(context),
                       ),
                     ),
                     const _ControlInfo(),
@@ -93,7 +215,13 @@ class NethmiReadyScreen extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(ElderAssets.nethmiReady, fit: BoxFit.cover),
+          companionImageUrl == null || companionImageUrl!.isEmpty
+              ? _companionPlaceholder
+              : Image.network(
+                  companionImageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _companionPlaceholder,
+                ),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -112,13 +240,13 @@ class NethmiReadyScreen extends StatelessWidget {
               onPressed: () => Navigator.of(context).maybePop(),
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 18,
             right: 18,
             bottom: 48,
             child: Text(
-              'Nethmi is ready',
-              style: TextStyle(
+              '$companionName is ready',
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 27,
                 height: 1,
@@ -126,13 +254,17 @@ class NethmiReadyScreen extends StatelessWidget {
               ),
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 18,
             right: 18,
             bottom: 27,
             child: Text(
-              'Today • 6:30 PM • Video check-in',
-              style: TextStyle(
+              scheduledAt == null
+                  ? '$durationMinutes min · $mode check-in'
+                  : '${MaterialLocalizations.of(context).formatMediumDate(scheduledAt!)} · '
+                        '${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(scheduledAt!))} · '
+                        '$durationMinutes min · $mode',
+              style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
@@ -143,24 +275,60 @@ class NethmiReadyScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget get _companionPlaceholder => Container(
+    color: ElderColors.deepTeal,
+    alignment: Alignment.center,
+    child: CircleAvatar(
+      radius: 58,
+      backgroundColor: ElderColors.mintSoft,
+      child: Text(
+        companionName
+            .split(RegExp(r'\s+'))
+            .where((part) => part.isNotEmpty)
+            .take(2)
+            .map((part) => part[0])
+            .join(),
+        style: const TextStyle(
+          color: ElderColors.darkTeal,
+          fontSize: 32,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    ),
+  );
 }
 
 class _IdentityRow extends StatelessWidget {
   final String name;
   final String role;
-  final String avatar;
+  final String? imageUrl;
 
   const _IdentityRow({
     required this.name,
     required this.role,
-    required this.avatar,
+    required this.imageUrl,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        ElderAvatar(asset: avatar, size: 54, border: false),
+        CircleAvatar(
+          radius: 27,
+          backgroundColor: ElderColors.mintSoft,
+          child: imageUrl == null || imageUrl!.isEmpty
+              ? _initials
+              : ClipOval(
+                  child: Image.network(
+                    imageUrl!,
+                    width: 54,
+                    height: 54,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _initials,
+                  ),
+                ),
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -190,10 +358,26 @@ class _IdentityRow extends StatelessWidget {
       ],
     );
   }
+
+  Widget get _initials => Text(
+    name
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0])
+        .join(),
+    style: const TextStyle(
+      color: ElderColors.darkTeal,
+      fontWeight: FontWeight.w800,
+    ),
+  );
 }
 
 class _ReadyMetrics extends StatelessWidget {
-  const _ReadyMetrics();
+  const _ReadyMetrics({required this.durationMinutes, required this.mode});
+
+  final int durationMinutes;
+  final String mode;
 
   @override
   Widget build(BuildContext context) {
@@ -204,11 +388,11 @@ class _ReadyMetrics extends StatelessWidget {
         border: Border.all(color: ElderColors.deepTeal),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Expanded(child: _Metric('30 min', 'planned')),
+          Expanded(child: _Metric('$durationMinutes min', 'planned')),
           VerticalDivider(width: 1, color: ElderColors.border),
-          Expanded(child: _Metric('Video', 'private call')),
+          Expanded(child: _Metric(mode, 'check-in type')),
           VerticalDivider(width: 1, color: ElderColors.border),
           Expanded(child: _Metric('Safe', 'controls on')),
         ],
@@ -239,10 +423,7 @@ class _Metric extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: ElderColors.textMuted,
-            fontSize: 8.5,
-          ),
+          style: const TextStyle(color: ElderColors.textMuted, fontSize: 8.5),
         ),
       ],
     );
@@ -286,10 +467,7 @@ class _ControlInfo extends StatelessWidget {
                 SizedBox(height: 3),
                 Text(
                   'End, retry or ask for help at any time.',
-                  style: TextStyle(
-                    color: ElderColors.textMuted,
-                    fontSize: 9,
-                  ),
+                  style: TextStyle(color: ElderColors.textMuted, fontSize: 9),
                 ),
               ],
             ),
