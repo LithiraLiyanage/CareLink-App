@@ -1,13 +1,14 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
     }
 
-    // These claims must be provisioned only by a trusted Admin SDK process.
-    // Missing claims fail closed; app-controlled user fields are not roles.
+    // These claims must be provisioned by a trusted Admin SDK.
     function isVerificationReviewer() {
       return request.auth != null
         && (
@@ -40,29 +41,29 @@ service cloud.firestore {
 
     function currentVerificationIsPending(userId) {
       return exists(
-          /databases/$(database)/documents/student_verifications/$(userId)
-        )
-        && get(
-          /databases/$(database)/documents/student_verifications/$(userId)
-        ).data.status == 'pending';
+        /databases/$(database)/documents/student_verifications/$(userId)
+      )
+      && get(
+        /databases/$(database)/documents/student_verifications/$(userId)
+      ).data.status == 'pending';
     }
 
     function verificationPendingAfter(userId) {
       return getAfter(
-          /databases/$(database)/documents/student_verifications/$(userId)
-        ).data.status == 'pending';
+        /databases/$(database)/documents/student_verifications/$(userId)
+      ).data.status == 'pending';
     }
 
     function verifiedStatusAfter(userId, status) {
       return getAfter(
-          /databases/$(database)/documents/student_verifications/$(userId)
-        ).data.status == status
-        && getAfter(
-          /databases/$(database)/documents/student_verifications/$(userId)
-        ).data.reviewedBy == request.auth.uid
-        && getAfter(
-          /databases/$(database)/documents/student_verifications/$(userId)
-        ).data.reviewedAt == request.time;
+        /databases/$(database)/documents/student_verifications/$(userId)
+      ).data.status == status
+      && getAfter(
+        /databases/$(database)/documents/student_verifications/$(userId)
+      ).data.reviewedBy == request.auth.uid
+      && getAfter(
+        /databases/$(database)/documents/student_verifications/$(userId)
+      ).data.reviewedAt == request.time;
     }
 
     function validOwnerUserUpdate(userId) {
@@ -108,49 +109,49 @@ service cloud.firestore {
 
     function validVerificationSubmission(userId) {
       return request.resource.data.keys().hasAll([
-          'userId',
-          'university',
-          'studentId',
-          'universityEmail',
-          'status',
-          'submittedAt',
-          'reviewedAt',
-          'reviewedBy',
-          'rejectionReason'
-        ])
-        && request.resource.data.keys().hasOnly([
-          'userId',
-          'university',
-          'studentId',
-          'universityEmail',
-          'status',
-          'submittedAt',
-          'reviewedAt',
-          'reviewedBy',
-          'rejectionReason'
-        ])
-        && request.resource.data.userId == userId
-        && request.resource.data.university is string
-        && request.resource.data.university.size() > 0
-        && request.resource.data.university.matches('.*\\S.*')
-        && request.resource.data.studentId is string
-        && request.resource.data.studentId.size() > 0
-        && request.resource.data.studentId.matches('.*\\S.*')
-        && request.resource.data.universityEmail is string
-        && request.resource.data.universityEmail.matches(
-          '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'
-        )
-        && request.resource.data.status == 'pending'
-        && request.resource.data.submittedAt == request.time
-        && request.resource.data.reviewedAt == null
-        && request.resource.data.reviewedBy == null
-        && request.resource.data.rejectionReason == null
-        && getAfter(
-          /databases/$(database)/documents/users/$(userId)
-        ).data.role == 'Student Companion'
-        && getAfter(
-          /databases/$(database)/documents/users/$(userId)
-        ).data.verificationStatus == 'pending';
+        'userId',
+        'university',
+        'studentId',
+        'universityEmail',
+        'status',
+        'submittedAt',
+        'reviewedAt',
+        'reviewedBy',
+        'rejectionReason'
+      ])
+      && request.resource.data.keys().hasOnly([
+        'userId',
+        'university',
+        'studentId',
+        'universityEmail',
+        'status',
+        'submittedAt',
+        'reviewedAt',
+        'reviewedBy',
+        'rejectionReason'
+      ])
+      && request.resource.data.userId == userId
+      && request.resource.data.university is string
+      && request.resource.data.university.size() > 0
+      && request.resource.data.university.matches('.*\\S.*')
+      && request.resource.data.studentId is string
+      && request.resource.data.studentId.size() > 0
+      && request.resource.data.studentId.matches('.*\\S.*')
+      && request.resource.data.universityEmail is string
+      && request.resource.data.universityEmail.matches(
+        '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'
+      )
+      && request.resource.data.status == 'pending'
+      && request.resource.data.submittedAt == request.time
+      && request.resource.data.reviewedAt == null
+      && request.resource.data.reviewedBy == null
+      && request.resource.data.rejectionReason == null
+      && getAfter(
+        /databases/$(database)/documents/users/$(userId)
+      ).data.role == 'Student Companion'
+      && getAfter(
+        /databases/$(database)/documents/users/$(userId)
+      ).data.verificationStatus == 'pending';
     }
 
     function validReviewerVerificationUpdate(userId) {
@@ -183,25 +184,41 @@ service cloud.firestore {
         ).data.verificationStatus == request.resource.data.status;
     }
 
+    // =========================================================
+    // USERS
+    // =========================================================
+
     match /users/{userId} {
       allow read: if isOwner(userId)
         || (
           isVerificationReviewer()
           && currentVerificationIsPending(userId)
         );
+
       allow create: if isOwner(userId)
         && hasValidRole(request.resource.data)
         && hasClientWritableVerificationStatus(request.resource.data);
+
       allow update: if validOwnerUserUpdate(userId)
         || validReviewerUserUpdate(userId);
     }
 
+    // =========================================================
+    // CONSENTS
+    // =========================================================
+
     match /consents/{userId} {
       allow read: if isOwner(userId);
+
       allow create, update: if isOwner(userId)
         && request.resource.data.userId == userId;
+
       allow delete: if isOwner(userId);
     }
+
+    // =========================================================
+    // STUDENT VERIFICATIONS
+    // =========================================================
 
     match /student_verifications/{userId} {
       allow read: if isOwner(userId)
@@ -209,21 +226,27 @@ service cloud.firestore {
           isVerificationReviewer()
           && resource.data.status == 'pending'
         );
+
       allow create: if isOwner(userId)
         && validVerificationSubmission(userId);
+
       allow update: if isOwner(userId)
         && resource.data.status in ['pending', 'rejected']
         && validVerificationSubmission(userId)
         || validReviewerVerificationUpdate(userId);
     }
 
+    // =========================================================
+    // USER ROLE HELPERS
+    // =========================================================
+
     function hasOlderAdultRole(userId) {
       return exists(
-          /databases/$(database)/documents/users/$(userId)
-        )
-        && get(
-          /databases/$(database)/documents/users/$(userId)
-        ).data.role == 'Older Adult';
+        /databases/$(database)/documents/users/$(userId)
+      )
+      && get(
+        /databases/$(database)/documents/users/$(userId)
+      ).data.role == 'Older Adult';
     }
 
     function isOlderAdult(userId) {
@@ -231,22 +254,28 @@ service cloud.firestore {
     }
 
     function isVerifiedStudent(userId) {
-      return exists(/databases/$(database)/documents/users/$(userId))
-        && get(
-          /databases/$(database)/documents/users/$(userId)
-        ).data.role == 'Student Companion'
-        && get(
-          /databases/$(database)/documents/users/$(userId)
-        ).data.verificationStatus == 'verified'
-        && (
-          !exists(
-            /databases/$(database)/documents/student_verifications/$(userId)
-          )
-          || get(
-            /databases/$(database)/documents/student_verifications/$(userId)
-          ).data.status == 'verified'
-        );
+      return exists(
+        /databases/$(database)/documents/users/$(userId)
+      )
+      && get(
+        /databases/$(database)/documents/users/$(userId)
+      ).data.role == 'Student Companion'
+      && get(
+        /databases/$(database)/documents/users/$(userId)
+      ).data.verificationStatus == 'verified'
+      && (
+        !exists(
+          /databases/$(database)/documents/student_verifications/$(userId)
+        )
+        || get(
+          /databases/$(database)/documents/student_verifications/$(userId)
+        ).data.status == 'verified'
+      );
     }
+
+    // =========================================================
+    // COMPANION PROFILE HELPERS
+    // =========================================================
 
     function eligibleCompanionProfile(userId, data) {
       return data.userId == userId
@@ -259,59 +288,66 @@ service cloud.firestore {
 
     function validCompanionProfile(userId) {
       return request.resource.data.keys().hasOnly([
-          'userId',
-          'fullName',
-          'bio',
-          'languages',
-          'interests',
-          'availability',
-          'preferredTimes',
-          'profileImageUrl',
-          'active',
-          'verificationStatus',
-          'updatedAt'
-        ])
-        && request.resource.data.userId == userId
-        && request.resource.data.fullName is string
-        && request.resource.data.verificationStatus
-          in ['pending', 'verified', 'rejected']
-        && (
-          !request.resource.data.keys().hasAny(['bio'])
-          || request.resource.data.bio is string
+        'userId',
+        'fullName',
+        'bio',
+        'languages',
+        'interests',
+        'availability',
+        'preferredTimes',
+        'profileImageUrl',
+        'active',
+        'verificationStatus',
+        'updatedAt'
+      ])
+      && request.resource.data.userId == userId
+      && request.resource.data.fullName is string
+      && request.resource.data.verificationStatus
+        in ['pending', 'verified', 'rejected']
+      && (
+        !request.resource.data.keys().hasAny(['bio'])
+        || request.resource.data.bio is string
+      )
+      && (
+        !request.resource.data.keys().hasAny(['languages'])
+        || request.resource.data.languages is list
+      )
+      && (
+        !request.resource.data.keys().hasAny(['interests'])
+        || request.resource.data.interests is list
+      )
+      && (
+        !request.resource.data.keys().hasAny(['availability'])
+        || request.resource.data.availability is string
+        || request.resource.data.availability is list
+      )
+      && (
+        !request.resource.data.keys().hasAny(['preferredTimes'])
+        || request.resource.data.preferredTimes is list
+      )
+      && (
+        !request.resource.data.keys().hasAny(['profileImageUrl'])
+        || request.resource.data.profileImageUrl == null
+        || request.resource.data.profileImageUrl is string
+      )
+      && request.resource.data.active is bool
+      && request.resource.data.verificationStatus
+        == get(
+          /databases/$(database)/documents/users/$(userId)
+        ).data.verificationStatus
+      && (
+        request.resource.data.active == false
+        || eligibleCompanionProfile(
+          userId,
+          request.resource.data
         )
-        && (
-          !request.resource.data.keys().hasAny(['languages'])
-          || request.resource.data.languages is list
-        )
-        && (
-          !request.resource.data.keys().hasAny(['interests'])
-          || request.resource.data.interests is list
-        )
-        && (
-          !request.resource.data.keys().hasAny(['availability'])
-          || request.resource.data.availability is string
-          || request.resource.data.availability is list
-        )
-        && (
-          !request.resource.data.keys().hasAny(['preferredTimes'])
-          || request.resource.data.preferredTimes is list
-        )
-        && (
-          !request.resource.data.keys().hasAny(['profileImageUrl'])
-          || request.resource.data.profileImageUrl == null
-          || request.resource.data.profileImageUrl is string
-        )
-        && request.resource.data.active is bool
-        && request.resource.data.verificationStatus
-          == get(
-            /databases/$(database)/documents/users/$(userId)
-          ).data.verificationStatus
-        && (
-          request.resource.data.active == false
-          || eligibleCompanionProfile(userId, request.resource.data)
-        )
-        && request.resource.data.updatedAt == request.time;
+      )
+      && request.resource.data.updatedAt == request.time;
     }
+
+    // =========================================================
+    // MATCHING HELPERS
+    // =========================================================
 
     function requestPairId(elderId, companionId) {
       return string(elderId.size()) + '_' + elderId + companionId;
@@ -319,14 +355,15 @@ service cloud.firestore {
 
     function matchingRequestPair(elderId, companionId) {
       return get(
-          /databases/$(database)/documents/match_request_pairs/$(requestPairId(elderId, companionId))
-        ).data;
+        /databases/$(database)/documents/match_request_pairs/$(requestPairId(elderId, companionId))
+      ).data;
     }
 
     function canCreatePairRequestAfterExisting(pairData) {
       let previous = get(
         /databases/$(database)/documents/match_requests/$(pairData.currentRequestId)
       ).data;
+
       return previous.status in ['declined', 'cancelled']
         || (
           previous.status == 'accepted'
@@ -339,56 +376,56 @@ service cloud.firestore {
 
     function validMatchingPreference(userId) {
       return request.resource.data.keys().hasOnly([
-          'elderId',
-          'preferredLanguage',
-          'interests',
-          'availability',
-          'preferredTime',
-          'checkInType',
-          'updatedAt'
-        ])
-        && request.resource.data.elderId == userId
-        && request.resource.data.preferredLanguage is string
-        && request.resource.data.interests is list
-        && request.resource.data.availability is string
-        && request.resource.data.preferredTime is string
-        && (
-          request.resource.data.checkInType == null
-          || request.resource.data.checkInType is string
-        )
-        && request.resource.data.updatedAt == request.time;
+        'elderId',
+        'preferredLanguage',
+        'interests',
+        'availability',
+        'preferredTime',
+        'checkInType',
+        'updatedAt'
+      ])
+      && request.resource.data.elderId == userId
+      && request.resource.data.preferredLanguage is string
+      && request.resource.data.interests is list
+      && request.resource.data.availability is string
+      && request.resource.data.preferredTime is string
+      && (
+        request.resource.data.checkInType == null
+        || request.resource.data.checkInType is string
+      )
+      && request.resource.data.updatedAt == request.time;
     }
 
     function validMatchRequestFields(elderId, companionId) {
       return request.resource.data.keys().hasOnly([
-          'elderId',
-          'companionId',
-          'status',
-          'createdAt',
-          'respondedAt',
-          'elderDisplayName',
-          'preferredLanguage',
-          'sharedInterests',
-          'compatibleAvailability'
-        ])
-        && request.resource.data.elderId == elderId
-        && request.resource.data.companionId == companionId
-        && request.resource.data.status == 'pending'
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.respondedAt == null
-        && request.resource.data.elderDisplayName
-          == get(
-            /databases/$(database)/documents/users/$(elderId)
-          ).data.fullName
-        && request.resource.data.preferredLanguage is string
-        && request.resource.data.sharedInterests is list
-        && request.resource.data.compatibleAvailability is string
-        && eligibleCompanionProfile(
-          companionId,
-          get(
-            /databases/$(database)/documents/companion_profiles/$(companionId)
-          ).data
-        );
+        'elderId',
+        'companionId',
+        'status',
+        'createdAt',
+        'respondedAt',
+        'elderDisplayName',
+        'preferredLanguage',
+        'sharedInterests',
+        'compatibleAvailability'
+      ])
+      && request.resource.data.elderId == elderId
+      && request.resource.data.companionId == companionId
+      && request.resource.data.status == 'pending'
+      && request.resource.data.createdAt == request.time
+      && request.resource.data.respondedAt == null
+      && request.resource.data.elderDisplayName
+        == get(
+          /databases/$(database)/documents/users/$(elderId)
+        ).data.fullName
+      && request.resource.data.preferredLanguage is string
+      && request.resource.data.sharedInterests is list
+      && request.resource.data.compatibleAvailability is string
+      && eligibleCompanionProfile(
+        companionId,
+        get(
+          /databases/$(database)/documents/companion_profiles/$(companionId)
+        ).data
+      );
     }
 
     function validMatchRequestDecision() {
@@ -407,9 +444,13 @@ service cloud.firestore {
         && request.resource.data.status
           in ['accepted', 'declined', 'cancelled']
         && request.resource.data.respondedAt == request.time
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'respondedAt']);
+        && request.resource.data.diff(resource.data)
+          .affectedKeys().hasOnly(['status', 'respondedAt']);
     }
+
+    // =========================================================
+    // COMPANION PROFILES
+    // =========================================================
 
     match /companion_profiles/{studentUid} {
       allow get: if isOwner(studentUid)
@@ -422,12 +463,14 @@ service cloud.firestore {
           && resource.data.verificationStatus == 'verified'
           && isVerifiedStudent(studentUid)
         );
+
       allow list: if request.auth != null
         && get(
           /databases/$(database)/documents/users/$(request.auth.uid)
         ).data.role == 'Older Adult'
         && resource.data.active == true
         && resource.data.verificationStatus == 'verified';
+
       allow create, update: if isOwner(studentUid)
         && get(
           /databases/$(database)/documents/users/$(studentUid)
@@ -435,13 +478,22 @@ service cloud.firestore {
         && validCompanionProfile(studentUid);
     }
 
+    // =========================================================
+    // MATCHING PREFERENCES
+    // =========================================================
+
     match /matching_preferences/{elderUid} {
       allow read: if isOwner(elderUid)
         && isOlderAdult(elderUid);
+
       allow create, update: if isOwner(elderUid)
         && isOlderAdult(elderUid)
         && validMatchingPreference(elderUid);
     }
+
+    // =========================================================
+    // MATCH REQUESTS
+    // =========================================================
 
     match /match_requests/{requestId} {
       allow get, list: if request.auth != null
@@ -455,6 +507,7 @@ service cloud.firestore {
             && isVerifiedStudent(request.auth.uid)
           )
         );
+
       allow create: if request.auth != null
         && request.resource.data.elderId == request.auth.uid
         && isOlderAdult(request.auth.uid)
@@ -465,6 +518,7 @@ service cloud.firestore {
         && getAfter(
           /databases/$(database)/documents/match_request_pairs/$(requestPairId(request.auth.uid, request.resource.data.companionId))
         ).data.currentRequestId == requestId;
+
       allow update: if validMatchRequestDecision()
         && (
           (
@@ -489,6 +543,10 @@ service cloud.firestore {
         );
     }
 
+    // =========================================================
+    // MATCH REQUEST PAIRS
+    // =========================================================
+
     match /match_request_pairs/{pairId} {
       allow get: if request.auth != null
         && (
@@ -501,6 +559,7 @@ service cloud.firestore {
           || resource.data.elderId == request.auth.uid
           || resource.data.companionId == request.auth.uid
         );
+
       allow create: if request.auth != null
         && pairId == requestPairId(
           request.resource.data.elderId,
@@ -531,6 +590,7 @@ service cloud.firestore {
         && getAfter(
           /databases/$(database)/documents/match_requests/$(request.resource.data.currentRequestId)
         ).data.companionId == request.resource.data.companionId;
+
       allow update: if request.auth != null
         && pairId == requestPairId(
           request.resource.data.elderId,
@@ -589,12 +649,17 @@ service cloud.firestore {
           ]);
     }
 
+    // =========================================================
+    // CONNECTIONS
+    // =========================================================
+
     match /connections/{connectionId} {
       allow get, list: if request.auth != null
         && (
           resource.data.elderId == request.auth.uid
           || resource.data.companionId == request.auth.uid
         );
+
       allow create: if request.auth != null
         && request.resource.data.keys().hasOnly([
           'elderId',
@@ -635,6 +700,7 @@ service cloud.firestore {
           request.resource.data.elderId,
           request.auth.uid
         ).currentRequestId == request.resource.data.matchRequestId;
+
       allow update: if request.auth != null
         && resource.data.elderId == request.auth.uid
         && isOlderAdult(request.auth.uid)
@@ -673,12 +739,14 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'pausedAt', 'endedAt']);
     }
+
     // =========================================================
     // ELDER CHECK-IN & MEMORY LANE
     // =========================================================
 
     function isActiveConnectionBetween(elderId, companionId) {
       let pairPath = /databases/$(database)/documents/match_request_pairs/$(requestPairId(elderId, companionId));
+
       return exists(pairPath)
         && get(pairPath).data.currentConnectionId is string
         && exists(
@@ -700,7 +768,10 @@ service cloud.firestore {
         && data.companionId == request.auth.uid
         && isVerifiedStudent(request.auth.uid)
         && data.elderId is string
-        && isActiveConnectionBetween(data.elderId, request.auth.uid);
+        && isActiveConnectionBetween(
+          data.elderId,
+          request.auth.uid
+        );
     }
 
     function hasCompanionSafeCheckInFields(data) {
@@ -718,10 +789,10 @@ service cloud.firestore {
         'createdAt',
         'reflection'
       ])
-        && (
-          !data.keys().hasAny(['reflection'])
-          || data.reflection == null
-        );
+      && (
+        !data.keys().hasAny(['reflection'])
+        || data.reflection == null
+      );
     }
 
     function hasCompanionSafeScheduleFields(data) {
@@ -740,6 +811,10 @@ service cloud.firestore {
         'mode'
       ]);
     }
+
+    // =========================================================
+    // CHECK-INS
+    // =========================================================
 
     match /check_ins/{documentId} {
       allow get, list: if request.auth != null
@@ -797,8 +872,8 @@ service cloud.firestore {
             && resource.data.status == 'scheduled'
             && request.resource.data.status == 'ready'
             && request.resource.data.updatedAt == request.time
-            && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['status', 'updatedAt'])
+            && request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly(['status', 'updatedAt'])
           )
           || (
             isConnectedStudentSchedule(resource.data)
@@ -806,11 +881,15 @@ service cloud.firestore {
             && resource.data.status in ['scheduled', 'ready']
             && request.resource.data.status == 'completed'
             && request.resource.data.updatedAt == request.time
-            && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['status', 'updatedAt'])
+            && request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly(['status', 'updatedAt'])
           )
         );
     }
+
+    // =========================================================
+    // RECURRING SCHEDULES
+    // =========================================================
 
     match /recurring_schedules/{documentId} {
       allow get, list: if request.auth != null
@@ -825,6 +904,7 @@ service cloud.firestore {
             && resource.data.isActive == true
           )
         );
+
       allow create: if request.auth != null
         && isOlderAdult(request.auth.uid)
         && request.resource.data.keys().hasOnly([
@@ -865,10 +945,294 @@ service cloud.firestore {
         && request.resource.data.mode in ['Video', 'Voice']
         && request.resource.data.isActive == true
         && request.resource.data.createdAt == request.time;
+
       allow update, delete: if request.auth != null
         && resource.data.elderId == request.auth.uid
         && isOlderAdult(request.auth.uid);
     }
+
+    // =========================================================
+    // WEBRTC VIDEO / VOICE CALL SIGNALING - NEW
+    // =========================================================
+
+    function isCallParticipant(call) {
+      return request.auth != null
+        && (
+          call.elderId == request.auth.uid
+          || (
+            call.companionId == request.auth.uid
+            && isVerifiedStudent(request.auth.uid)
+          )
+        );
+    }
+
+    function validCallConnection(call) {
+      let path = /databases/$(database)/documents/connections/$(call.connectionId);
+
+      return exists(path)
+        && get(path).data.status == 'active'
+        && get(path).data.elderId == call.elderId
+        && get(path).data.companionId == call.companionId;
+    }
+
+    function validReadyCallWindow(call) {
+      let path = /databases/$(database)/documents/check_ins/$(call.checkInId);
+
+      return exists(path)
+        && get(path).data.elderId == call.elderId
+        && get(path).data.companionId == call.companionId
+        && get(path).data.status == 'ready'
+        && get(path).data.scheduledAt is timestamp
+        && get(path).data.durationMinutes is int
+        && get(path).data.durationMinutes > 0
+        && get(path).data.durationMinutes <= 240
+
+        // Use trusted server time, not device time.
+        && request.time >= get(path).data.scheduledAt
+        && request.time < get(path).data.scheduledAt
+          + duration.value(get(path).data.durationMinutes, 'm')
+
+        && (
+          get(path).data.mode == call.mode
+          || (
+            get(path).data.mode == 'Video'
+            && call.mode == 'Voice'
+          )
+        );
+    }
+
+    function validIceCandidate(data) {
+      return data.keys().hasAll([
+        'candidate',
+        'sdpMid',
+        'sdpMLineIndex',
+        'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'candidate',
+        'sdpMid',
+        'sdpMLineIndex',
+        'createdAt'
+      ])
+      && data.candidate is string
+      && data.candidate.size() > 0
+      && data.candidate.size() < 5000
+      && (
+        data.sdpMid == null
+        || data.sdpMid is string
+      )
+      && (
+        data.sdpMLineIndex == null
+        || data.sdpMLineIndex is int
+      )
+      && data.createdAt == request.time;
+    }
+
+    match /video_calls/{callId} {
+
+      // Existing room details can be read only by participants.
+      allow get: if isCallParticipant(resource.data);
+
+      // Student incoming call query must filter by companionId.
+      allow list: if request.auth != null
+        && isVerifiedStudent(request.auth.uid)
+        && resource.data.companionId == request.auth.uid;
+
+      // -------------------------------------------------------
+      // ELDER CREATES CALL INVITATION
+      // -------------------------------------------------------
+
+      allow create: if request.auth != null
+        && isOlderAdult(request.auth.uid)
+        && request.resource.data.elderId == request.auth.uid
+        && request.resource.data.companionId is string
+        && isVerifiedStudent(request.resource.data.companionId)
+
+        && request.resource.data.keys().hasAll([
+          'checkInId',
+          'connectionId',
+          'elderId',
+          'companionId',
+          'mode',
+          'status',
+          'offer',
+          'answer',
+          'createdAt',
+          'answeredAt',
+          'endedAt',
+          'endedBy'
+        ])
+
+        && request.resource.data.keys().hasOnly([
+          'checkInId',
+          'connectionId',
+          'elderId',
+          'companionId',
+          'mode',
+          'status',
+          'offer',
+          'answer',
+          'createdAt',
+          'answeredAt',
+          'endedAt',
+          'endedBy'
+        ])
+
+        && request.resource.data.checkInId is string
+        && request.resource.data.connectionId is string
+        && request.resource.data.mode in ['Video', 'Voice']
+        && request.resource.data.status == 'ringing'
+
+        // Validate SDP offer.
+        && request.resource.data.offer is map
+        && request.resource.data.offer.keys().hasAll([
+          'type',
+          'sdp'
+        ])
+        && request.resource.data.offer.keys().hasOnly([
+          'type',
+          'sdp'
+        ])
+        && request.resource.data.offer.type == 'offer'
+        && request.resource.data.offer.sdp is string
+        && request.resource.data.offer.sdp.size() < 40000
+
+        // New call must not already have an answer.
+        && request.resource.data.answer == null
+        && request.resource.data.answeredAt == null
+        && request.resource.data.endedAt == null
+        && request.resource.data.endedBy == null
+        && request.resource.data.createdAt == request.time
+
+        && validCallConnection(request.resource.data)
+        && validReadyCallWindow(request.resource.data);
+
+      // -------------------------------------------------------
+      // STUDENT ANSWERS OR PARTICIPANT ENDS
+      // -------------------------------------------------------
+
+      allow update: if request.auth != null
+        && (
+          (
+            // Only the verified Companion can answer.
+            request.auth.uid == resource.data.companionId
+            && isVerifiedStudent(request.auth.uid)
+            && resource.data.status == 'ringing'
+            && resource.data.answer == null
+            && validCallConnection(resource.data)
+            && validReadyCallWindow(resource.data)
+
+            && request.resource.data.status == 'answered'
+            && request.resource.data.answer is map
+
+            && request.resource.data.answer.keys().hasAll([
+              'type',
+              'sdp'
+            ])
+            && request.resource.data.answer.keys().hasOnly([
+              'type',
+              'sdp'
+            ])
+            && request.resource.data.answer.type == 'answer'
+            && request.resource.data.answer.sdp is string
+            && request.resource.data.answer.sdp.size() < 40000
+
+            && request.resource.data.answeredAt == request.time
+
+            && request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly([
+                'answer',
+                'status',
+                'answeredAt'
+              ])
+          )
+          ||
+          (
+            // Elder or Companion can end an active call attempt.
+            (
+              request.auth.uid == resource.data.elderId
+              || request.auth.uid == resource.data.companionId
+            )
+            && resource.data.status in [
+              'ringing',
+              'answered'
+            ]
+            && request.resource.data.status == 'ended'
+            && request.resource.data.endedBy == request.auth.uid
+            && request.resource.data.endedAt == request.time
+
+            && request.resource.data.diff(resource.data)
+              .affectedKeys().hasOnly([
+                'status',
+                'endedBy',
+                'endedAt'
+              ])
+          )
+        );
+
+      allow delete: if false;
+
+      // -------------------------------------------------------
+      // ELDER ICE CANDIDATES
+      // -------------------------------------------------------
+
+      match /callerCandidates/{candidateId} {
+
+        allow get, list: if request.auth != null
+          && isCallParticipant(
+            get(
+              /databases/$(database)/documents/video_calls/$(callId)
+            ).data
+          );
+
+        allow create: if request.auth != null
+          && get(
+            /databases/$(database)/documents/video_calls/$(callId)
+          ).data.elderId == request.auth.uid
+
+          && get(
+            /databases/$(database)/documents/video_calls/$(callId)
+          ).data.status in ['ringing', 'answered']
+
+          && validIceCandidate(request.resource.data);
+
+        allow update, delete: if false;
+      }
+
+      // -------------------------------------------------------
+      // STUDENT ICE CANDIDATES
+      // -------------------------------------------------------
+
+      match /calleeCandidates/{candidateId} {
+
+        allow get, list: if request.auth != null
+          && isVerifiedStudent(request.auth.uid)
+          && isCallParticipant(
+            get(
+              /databases/$(database)/documents/video_calls/$(callId)
+            ).data
+          );
+
+        allow create: if request.auth != null
+          && isVerifiedStudent(request.auth.uid)
+
+          && get(
+            /databases/$(database)/documents/video_calls/$(callId)
+          ).data.companionId == request.auth.uid
+
+          && get(
+            /databases/$(database)/documents/video_calls/$(callId)
+          ).data.status in ['ringing', 'answered']
+
+          && validIceCandidate(request.resource.data);
+
+        allow update, delete: if false;
+      }
+    }
+
+    // =========================================================
+    // MEMORY LANE
+    // =========================================================
 
     match /memories/{documentId} {
       allow read, create, update, delete:

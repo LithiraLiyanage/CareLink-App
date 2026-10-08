@@ -46,3 +46,23 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Node.js dependencies
+node_modules/
+
+# Firebase emulator files
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Local Firestore rules backup
+firestore.rules.bak
+
+# Node dependencies
+node_modules/
+firebase-tests/node_modules/
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
