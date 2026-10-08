@@ -139,25 +139,28 @@ class _FamilyDashboardScreenState extends State<FamilyDashboardScreen> {
                               ),
                               const SizedBox(height: 12),
                               _CheckInRow(elderName: approval?.elderName),
+                              const SizedBox(height: 12),
+                              const _FamilyStatusCard(),
+                              const SizedBox(height: 12),
+                              const _ConsentCard(),
+                              const SizedBox(height: 18),
+                              const Text(
+                                'Recent Updates',
+                                style: TextStyle(
+                                  color: _titleInk,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              _UpdatesCard(
+                                elderName: approval?.elderName,
+                                loading: !snapshot.hasData && !snapshot.hasError,
+                              ),
                             ],
                           );
                         },
                       ),
-                      const SizedBox(height: 12),
-                      const _FamilyStatusCard(),
-                      const SizedBox(height: 12),
-                      const _ConsentCard(),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Recent Updates',
-                        style: TextStyle(
-                          color: _titleInk,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const _UpdatesCard(),
                     ],
                   ),
                 ),
@@ -562,14 +565,16 @@ class _ConsentCard extends StatelessWidget {
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  // The linked elder's consent can't be read yet, so don't
+                  // claim sharing is enabled.
                   decoration: BoxDecoration(
-                    color: FamilyDashboardScreen._lightSuccess,
+                    color: const Color(0xFFEEF2F2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
-                    'Enabled',
+                    'Unavailable',
                     style: TextStyle(
-                      color: FamilyDashboardScreen._success,
+                      color: FamilyDashboardScreen._muted,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
@@ -600,29 +605,217 @@ class _ConsentCard extends StatelessWidget {
   }
 }
 
-class _UpdatesCard extends StatelessWidget {
-  const _UpdatesCard();
+/// One recorded change to a check-in, timestamped by the field written when
+/// that change happened.
+class _CheckInUpdate {
+  const _CheckInUpdate({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.at,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final DateTime at;
+}
+
+/// The linked elder's latest check-in activity, live from Firestore.
+///
+/// Uses the same `check_ins` query and first-name match as
+/// [FamilyCheckInService.watchSummary], so Firestore serves both from one
+/// watch target.
+class _UpdatesCard extends StatefulWidget {
+  const _UpdatesCard({required this.elderName, this.loading = false});
+
+  final String? elderName;
+  final bool loading;
+
+  @override
+  State<_UpdatesCard> createState() => _UpdatesCardState();
+}
+
+class _UpdatesCardState extends State<_UpdatesCard> {
+  static const _maxUpdates = 3;
+
+  Stream<List<_CheckInUpdate>>? _updates;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(_UpdatesCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.elderName != widget.elderName) _subscribe();
+  }
+
+  void _subscribe() {
+    final name = widget.elderName?.trim() ?? '';
+    if (name.isEmpty) {
+      _updates = null;
+      return;
+    }
+    final elderKey = FamilyLinkService.firstNameKey(name);
+    _updates = FirebaseFirestore.instance
+        .collection('check_ins')
+        .orderBy('scheduledAt')
+        .snapshots()
+        .map((snapshot) {
+      final now = DateTime.now();
+      final updates = snapshot.docs
+          .map((doc) => doc.data())
+          .where((data) =>
+              FamilyLinkService.firstNameKey(
+                  data['elderName'] as String? ?? '') ==
+              elderKey)
+          .map((data) => _updateFrom(data, now))
+          .whereType<_CheckInUpdate>()
+          .toList()
+        ..sort((a, b) => b.at.compareTo(a.at));
+      return updates.take(_maxUpdates).toList();
+    });
+  }
+
+  /// The check-in's latest recorded change, or null when the document has
+  /// no timestamp for it (e.g. written before that field existed).
+  static _CheckInUpdate? _updateFrom(Map<String, dynamic> data, DateTime now) {
+    DateTime? field(String name) {
+      final value = data[name];
+      return value is Timestamp ? value.toDate() : null;
+    }
+
+    final scheduledAt = field('scheduledAt');
+    final status = CheckInStatus.values
+        .where((status) => status.name == data['status'])
+        .firstOrNull;
+    final slot = scheduledAt == null
+        ? ''
+        : '${_CheckInRowState._dayLabel(scheduledAt)}, '
+            '${_CheckInRowState._formatTime(scheduledAt)}';
+
+    final _CheckInUpdate? update;
+    switch (status) {
+      case CheckInStatus.completed:
+        final at = field('completedAt');
+        update = at == null
+            ? null
+            : _CheckInUpdate(
+                icon: Icons.check_rounded,
+                iconColor: FamilyDashboardScreen._success,
+                title: 'Check-in completed',
+                at: at,
+              );
+      case CheckInStatus.inProgress:
+        final at = field('startedAt');
+        update = at == null
+            ? null
+            : _CheckInUpdate(
+                icon: Icons.videocam_rounded,
+                iconColor: FamilyDashboardScreen._ink,
+                title: 'Check-in started',
+                at: at,
+              );
+      case CheckInStatus.missed:
+        // Nothing stamps when a check-in is marked missed, so use the slot
+        // it missed, and only once that slot has passed.
+        update = scheduledAt == null || scheduledAt.isAfter(now)
+            ? null
+            : _CheckInUpdate(
+                icon: Icons.error_outline_rounded,
+                iconColor: const Color(0xFFC62828),
+                title: 'Check-in missed',
+                at: scheduledAt,
+              );
+      case CheckInStatus.cancelled:
+        final at = field('updatedAt');
+        update = at == null
+            ? null
+            : _CheckInUpdate(
+                icon: Icons.event_busy_rounded,
+                iconColor: FamilyDashboardScreen._muted,
+                title: slot.isEmpty
+                    ? 'Check-in cancelled'
+                    : 'Check-in for $slot cancelled',
+                at: at,
+              );
+      case CheckInStatus.ready:
+        // Only rescheduling moves a check-in to ready.
+        final at = field('updatedAt');
+        update = at == null || slot.isEmpty
+            ? null
+            : _CheckInUpdate(
+                icon: Icons.calendar_month_rounded,
+                iconColor: FamilyDashboardScreen._ink,
+                title: 'Check-in moved to $slot',
+                at: at,
+              );
+      case CheckInStatus.scheduled:
+        final at = field('createdAt');
+        update = at == null || slot.isEmpty
+            ? null
+            : _CheckInUpdate(
+                icon: Icons.calendar_month_rounded,
+                iconColor: FamilyDashboardScreen._ink,
+                title: 'Check-in scheduled for $slot',
+                at: at,
+              );
+      case null:
+        update = null;
+    }
+    return update;
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.loading) return _buildMessage('Loading updates...');
+    if (_updates == null) return _buildMessage('No family member linked yet');
+    return StreamBuilder<List<_CheckInUpdate>>(
+      stream: _updates,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _buildMessage('Updates are unavailable right now');
+        }
+        if (!snapshot.hasData) return _buildMessage('Loading updates...');
+        final updates = snapshot.data!;
+        if (updates.isEmpty) return _buildMessage('No recent updates yet');
+        return _buildCard([
+          for (final update in updates)
+            _UpdateRow(
+              icon: update.icon,
+              iconColor: update.iconColor,
+              title: update.title,
+              time: '${_CheckInRowState._dayLabel(update.at)}, '
+                  '${_CheckInRowState._formatTime(update.at)}',
+            ),
+        ]);
+      },
+    );
+  }
+
+  Widget _buildMessage(String message) => _buildCard([
+        _UpdateRow(
+          icon: Icons.info_outline_rounded,
+          iconColor: FamilyDashboardScreen._muted,
+          title: message,
+          time: '',
+        ),
+      ]);
+
+  Widget _buildCard(List<Widget> rows) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: _cardDecoration(),
-      child: const Column(
+      child: Column(
         children: [
-          _UpdateRow(
-            icon: Icons.check_rounded,
-            iconColor: FamilyDashboardScreen._success,
-            title: 'Check-in completed',
-            time: 'Today, 9:15 AM',
-          ),
-          Divider(height: 1, thickness: 1, color: Color(0xFFE7F6F1)),
-          _UpdateRow(
-            icon: Icons.calendar_month_rounded,
-            iconColor: FamilyDashboardScreen._ink,
-            title: 'Next check-in scheduled',
-            time: 'Tomorrow, 10:00 AM',
-          ),
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0)
+              const Divider(height: 1, thickness: 1, color: Color(0xFFE7F6F1)),
+            rows[i],
+          ],
         ],
       ),
     );
