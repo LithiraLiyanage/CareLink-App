@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +7,9 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../calls/services/carelink_webrtc_service.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
+import 'checkin_complete_nethmi_screen.dart';
+
+enum _PendingCallChoice { keep, cancel, demo }
 
 class ActiveVideoCallScreen extends StatefulWidget {
   const ActiveVideoCallScreen({
@@ -46,12 +48,10 @@ class ActiveVideoCallScreen extends StatefulWidget {
   final Future<void> Function() onEndCall;
 
   @override
-  State<ActiveVideoCallScreen> createState() =>
-      _ActiveVideoCallScreenState();
+  State<ActiveVideoCallScreen> createState() => _ActiveVideoCallScreenState();
 }
 
-class _ActiveVideoCallScreenState
-    extends State<ActiveVideoCallScreen> {
+class _ActiveVideoCallScreenState extends State<ActiveVideoCallScreen> {
   late final CareLinkWebRtcService _rtc;
 
   Timer? _timer;
@@ -60,20 +60,21 @@ class _ActiveVideoCallScreenState
   Duration _elapsed = Duration.zero;
 
   bool _initialized = false;
+  bool _callStartCompleted = false;
   bool _connectedOnce = false;
+
   bool _muted = false;
   bool _speaker = true;
   bool _camera = true;
+
   bool _ending = false;
   bool _allowPop = false;
 
   String? _error;
 
-  bool get _voiceOnly =>
-      widget.callType.toLowerCase() == 'voice';
+  bool get _voiceOnly => widget.callType.toLowerCase() == 'voice';
 
-  String get _remoteName =>
-      widget.companionName ?? 'Student Companion';
+  String get _remoteName => widget.companionName ?? 'Student Companion';
 
   String get _initials {
     final value = _remoteName
@@ -92,7 +93,7 @@ class _ActiveVideoCallScreenState
           defaultTargetPlatform == TargetPlatform.iOS);
 
   // ==========================================================
-  // INITIALIZE
+  // INITIALIZATION
   // ==========================================================
 
   @override
@@ -100,7 +101,6 @@ class _ActiveVideoCallScreenState
     super.initState();
 
     _rtc = CareLinkWebRtcService();
-
     _rtc.state.addListener(_onRtcStateChanged);
 
     _rtc.onConnected = _onPeerConnected;
@@ -138,6 +138,7 @@ class _ActiveVideoCallScreenState
 
       setState(() {
         _camera = _rtc.hasVideo;
+        _callStartCompleted = true;
       });
     } catch (error) {
       if (!mounted || _ending) return;
@@ -155,12 +156,11 @@ class _ActiveVideoCallScreenState
   }
 
   // ==========================================================
-  // ACTUAL WEBRTC CONNECTION STATUS
+  // WEBRTC STATUS
   // ==========================================================
 
   void _onRtcStateChanged() {
     if (!mounted || _ending) return;
-
     setState(() {});
   }
 
@@ -183,9 +183,7 @@ class _ActiveVideoCallScreenState
         return 'CONNECTING...';
 
       case 'connected':
-        return _voiceOnly
-            ? 'CONNECTED · VOICE'
-            : 'CONNECTED · VIDEO';
+        return _voiceOnly ? 'CONNECTED · VOICE' : 'CONNECTED · VIDEO';
 
       case 'disconnected':
         return 'RECONNECTING...';
@@ -202,17 +200,15 @@ class _ActiveVideoCallScreenState
   }
 
   String get _elapsedLabel {
-    final minutes =
-        _elapsed.inMinutes.toString().padLeft(2, '0');
+    final minutes = _elapsed.inMinutes.toString().padLeft(2, '0');
 
-    final seconds =
-        (_elapsed.inSeconds % 60).toString().padLeft(2, '0');
+    final seconds = (_elapsed.inSeconds % 60).toString().padLeft(2, '0');
 
     return '$minutes:$seconds';
   }
 
   // ==========================================================
-  // REAL CONNECTION ESTABLISHED
+  // REAL PEER CONNECTION
   // ==========================================================
 
   void _onPeerConnected() {
@@ -227,17 +223,13 @@ class _ActiveVideoCallScreenState
 
     _timer?.cancel();
 
-    _timer = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) {
-        if (!mounted || _ending) return;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || _ending) return;
 
-        setState(() {
-          _elapsed =
-              DateTime.now().difference(connectedAt);
-        });
-      },
-    );
+      setState(() {
+        _elapsed = DateTime.now().difference(connectedAt);
+      });
+    });
 
     _activationFuture = _recordConnected();
   }
@@ -311,40 +303,223 @@ class _ActiveVideoCallScreenState
         _speaker = nextValue;
       });
     } catch (error) {
-      _showMessage(
-        'Could not switch speaker: $error',
-      );
+      _showMessage('Could not switch speaker: $error');
     }
   }
 
   // ==========================================================
-  // END / CANCEL
+  // CONFIRM END CALL
   // ==========================================================
 
   Future<void> _confirmEndCall() async {
     if (_ending) return;
 
-    final confirmed = await elderConfirm(
-      context,
-      title:
-          _connectedOnce ? 'End call?' : 'Cancel call?',
-      message: _connectedOnce
-          ? 'This will finish your check-in.'
-          : 'Amaya has not connected yet. '
-              'Cancel this call attempt?',
-      confirmLabel:
-          _connectedOnce ? 'End call' : 'Cancel call',
-      destructive: true,
+    // Real connected calls follow the original completion flow.
+
+    if (_connectedOnce) {
+      final confirmed = await elderConfirm(
+        context,
+        title: 'End call?',
+        message: 'This will finish your check-in.',
+        confirmLabel: 'End call',
+        destructive: true,
+      );
+
+      if (!confirmed || !mounted) return;
+
+      await _finishCall();
+      return;
+    }
+
+    // Unanswered calls can be cancelled normally.
+    // In debug builds, an additional UI demo path is available.
+
+    final choice = await showDialog<_PendingCallChoice>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: const Color(0xFFF3EDF6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Cancel call?',
+                  style: TextStyle(
+                    color: ElderColors.textDark,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+
+                const SizedBox(height: 15),
+
+                Text(
+                  '$_remoteName has not connected yet. '
+                  'Cancel this call attempt?',
+                  style: const TextStyle(
+                    color: ElderColors.textDark,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(dialogContext)
+                            .pop(_PendingCallChoice.keep);
+                      },
+                      child: const Text('Keep'),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: ElderColors.coral,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () {
+                        Navigator.of(dialogContext)
+                            .pop(_PendingCallChoice.cancel);
+                      },
+                      child: const Text('Cancel call'),
+                    ),
+                  ],
+                ),
+
+                if (kDebugMode) ...[
+                  const SizedBox(height: 12),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _callStartCompleted && _error == null
+                          ? () {
+                              Navigator.of(dialogContext)
+                                  .pop(_PendingCallChoice.demo);
+                            }
+                          : null,
+                      icon: const Icon(Icons.play_circle_outline_rounded),
+                      label: const Text('End call (Demo)'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: ElderColors.deepTeal,
+                        side: const BorderSide(color: ElderColors.deepTeal),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  const Text(
+                    'Preview the post-call screens without '
+                    'marking the check-in completed in Firebase.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: ElderColors.textMuted,
+                      fontSize: 10,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
 
-    if (!confirmed || !mounted) return;
+    if (!mounted || _ending || choice == null) return;
 
-    await _finishCall();
+    switch (choice) {
+      case _PendingCallChoice.keep:
+        return;
+
+      case _PendingCallChoice.cancel:
+        await _finishCall();
+        return;
+
+      case _PendingCallChoice.demo:
+        await _finishDemoCall();
+        return;
+    }
   }
 
-  Future<void> _finishCall({
-    bool remoteEnded = false,
-  }) async {
+  // ==========================================================
+  // NEW: END CALL (DEMO)
+  // ==========================================================
+
+  Future<void> _finishDemoCall() async {
+    if (!kDebugMode ||
+        !mounted ||
+        _ending ||
+        _connectedOnce ||
+        !_callStartCompleted) {
+      return;
+    }
+
+    setState(() {
+      _ending = true;
+    });
+
+    _timer?.cancel();
+
+    try {
+      // Stop the real unanswered signaling session,
+      // microphone and camera.
+      await _rtc.stop(notifyRemote: true);
+
+      if (!mounted) return;
+
+      // IMPORTANT:
+      // Do not call widget.onConnected or widget.onEndCall.
+      // This is a UI demo, not a real completed check-in.
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => CheckInCompleteNethmiScreen(
+            companionName: _remoteName,
+            companionImageUrl: widget.companionImageUrl,
+            scheduledAt: widget.scheduledAt,
+            durationMinutes: widget.durationMinutes,
+            mode: widget.callType,
+            previewOnly: true,
+          ),
+        ),
+        (_) => false,
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _ending = false;
+        _error = error.toString();
+      });
+
+      _showMessage('Could not open post-call demo: $error');
+    }
+  }
+
+  // ==========================================================
+  // REAL END / CANCEL CALL
+  // ==========================================================
+
+  Future<void> _finishCall({bool remoteEnded = false}) async {
     if (_ending || !mounted) return;
 
     setState(() {
@@ -354,21 +529,18 @@ class _ActiveVideoCallScreenState
     _timer?.cancel();
 
     try {
-      // Notify the other participant and stop media.
-      await _rtc.stop(
-        notifyRemote: !remoteEnded,
-      );
+      await _rtc.stop(notifyRemote: !remoteEnded);
 
-      // Wait for the connected-status update.
       await _activationFuture;
 
       if (!mounted) return;
 
       if (_connectedOnce) {
-        // Only an established call completes the check-in.
+        // Only a real connected call completes the check-in.
         await widget.onEndCall();
       } else {
-        // Unanswered calls stay READY, not completed.
+        // Unanswered calls remain READY.
+
         setState(() {
           _allowPop = true;
         });
@@ -387,9 +559,7 @@ class _ActiveVideoCallScreenState
         _error = error.toString();
       });
 
-      _showMessage(
-        'Could not finish call: $error',
-      );
+      _showMessage('Could not finish call: $error');
     }
   }
 
@@ -398,9 +568,7 @@ class _ActiveVideoCallScreenState
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -437,20 +605,14 @@ class _ActiveVideoCallScreenState
         child: Column(
           children: [
             _videoHero(),
+
             Expanded(
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(
-                  18,
-                  16,
-                  18,
-                  14,
-                ),
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
                 decoration: const BoxDecoration(
                   color: ElderColors.background,
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(26),
-                  ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
                 ),
                 child: ListView(
                   children: [
@@ -458,10 +620,7 @@ class _ActiveVideoCallScreenState
 
                     const SizedBox(height: 26),
 
-                    if (_error != null)
-                      _errorCard()
-                    else
-                      _connectionMessage(),
+                    if (_error != null) _errorCard() else _connectionMessage(),
 
                     const SizedBox(height: 32),
 
@@ -478,16 +637,13 @@ class _ActiveVideoCallScreenState
                     const SizedBox(height: 15),
 
                     Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment.spaceEvenly,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         _control(
                           icon: _muted
                               ? Icons.mic_off_rounded
                               : Icons.mic_none_rounded,
-                          label: _muted
-                              ? 'Unmute'
-                              : 'Mute',
+                          label: _muted ? 'Unmute' : 'Mute',
                           active: _muted,
                           onTap: _toggleMicrophone,
                         ),
@@ -521,10 +677,8 @@ class _ActiveVideoCallScreenState
                       label: _ending
                           ? 'Ending...'
                           : _connectedOnce
-                              ? (_voiceOnly
-                                    ? 'End voice call'
-                                    : 'End video call')
-                              : 'Cancel call',
+                          ? (_voiceOnly ? 'End voice call' : 'End video call')
+                          : 'Cancel call',
                       color: ElderColors.coral,
                       height: 54,
                       onPressed: _ending
@@ -552,8 +706,7 @@ class _ActiveVideoCallScreenState
   // ==========================================================
 
   Widget _videoHero() {
-    final localizations =
-        MaterialLocalizations.of(context);
+    final localizations = MaterialLocalizations.of(context);
 
     return SizedBox(
       height: 330,
@@ -568,10 +721,7 @@ class _ActiveVideoCallScreenState
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 stops: [0.45, 1],
-                colors: [
-                  Color(0x00000000),
-                  Color(0xA3000000),
-                ],
+                colors: [Color(0x00000000), Color(0xA3000000)],
               ),
             ),
           ),
@@ -588,10 +738,7 @@ class _ActiveVideoCallScreenState
                 decoration: BoxDecoration(
                   color: ElderColors.deepTeal,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 2,
-                  ),
+                  border: Border.all(color: Colors.white, width: 2),
                 ),
                 child: Stack(
                   fit: StackFit.expand,
@@ -599,8 +746,8 @@ class _ActiveVideoCallScreenState
                     RTCVideoView(
                       _rtc.localRenderer,
                       mirror: true,
-                      objectFit: RTCVideoViewObjectFit
-                          .RTCVideoViewObjectFitCover,
+                      objectFit:
+                          RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                     ),
                     const Positioned(
                       bottom: 6,
@@ -634,10 +781,7 @@ class _ActiveVideoCallScreenState
             right: 14,
             top: 13,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 11,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xB0000000),
                 borderRadius: BorderRadius.circular(20),
@@ -685,8 +829,7 @@ class _ActiveVideoCallScreenState
       animation: _rtc.remoteRenderer,
       builder: (context, child) {
         final available =
-            _rtc.remoteRenderer.srcObject != null &&
-            _rtc.isConnected;
+            _rtc.remoteRenderer.srcObject != null && _rtc.isConnected;
 
         if (!available) {
           return _remotePlaceholder();
@@ -694,8 +837,7 @@ class _ActiveVideoCallScreenState
 
         return RTCVideoView(
           _rtc.remoteRenderer,
-          objectFit: RTCVideoViewObjectFit
-              .RTCVideoViewObjectFitCover,
+          objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
         );
       },
     );
@@ -842,18 +984,14 @@ class _ActiveVideoCallScreenState
       ),
       child: Column(
         children: [
-          const Icon(
-            Icons.error_outline,
-            color: ElderColors.coral,
-          ),
+          const Icon(Icons.error_outline, color: ElderColors.coral),
+
           const SizedBox(height: 8),
+
           Text(
             'Could not connect the call.\n$_error',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: ElderColors.textDark,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: ElderColors.textDark, fontSize: 11),
           ),
         ],
       ),
@@ -878,18 +1016,13 @@ class _ActiveVideoCallScreenState
               width: 58,
               height: 58,
               decoration: BoxDecoration(
-                color:
-                    active ? ElderColors.darkTeal : Colors.white,
+                color: active ? ElderColors.darkTeal : Colors.white,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: ElderColors.deepTeal,
-                ),
+                border: Border.all(color: ElderColors.deepTeal),
               ),
               child: Icon(
                 icon,
-                color: active
-                    ? Colors.white
-                    : ElderColors.deepTeal,
+                color: active ? Colors.white : ElderColors.deepTeal,
                 size: 25,
               ),
             ),
@@ -925,9 +1058,7 @@ class _PrivacyNote extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: ElderColors.mintSoft,
-        border: Border.all(
-          color: ElderColors.border,
-        ),
+        border: Border.all(color: ElderColors.border),
         borderRadius: BorderRadius.circular(14),
       ),
       child: const Row(

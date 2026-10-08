@@ -1,8 +1,13 @@
 
 import 'package:flutter/material.dart';
 
-import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
+
+// =====================================================
+// L05 - COMPANION READY / START VIDEO CALL
+// CareLink Figma UI Redesign
+// Existing call callbacks and navigation preserved.
+// =====================================================
 
 class NethmiReadyScreen extends StatelessWidget {
   const NethmiReadyScreen({
@@ -23,18 +28,26 @@ class NethmiReadyScreen extends StatelessWidget {
   final int durationMinutes;
   final String mode;
 
-  // MyScheduleScreen supplies callbacks for the real check-in.
+  // Existing real check-in callbacks.
+  // Supplied by MyScheduleScreen.
   final VoidCallback? onStartCall;
   final VoidCallback? onVoiceCall;
   final VoidCallback? onConversationIdeas;
 
-  // MyScheduleScreen verifies:
-  // - active Elder/Companion connection
-  // - real Firebase check-in ID
-  // - check-in is due
-  // - Student Companion has confirmed readiness
-  //
-  // This screen never starts calls using dummy Firebase IDs.
+  // =====================================================
+  // FIGMA COLOR SYSTEM
+  // =====================================================
+
+  static const Color _background = Color(0xFFF6FAF9);
+  static const Color _darkTeal = Color(0xFF123F42);
+  static const Color _primaryTeal = Color(0xFF00746F);
+  static const Color _mint = Color(0xFFE6F5F1);
+  static const Color _cyan = Color(0xFFBDF3F5);
+  static const Color _muted = Color(0xFF718181);
+
+  // =====================================================
+  // ORIGINAL CALL FUNCTIONALITY
+  // =====================================================
 
   void _startVideoCall(BuildContext context) {
     final start = onStartCall;
@@ -73,192 +86,154 @@ class NethmiReadyScreen extends StatelessWidget {
       );
   }
 
+  void _showMessagingUnavailable(
+    BuildContext context,
+  ) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Messaging is not available in CareLink yet.',
+          ),
+        ),
+      );
+  }
+
+  // =====================================================
+  // MAIN SCREEN
+  // =====================================================
+
   @override
   Widget build(BuildContext context) {
     return ElderPhoneScaffold(
-      backgroundColor: ElderColors.background,
+      backgroundColor: _background,
       statusBarColor: const Color(0xFF8DA890),
       darkStatusBar: false,
-      child: Column(
-        children: [
-          _hero(context),
-          Expanded(
-            child: Transform.translate(
-              offset: const Offset(0, -12),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(
-                  18,
-                  18,
-                  18,
-                  12,
-                ),
-                decoration: const BoxDecoration(
-                  color: ElderColors.background,
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(28),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final screenHeight = constraints.maxHeight;
+
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: screenHeight,
+              ),
+              child: Stack(
+                children: [
+                  // Background hero image.
+                  _hero(context),
+
+                  // White Figma content panel.
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 266,
+                    ),
+                    child: _contentPanel(
+                      context,
+                      screenHeight: screenHeight,
+                    ),
                   ),
-                ),
-                child: Column(
-                  mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
-                  children: [
-                    _IdentityRow(
-                      name: companionName,
-                      role: 'Student companion',
-                      imageUrl: companionImageUrl,
-                    ),
-
-                    _ReadyMetrics(
-                      durationMinutes: durationMinutes,
-                      mode: mode,
-                    ),
-
-                    ElderPrimaryButton(
-                      label: 'Start video call',
-                      height: 54,
-                      onPressed: () =>
-                          _startVideoCall(context),
-                    ),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElderOutlineButton(
-                            label: 'Voice only',
-                            height: 48,
-                            onPressed: () =>
-                                _startVoiceCall(context),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElderOutlineButton(
-                            label: 'Message instead',
-                            height: 48,
-                            onPressed: () {
-                              ScaffoldMessenger.of(context)
-                                ..hideCurrentSnackBar()
-                                ..showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Messaging is not '
-                                      'available in CareLink yet.',
-                                    ),
-                                  ),
-                                );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // Conversation Ideas belong to the
-                    // Student Companion side.
-                    // Do not display student-only coaching
-                    // prompts in the normal Elder flow.
-                    if (onConversationIdeas != null)
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElderOutlineButton(
-                          label: 'Conversation Ideas',
-                          height: 48,
-                          foregroundColor:
-                              ElderColors.darkTeal,
-                          backgroundColor:
-                              const Color(0xFFBDF1F3),
-                          onPressed: onConversationIdeas!,
-                        ),
-                      ),
-
-                    const _ControlInfo(),
-                  ],
-                ),
+                ],
               ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
+
+  // =====================================================
+  // FIGMA HERO IMAGE
+  // =====================================================
 
   Widget _hero(BuildContext context) {
     final localizations =
         MaterialLocalizations.of(context);
 
+    final dateText = scheduledAt == null
+        ? '$durationMinutes min · $mode check-in'
+        : '${localizations.formatMediumDate(scheduledAt!)}'
+          ' · ${localizations.formatTimeOfDay(
+            TimeOfDay.fromDateTime(scheduledAt!),
+          )}'
+          ' · $mode check-in';
+
     return SizedBox(
-      height: 300,
+      width: double.infinity,
+      height: 310,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          companionImageUrl == null ||
-                  companionImageUrl!.isEmpty
-              ? _companionPlaceholder
-              : Image.network(
-                  companionImageUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) =>
-                      _companionPlaceholder,
-                ),
+          // Dynamic companion image.
+          _heroImage(),
 
+          // Figma dark gradient overlay.
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                stops: [0.35, 1],
+                stops: [0.0, 0.42, 1.0],
                 colors: [
-                  Color(0x05000000),
-                  Color(0xB0000000),
+                  Color(0x28000000),
+                  Color(0x08000000),
+                  Color(0xB8000000),
                 ],
               ),
             ),
           ),
 
+          // Back button.
           Positioned(
-            left: 14,
-            top: 12,
-            child: ElderBackButton(
-              filled: true,
-              onPressed: () =>
-                  Navigator.of(context).maybePop(),
-            ),
+            top: 15,
+            left: 17,
+            child: _backButton(context),
           ),
 
+          // Hero title and schedule.
           Positioned(
-            left: 18,
-            right: 18,
-            bottom: 48,
-            child: Text(
-              '$companionName is ready',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 27,
-                height: 1,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
+            left: 20,
+            right: 20,
+            bottom: 47,
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$companionName is ready',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 27,
+                    height: 1.12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.6,
+                    shadows: [
+                      Shadow(
+                        color: Color(0x55000000),
+                        blurRadius: 7,
+                      ),
+                    ],
+                  ),
+                ),
 
-          Positioned(
-            left: 18,
-            right: 18,
-            bottom: 27,
-            child: Text(
-              scheduledAt == null
-                  ? '$durationMinutes min · $mode check-in'
-                  : '${localizations.formatMediumDate(scheduledAt!)} · '
-                      '${localizations.formatTimeOfDay(TimeOfDay.fromDateTime(scheduledAt!))} · '
-                      '$durationMinutes min · $mode',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
+                const SizedBox(height: 7),
+
+                Text(
+                  dateText,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFEAEFEF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -266,158 +241,296 @@ class NethmiReadyScreen extends StatelessWidget {
     );
   }
 
-  Widget get _companionPlaceholder {
-    final initials = companionName
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .take(2)
-        .map((part) => part[0].toUpperCase())
-        .join();
+  // =====================================================
+  // DYNAMIC HERO IMAGE
+  // =====================================================
 
-    return Container(
-      color: ElderColors.deepTeal,
+  Widget _heroImage() {
+    final image = companionImageUrl?.trim();
+
+    if (image == null || image.isEmpty) {
+      return _heroPlaceholder();
+    }
+
+    return Image.network(
+      image,
+      fit: BoxFit.cover,
       alignment: Alignment.center,
-      child: CircleAvatar(
-        radius: 58,
-        backgroundColor: ElderColors.mintSoft,
-        child: Text(
-          initials.isEmpty ? '?' : initials,
-          style: const TextStyle(
-            color: ElderColors.darkTeal,
-            fontSize: 32,
-            fontWeight: FontWeight.w800,
+      errorBuilder: (context, error, stackTrace) {
+        return _heroPlaceholder();
+      },
+    );
+  }
+
+  Widget _heroPlaceholder() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFB5D8CB),
+            Color(0xFF558A80),
+            Color(0xFF123F42),
+          ],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: 55,
+            backgroundColor:
+                Colors.white.withValues(alpha: 0.18),
+            child: Text(
+              _initials(companionName),
+              style: const TextStyle(
+                fontSize: 34,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Icon(
+            Icons.video_call_rounded,
+            color: Colors.white70,
+            size: 27,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =====================================================
+  // FIGMA BACK BUTTON
+  // =====================================================
+
+  Widget _backButton(BuildContext context) {
+    return Material(
+      color: const Color(0xFFBDF2EF),
+      shape: const CircleBorder(),
+      elevation: 2,
+      child: InkWell(
+        onTap: () =>
+            Navigator.of(context).maybePop(),
+        customBorder: const CircleBorder(),
+        child: const SizedBox(
+          width: 42,
+          height: 42,
+          child: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: _darkTeal,
+            size: 18,
           ),
         ),
       ),
     );
   }
-}
 
-class _IdentityRow extends StatelessWidget {
-  const _IdentityRow({
-    required this.name,
-    required this.role,
-    required this.imageUrl,
-  });
+  // =====================================================
+  // WHITE ROUNDED CONTENT PANEL
+  // =====================================================
 
-  final String name;
-  final String role;
-  final String? imageUrl;
+  Widget _contentPanel(
+    BuildContext context, {
+    required double screenHeight,
+  }) {
+    final panelHeight = screenHeight - 266;
 
-  @override
-  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      constraints: BoxConstraints(
+        minHeight: panelHeight > 0 ? panelHeight : 0,
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        18,
+        19,
+        18,
+        20,
+      ),
+      decoration: const BoxDecoration(
+        color: _background,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(30),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Companion profile.
+          _companionProfile(),
+
+          const SizedBox(height: 25),
+
+          // Duration / Call type / Safety.
+          _informationCard(),
+
+          const SizedBox(height: 19),
+
+          // Primary action.
+          _startVideoButton(context),
+
+          const SizedBox(height: 11),
+
+          // Voice and messaging.
+          _secondaryActions(context),
+
+          if (onConversationIdeas != null) ...[
+            const SizedBox(height: 18),
+            _conversationIdeas(),
+          ],
+
+          const SizedBox(height: 19),
+
+          // Safety reminder.
+          _safetyCard(),
+        ],
+      ),
+    );
+  }
+
+  // =====================================================
+  // COMPANION PROFILE SECTION
+  // =====================================================
+
+  Widget _companionProfile() {
     return Row(
       children: [
-        CircleAvatar(
-          radius: 27,
-          backgroundColor: ElderColors.mintSoft,
-          child: imageUrl == null || imageUrl!.isEmpty
-              ? _initials
-              : ClipOval(
-                  child: Image.network(
-                    imageUrl!,
-                    width: 54,
-                    height: 54,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _initials,
-                  ),
-                ),
-        ),
-        const SizedBox(width: 12),
+        _profileAvatar(),
+
+        const SizedBox(width: 13),
+
         Expanded(
           child: Column(
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
               Text(
-                name,
+                companionName,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: ElderColors.textDark,
-                  fontSize: 14,
+                  color: _darkTeal,
+                  fontSize: 15,
                   fontWeight: FontWeight.w900,
+                  height: 1.2,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                role,
-                style: const TextStyle(
-                  color: ElderColors.textMuted,
-                  fontSize: 9.5,
+
+              const SizedBox(height: 5),
+
+              const Text(
+                'Verified student companion',
+                style: TextStyle(
+                  color: _muted,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ),
         ),
-        const ElderStatusPill('CONNECTED'),
       ],
     );
   }
 
-  Widget get _initials {
-    final initials = name
+  Widget _profileAvatar() {
+    final image = companionImageUrl?.trim();
+
+    if (image == null || image.isEmpty) {
+      return _avatarFallback();
+    }
+
+    return CircleAvatar(
+      radius: 27,
+      backgroundColor: _mint,
+      child: ClipOval(
+        child: Image.network(
+          image,
+          width: 54,
+          height: 54,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _avatarFallback();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _avatarFallback() {
+    return CircleAvatar(
+      radius: 27,
+      backgroundColor: _mint,
+      child: Text(
+        _initials(companionName),
+        style: const TextStyle(
+          color: _darkTeal,
+          fontSize: 17,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
+  String _initials(String name) {
+    final result = name
+        .trim()
         .split(RegExp(r'\s+'))
         .where((part) => part.isNotEmpty)
         .take(2)
         .map((part) => part[0].toUpperCase())
         .join();
 
-    return Text(
-      initials.isEmpty ? '?' : initials,
-      style: const TextStyle(
-        color: ElderColors.darkTeal,
-        fontWeight: FontWeight.w800,
-      ),
-    );
+    return result.isEmpty ? '?' : result;
   }
-}
 
-class _ReadyMetrics extends StatelessWidget {
-  const _ReadyMetrics({
-    required this.durationMinutes,
-    required this.mode,
-  });
+  // =====================================================
+  // FIGMA 30 MIN / VIDEO / SAFE CARD
+  // =====================================================
 
-  final int durationMinutes;
-  final String mode;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _informationCard() {
     return Container(
-      height: 80,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 16,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(
-          color: ElderColors.deepTeal,
-        ),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _primaryTeal,
+          width: 0.9,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _darkTeal.withValues(alpha: 0.055),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Expanded(
-            child: _Metric(
+            child: _metric(
               '$durationMinutes min',
-              'planned',
+              'planned duration',
             ),
           ),
-          VerticalDivider(
-            width: 1,
-            color: ElderColors.border,
-          ),
+
           Expanded(
-            child: _Metric(
+            child: _metric(
               mode,
-              'check-in type',
+              'private call',
             ),
           ),
-          VerticalDivider(
-            width: 1,
-            color: ElderColors.border,
-          ),
-          const Expanded(
-            child: _Metric(
+
+          Expanded(
+            child: _metric(
               'Safe',
               'controls on',
             ),
@@ -426,95 +539,236 @@ class _ReadyMetrics extends StatelessWidget {
       ),
     );
   }
-}
 
-class _Metric extends StatelessWidget {
-  const _Metric(
-    this.value,
-    this.label,
-  );
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _metric(String value, String description) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           value,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
           style: const TextStyle(
-            color: ElderColors.textDark,
-            fontSize: 16,
+            color: _darkTeal,
+            fontSize: 15.5,
             fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(height: 4),
+
+        const SizedBox(height: 5),
+
         Text(
-          label,
+          description,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: ElderColors.textMuted,
-            fontSize: 8.5,
+            color: _muted,
+            fontSize: 9,
+            height: 1.25,
           ),
         ),
       ],
     );
   }
-}
 
-class _ControlInfo extends StatelessWidget {
-  const _ControlInfo();
+  // =====================================================
+  // START VIDEO CALL PRIMARY BUTTON
+  // =====================================================
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _startVideoButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 55,
+      child: ElevatedButton(
+        onPressed: () => _startVideoCall(context),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _primaryTeal,
+          foregroundColor: Colors.white,
+          elevation: 3,
+          shadowColor:
+              _primaryTeal.withValues(alpha: 0.22),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(13),
+          ),
+        ),
+        child: const Text(
+          'Start video call',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.1,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // =====================================================
+  // VOICE ONLY / MESSAGE INSTEAD
+  // =====================================================
+
+  Widget _secondaryActions(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _outlineButton(
+            label: 'Voice only',
+            onPressed: () => _startVoiceCall(context),
+          ),
+        ),
+
+        const SizedBox(width: 10),
+
+        Expanded(
+          child: _outlineButton(
+            label: 'Message instead',
+            onPressed: () =>
+                _showMessagingUnavailable(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _outlineButton({
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      height: 48,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: _primaryTeal,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 4,
+          ),
+          side: const BorderSide(
+            color: _primaryTeal,
+            width: 0.9,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(13),
+          ),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // =====================================================
+  // FIGMA CONVERSATION IDEAS BUTTON
+  // =====================================================
+
+  Widget _conversationIdeas() {
+    return SizedBox(
+      width: double.infinity,
+      height: 47,
+      child: OutlinedButton(
+        onPressed: onConversationIdeas,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: _cyan,
+          foregroundColor: _darkTeal,
+          side: const BorderSide(
+            color: Color(0xFF53777A),
+            width: 1.6,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(25),
+          ),
+        ),
+        child: const Text(
+          'Conversation Ideas',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // =====================================================
+  // FIGMA SAFETY / CONTROL CARD
+  // =====================================================
+
+  Widget _safetyCard() {
     return Container(
-      height: 68,
+      width: double.infinity,
+      constraints: const BoxConstraints(
+        minHeight: 76,
+      ),
       padding: const EdgeInsets.symmetric(
-        horizontal: 12,
+        horizontal: 13,
+        vertical: 12,
       ),
       decoration: BoxDecoration(
-        color: ElderColors.mintSoft,
+        color: _mint,
+        borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: ElderColors.border,
+          color: _darkTeal,
+          width: 0.85,
         ),
-        borderRadius: BorderRadius.circular(14),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          CircleAvatar(
-            radius: 19,
-            backgroundColor: Colors.white,
-            child: Icon(
+          Container(
+            width: 39,
+            height: 39,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: _primaryTeal,
+                width: 1,
+              ),
+            ),
+            child: const Icon(
               Icons.check_rounded,
-              color: ElderColors.deepTeal,
+              color: _primaryTeal,
+              size: 21,
             ),
           ),
-          SizedBox(width: 11),
-          Expanded(
+
+          const SizedBox(width: 12),
+
+          const Expanded(
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
                 Text(
                   'You stay in control',
                   style: TextStyle(
-                    color: ElderColors.textDark,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                    color: _primaryTeal,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 3),
+
+                SizedBox(height: 4),
+
                 Text(
                   'End, retry or ask for help at any time.',
+                  maxLines: 2,
                   style: TextStyle(
-                    color: ElderColors.textMuted,
-                    fontSize: 9,
+                    color: _muted,
+                    fontSize: 10.5,
+                    height: 1.35,
                   ),
                 ),
               ],
