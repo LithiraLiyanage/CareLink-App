@@ -38,11 +38,48 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
   bool get _showSimulationControls =>
       controller?.supportsSimulatedResponses ?? false;
   bool _previewDeclined = false;
+  bool _openedAcceptedConnection = false;
 
   static const Color _amber = Color(0xFFEC9E00);
   static const Color _amberInk = Color(0xFF9A6200);
   static const Color _green = Color(0xFF2F855F);
   static const Color _mutedStep = Color(0xFF8DB0B1);
+
+  @override
+  void initState() {
+    super.initState();
+    controller?.addListener(_openAcceptedConnectionWhenReady);
+    _openAcceptedConnectionWhenReady();
+  }
+
+  @override
+  void dispose() {
+    controller?.removeListener(_openAcceptedConnectionWhenReady);
+    super.dispose();
+  }
+
+  void _openAcceptedConnectionWhenReady() {
+    final flow = controller;
+    if (_openedAcceptedConnection ||
+        flow?.currentRequest?.status != MatchRequestStatus.accepted ||
+        flow?.currentConnection?.status != ConnectionStatus.active) {
+      return;
+    }
+    _openedAcceptedConnection = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        CompanionRoute<void>(
+          context: context,
+          builder: (_) => ConnectionAcceptedScreen(
+            profile: profile,
+            selectedLanguage: selectedLanguage,
+            controller: controller,
+          ),
+        ),
+      );
+    });
+  }
 
   void _backToMatches(BuildContext context) {
     final navigator = Navigator.of(context);
@@ -79,6 +116,7 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
         _showError(context);
         return;
       }
+      return;
     }
     Navigator.of(context).pushReplacement(
       CompanionRoute<void>(
@@ -310,6 +348,7 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
                         CompanionAvatar(
                           name: profile.name,
                           imagePath: profile.imagePath,
+                          imageUrl: profile.profileImageUrl,
                           size: 76,
                         ),
                         const SizedBox(height: 10),
@@ -426,6 +465,7 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
             name: profile.name,
             size: 76,
             imagePath: profile.imagePath,
+            imageUrl: profile.profileImageUrl,
           ),
           const SizedBox(height: 8),
           Text(

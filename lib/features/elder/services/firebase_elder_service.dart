@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/check_in.dart';
+import '../models/check_in_scheduling.dart';
 import '../models/memory_item.dart';
 import '../models/recurring_schedule.dart';
 import 'elder_service.dart';
@@ -159,10 +162,8 @@ class FirebaseElderService implements ElderService {
           currentUserData['fullName'] as String? ?? 'Student Companion';
     } else {
       final profileSnapshot = await _companionProfiles.doc(companionId).get();
-      final profileData =
-          profileSnapshot.data() ?? const <String, dynamic>{};
-      companionName =
-          profileData['fullName'] as String? ?? 'Student Companion';
+      final profileData = profileSnapshot.data() ?? const <String, dynamic>{};
+      companionName = profileData['fullName'] as String? ?? 'Student Companion';
 
       elderName =
           currentUserData['fullName'] as String? ??
@@ -226,6 +227,49 @@ class FirebaseElderService implements ElderService {
 
     await _requireCurrentParticipant(doc);
     return _checkInFromDocument(doc);
+  }
+
+  // Required by ElderService and the Testing branch's scheduling screens.
+  // Create only for a verified, active match; never trust route-supplied IDs.
+  @override
+  Future<CheckIn> createCheckIn(CheckIn checkIn) async {
+    final connection = await _currentConnectionDocument();
+    final fields = connection.data();
+    if (fields['status'] != 'active' ||
+        fields['elderId'] != checkIn.elderId ||
+        fields['companionId'] != checkIn.companionId) {
+      throw StateError('Choose your currently active companion connection.');
+    }
+    final validationError = CheckInScheduling.validateSelection(
+      scheduledAt: checkIn.scheduledAt,
+      durationMinutes: checkIn.durationMinutes,
+      mode: checkIn.mode,
+    );
+    if (validationError != null) throw StateError(validationError);
+    final context = await getCurrentFlowContext();
+    final ref = checkIn.id.isEmpty
+        ? _checkIns.doc()
+        : _checkIns.doc(checkIn.id);
+    if (checkIn.id.isNotEmpty && (await ref.get()).exists) {
+      throw StateError('A check-in with this ID already exists.');
+    }
+    await ref.set({
+      'connectionId': context.connectionId,
+      'matchRequestId': context.matchRequestId,
+      'elderId': context.elderId,
+      'elderName': context.elderName,
+      'companionId': context.companionId,
+      'companionName': context.companionName,
+      'scheduledAt': Timestamp.fromDate(checkIn.scheduledAt),
+      'durationMinutes': checkIn.durationMinutes,
+      'mode': checkIn.mode,
+      'status': CheckInStatus.scheduled.name,
+      'reflection': null,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    final created = await ref.get();
+    return _checkInFromDocument(created);
   }
 
   Future<CheckIn> createInitialCheckInForSchedule(
@@ -440,10 +484,7 @@ class FirebaseElderService implements ElderService {
         : _memories.doc(memory.id);
 
     final currentUid = _uid;
-    final createdMemory = memory.copyWith(
-      id: ref.id,
-      ownerId: currentUid,
-    );
+    final createdMemory = memory.copyWith(id: ref.id, ownerId: currentUid);
 
     // The rules allow editing only content fields, not the connection/owner IDs.
     // Use update() for an existing memory; set() would rewrite server metadata.
@@ -500,9 +541,7 @@ class FirebaseElderService implements ElderService {
   // FIRESTORE -> MODEL
   // ============================================================
 
-  CheckIn _checkInFromDocument(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
+  CheckIn _checkInFromDocument(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
 
     if (data == null) {
@@ -529,18 +568,13 @@ class FirebaseElderService implements ElderService {
     final data = doc.data();
 
     if (data == null) {
-      throw StateError(
-        'Recurring schedule document has no data: ${doc.id}',
-      );
+      throw StateError('Recurring schedule document has no data: ${doc.id}');
     }
 
     final rawWeekdays = data['weekdays'];
 
     final weekdays = rawWeekdays is List
-        ? rawWeekdays
-              .whereType<num>()
-              .map((value) => value.toInt())
-              .toList()
+        ? rawWeekdays.whereType<num>().map((value) => value.toInt()).toList()
         : <int>[];
 
     return RecurringSchedule(
@@ -557,9 +591,7 @@ class FirebaseElderService implements ElderService {
     );
   }
 
-  MemoryItem _memoryFromDocument(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
+  MemoryItem _memoryFromDocument(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
 
     if (data == null) {
@@ -611,11 +643,7 @@ class FirebaseElderService implements ElderService {
     return MemoryType.photo;
   }
 
-  DateTime _nextOccurrence(
-    List<int> weekdays,
-    int hour,
-    int minute,
-  ) {
+  DateTime _nextOccurrence(List<int> weekdays, int hour, int minute) {
     if (weekdays.isEmpty) {
       throw StateError('Select at least one day for the recurring check-in.');
     }
@@ -623,13 +651,7 @@ class FirebaseElderService implements ElderService {
     final now = DateTime.now();
 
     for (int offset = 0; offset < 14; offset++) {
-      final day = DateTime(
-        now.year,
-        now.month,
-        now.day + offset,
-        hour,
-        minute,
-      );
+      final day = DateTime(now.year, now.month, now.day + offset, hour, minute);
 
       if (weekdays.contains(day.weekday) && day.isAfter(now)) {
         return day;
@@ -639,6 +661,161 @@ class FirebaseElderService implements ElderService {
     throw StateError('Could not calculate the next check-in time.');
   }
 
-  @Deprecated('Do not seed demo data into the shared CareLink Firebase project.')
+  @Deprecated(
+    'Do not seed demo data into the shared CareLink Firebase project.',
+  )
   Future<void> seedDemoDataIfEmpty() async {}
+}
+
+// Compatibility types and APIs for the Testing branch.
+class ElderConnectionDetails {
+  const ElderConnectionDetails({
+    required this.id,
+    required this.elderId,
+    required this.elderName,
+    required this.companionId,
+    required this.companionName,
+    required this.companionImageUrl,
+    required this.companionVerified,
+  });
+
+  final String id;
+  final String elderId;
+  final String elderName;
+  final String companionId;
+  final String companionName;
+  final String companionImageUrl;
+  final bool companionVerified;
+}
+
+class ElderScheduleData {
+  const ElderScheduleData({
+    required this.checkIns,
+    required this.recurringSchedules,
+  });
+
+  final List<CheckIn> checkIns;
+  final List<RecurringSchedule> recurringSchedules;
+}
+
+// Keep tested Student Companion writes in FirebaseElderService unchanged.
+extension ElderTestingCompatibility on FirebaseElderService {
+  Future<String> getCurrentElderName() async {
+    final user = await _firestore.collection('users').doc(_uid).get();
+    if (!user.exists) {
+      throw StateError('Your CareLink user profile could not be found.');
+    }
+    return user.data()?['fullName'] as String? ?? '';
+  }
+
+  Future<ElderConnectionDetails?> getActiveConnectionForCurrentElder() async {
+    final snapshot = await _firestore
+        .collection('connections')
+        .where('elderId', isEqualTo: _uid)
+        .get();
+    return _activeConnectionFromDocuments(snapshot.docs);
+  }
+
+  Stream<ElderConnectionDetails?> watchActiveConnectionForCurrentElder() {
+    return _firestore
+        .collection('connections')
+        .where('elderId', isEqualTo: _uid)
+        .snapshots()
+        .asyncMap((snapshot) => _activeConnectionFromDocuments(snapshot.docs));
+  }
+
+  Future<ElderConnectionDetails?> _activeConnectionFromDocuments(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> documents,
+  ) async {
+    QueryDocumentSnapshot<Map<String, dynamic>>? active;
+    for (final document in documents) {
+      if (document.data()['status'] == 'active') {
+        active = document;
+        break;
+      }
+    }
+    if (active == null) return null;
+
+    final elderId = active.data()['elderId'] as String? ?? _uid;
+    final companionId = active.data()['companionId'] as String? ?? '';
+    final user = await _firestore.collection('users').doc(elderId).get();
+    final profile = companionId.isEmpty
+        ? null
+        : await _firestore
+              .collection('companion_profiles')
+              .doc(companionId)
+              .get();
+    final profileData = profile?.data();
+    return ElderConnectionDetails(
+      id: active.id,
+      elderId: elderId,
+      elderName: user.data()?['fullName'] as String? ?? '',
+      companionId: companionId,
+      companionName: profileData?['fullName'] as String? ?? '',
+      companionImageUrl: profileData?['profileImageUrl'] as String? ?? '',
+      companionVerified:
+          profileData?['verificationStatus'] == 'verified' &&
+          profileData?['active'] == true,
+    );
+  }
+
+  Stream<ElderScheduleData> watchScheduleForConnection({
+    required String elderId,
+    required String companionId,
+    required String connectionId,
+  }) {
+    late final StreamController<ElderScheduleData> controller;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? checkIns;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? schedules;
+    List<CheckIn>? latestCheckIns;
+    List<RecurringSchedule>? latestSchedules;
+
+    void emitIfReady() {
+      if (latestCheckIns != null && latestSchedules != null) {
+        controller.add(
+          ElderScheduleData(
+            checkIns: latestCheckIns!,
+            recurringSchedules: latestSchedules!,
+          ),
+        );
+      }
+    }
+
+    controller = StreamController<ElderScheduleData>(
+      onListen: () {
+        checkIns = _checkIns
+            .where('elderId', isEqualTo: elderId)
+            .where('companionId', isEqualTo: companionId)
+            .snapshots()
+            .listen((snapshot) {
+              latestCheckIns =
+                  snapshot.docs
+                      .map(_checkInFromDocument)
+                      .where(
+                        (checkIn) => checkIn.status != CheckInStatus.cancelled,
+                      )
+                      .toList()
+                    ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+              emitIfReady();
+            }, onError: controller.addError);
+        schedules = _recurringSchedules
+            .where('elderId', isEqualTo: elderId)
+            .where('companionId', isEqualTo: companionId)
+            .where('connectionId', isEqualTo: connectionId)
+            .where('isActive', isEqualTo: true)
+            .snapshots()
+            .listen((snapshot) {
+              latestSchedules = snapshot.docs
+                  .map(_recurringScheduleFromDocument)
+                  .toList(growable: false);
+              emitIfReady();
+            }, onError: controller.addError);
+      },
+      onCancel: () async {
+        await checkIns?.cancel();
+        await schedules?.cancel();
+      },
+    );
+    return controller.stream;
+  }
 }

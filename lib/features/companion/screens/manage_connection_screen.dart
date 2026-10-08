@@ -176,6 +176,7 @@ class ManageConnectionScreen extends StatelessWidget {
                     name: profile.name,
                     size: 54,
                     imagePath: profile.imagePath,
+                    imageUrl: profile.profileImageUrl,
                   ),
                   const SizedBox(width: 10),
                   Expanded(

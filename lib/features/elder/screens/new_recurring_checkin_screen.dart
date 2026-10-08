@@ -9,7 +9,26 @@ import '../widgets/elder_ui.dart';
 import 'reschedule_checkin_screen.dart';
 
 class NewRecurringCheckInScreen extends StatefulWidget {
-  const NewRecurringCheckInScreen({super.key});
+  const NewRecurringCheckInScreen({
+    super.key,
+    this.connectionId,
+    this.elderId,
+    this.elderName,
+    this.companionId,
+    this.companionName,
+    this.preferredCheckInType,
+    this.navigationOnly = false,
+  });
+
+  // Compatibility with the existing Companion Matching handoff.
+  // The service independently verifies the current Firestore connection.
+  final String? connectionId;
+  final String? elderId;
+  final String? elderName;
+  final String? companionId;
+  final String? companionName;
+  final String? preferredCheckInType;
+  final bool navigationOnly;
 
   @override
   State<NewRecurringCheckInScreen> createState() =>

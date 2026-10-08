@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/companion_controller.dart';
+import '../models/companion_connection.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
@@ -31,9 +32,21 @@ class ConnectionAcceptedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentController = controller;
+    if (currentController == null) return _build(context);
+    return ListenableBuilder(
+      listenable: currentController,
+      builder: (context, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final strings = CompanionStrings(selectedLanguage);
     final textTheme = CompanionScaffold.textTheme(context);
     final firstName = profile.firstName;
+    final connectionIsActive =
+        controller == null ||
+        controller?.currentConnection?.status == ConnectionStatus.active;
 
     return CompanionScaffold(
       body: SafeArea(
@@ -139,16 +152,18 @@ class ConnectionAcceptedScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ElevatedButton(
-                    onPressed: () => Navigator.of(context).push(
-                      CompanionRoute<void>(
-                        context: context,
-                        builder: (_) => CurrentConnectionScreen(
-                          profile: profile,
-                          selectedLanguage: selectedLanguage,
-                          controller: controller,
-                        ),
-                      ),
-                    ),
+                    onPressed: !connectionIsActive
+                        ? null
+                        : () => Navigator.of(context).push(
+                            CompanionRoute<void>(
+                              context: context,
+                              builder: (_) => CurrentConnectionScreen(
+                                profile: profile,
+                                selectedLanguage: selectedLanguage,
+                                controller: controller,
+                              ),
+                            ),
+                          ),
                     child: Text(
                       strings.viewConnection,
                       textAlign: TextAlign.center,
@@ -156,16 +171,18 @@ class ConnectionAcceptedScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 9),
                   OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      CompanionRoute<void>(
-                        context: context,
-                        builder: (_) => SchedulingHandoffScreen(
-                          profile: profile,
-                          selectedLanguage: selectedLanguage,
-                          controller: controller,
-                        ),
-                      ),
-                    ),
+                    onPressed: !connectionIsActive
+                        ? null
+                        : () => Navigator.of(context).push(
+                            CompanionRoute<void>(
+                              context: context,
+                              builder: (_) => SchedulingHandoffScreen(
+                                profile: profile,
+                                selectedLanguage: selectedLanguage,
+                                controller: controller,
+                              ),
+                            ),
+                          ),
                     icon: const Icon(Icons.event_available_outlined, size: 20),
                     label: Text(
                       strings.scheduleCheckIn,
@@ -209,6 +226,7 @@ class ConnectionAcceptedScreen extends StatelessWidget {
                         name: profile.name,
                         size: 54,
                         imagePath: profile.imagePath,
+                        imageUrl: profile.profileImageUrl,
                       ),
                       const SizedBox(width: 10),
                       Expanded(

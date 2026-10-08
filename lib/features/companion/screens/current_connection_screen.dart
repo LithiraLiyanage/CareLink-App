@@ -3,6 +3,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../elder/models/check_in.dart';
+import '../../elder/services/firebase_elder_service.dart';
 import '../controllers/companion_controller.dart';
 import '../models/companion_connection.dart';
 import '../models/companion_language.dart';
@@ -17,7 +19,6 @@ import '../widgets/companion_interest_icon.dart';
 import '../widgets/companion_route.dart';
 import '../widgets/companion_scaffold.dart';
 import 'manage_connection_screen.dart';
-import 'conversation_ideas_screen.dart';
 import 'scheduling_handoff_screen.dart';
 
 class CurrentConnectionScreen extends StatelessWidget {
@@ -135,7 +136,11 @@ class CurrentConnectionScreen extends StatelessWidget {
                     const SizedBox(height: 28),
                     _buildCompanionCard(context, strings, isPaused),
                     const SizedBox(height: 24),
-                    _buildNextCheckInCard(context, strings),
+                    _buildNextCheckInCard(
+                      context,
+                      strings,
+                      controller?.currentConnection,
+                    ),
                     const SizedBox(height: 34),
                     SizedBox(
                       width: double.infinity,
@@ -160,22 +165,6 @@ class CurrentConnectionScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 26),
-                    TextButton.icon(
-                      onPressed: !isActive
-                          ? null
-                          : () => Navigator.of(context).push(
-                              CompanionRoute<void>(
-                                context: context,
-                                builder: (_) => ConversationIdeasScreen(
-                                  profile: profile,
-                                  selectedLanguage: selectedLanguage,
-                                  controller: controller,
-                                ),
-                              ),
-                            ),
-                      icon: const Icon(Icons.chat_bubble_outline),
-                      label: Text(strings.conversationIdeas),
-                    ),
                     TextButton(
                       onPressed: () => Navigator.of(context).push(
                         CompanionRoute<void>(
@@ -259,6 +248,7 @@ class CurrentConnectionScreen extends StatelessWidget {
                         name: profile.name,
                         size: 54,
                         imagePath: profile.imagePath,
+                        imageUrl: profile.profileImageUrl,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -400,7 +390,22 @@ class CurrentConnectionScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNextCheckInCard(BuildContext context, CompanionStrings strings) {
+  Stream<ElderScheduleData> _watchSchedule(
+    CompanionConnection connection,
+  ) async* {
+    final service = FirebaseElderService.instance;
+    yield* service.watchScheduleForConnection(
+      elderId: connection.elderId,
+      companionId: connection.companionId,
+      connectionId: connection.id,
+    );
+  }
+
+  Widget _buildNextCheckInCard(
+    BuildContext context,
+    CompanionStrings strings,
+    CompanionConnection? connection,
+  ) {
     final textTheme = Theme.of(context).textTheme;
     return Container(
       width: double.infinity,
@@ -425,24 +430,96 @@ class CurrentConnectionScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 7),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  strings.checkInNotScheduled,
+          if (connection == null ||
+              connection.status != ConnectionStatus.active)
+            Text(
+              connection?.status == ConnectionStatus.paused
+                  ? strings.connectionPaused
+                  : strings.checkInNotScheduled,
+              style: textTheme.titleLarge?.copyWith(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            )
+          else
+            StreamBuilder<ElderScheduleData>(
+              stream: _watchSchedule(connection),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Text(
+                    'Could not load check-in schedule: ${snapshot.error}',
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const SizedBox(
+                    height: 28,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  );
+                }
+                final data = snapshot.data!;
+                final now = DateTime.now();
+                final upcoming =
+                    data.checkIns
+                        .where(
+                          (checkIn) =>
+                              (checkIn.status == CheckInStatus.ready ||
+                                  checkIn.status == CheckInStatus.scheduled ||
+                                  checkIn.status == CheckInStatus.inProgress) &&
+                              !checkIn.scheduledAt.isBefore(now),
+                        )
+                        .toList()
+                      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+                if (upcoming.isNotEmpty) {
+                  final next = upcoming.first;
+                  return Text(
+                    '${MaterialLocalizations.of(context).formatMediumDate(next.scheduledAt)} · '
+                    '${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(next.scheduledAt))} · '
+                    '${next.durationMinutes} min · ${next.mode}',
+                    style: textTheme.titleLarge?.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  );
+                }
+                final recurring =
+                    data.recurringSchedules
+                        .map(
+                          (schedule) => (
+                            schedule: schedule,
+                            next: schedule.nextOccurrence(now),
+                          ),
+                        )
+                        .where((item) => item.next != null)
+                        .toList()
+                      ..sort((a, b) => a.next!.compareTo(b.next!));
+                if (recurring.isEmpty) {
+                  return Text(
+                    strings.checkInNotScheduled,
+                    style: textTheme.titleLarge?.copyWith(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  );
+                }
+                final next = recurring.first;
+                return Text(
+                  '${MaterialLocalizations.of(context).formatMediumDate(next.next!)} · '
+                  '${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(next.next!))} · '
+                  '${next.schedule.durationMinutes} min · ${next.schedule.mode}',
                   style: textTheme.titleLarge?.copyWith(
-                    fontSize: 20,
+                    fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right,
-                color: CompanionPalette.teal,
-                size: 24,
-              ),
-            ],
-          ),
+                );
+              },
+            ),
         ],
       ),
     );

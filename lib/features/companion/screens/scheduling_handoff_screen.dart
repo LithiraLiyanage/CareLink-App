@@ -10,6 +10,8 @@ import '../widgets/companion_avatar.dart';
 import '../widgets/companion_flow_header.dart';
 import '../widgets/companion_route.dart';
 import '../widgets/companion_scaffold.dart';
+import '../../elder/screens/my_schedule_screen.dart';
+import '../../elder/screens/new_recurring_checkin_screen.dart';
 import 'current_connection_screen.dart';
 
 /// H01: a companion-owned hand-off, not a scheduling form.
@@ -72,21 +74,50 @@ class SchedulingHandoffScreen extends StatelessWidget {
     );
   }
 
-  void _continueToScheduling(BuildContext context, CompanionStrings strings) {
-    if (controller != null &&
-        controller?.currentConnection?.status != ConnectionStatus.active) {
+  Future<void> _continueToScheduling(
+    BuildContext context,
+    CompanionStrings strings,
+  ) async {
+    final connection = controller?.currentConnection;
+    if (connection == null || connection.status != ConnectionStatus.active) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(strings.connectionNotActive)));
       return;
     }
-    // TODO: When the team's scheduling route is registered, pass only
-    // schedulingDetails after confirming the connection is still active.
-    // Never pass private conversation content.
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(strings.schedulingIntegrationPending)),
-      );
+
+    final details = schedulingDetails;
+    final created = await Navigator.of(context).push<bool>(
+      CompanionRoute<bool>(
+        context: context,
+        builder: (_) => NewRecurringCheckInScreen(
+          connectionId: details.connectionId,
+          elderId: details.elderId,
+          elderName: controller?.currentRequest?.elderDisplayName ?? '',
+          companionId: details.companionId,
+          companionName: details.companionName,
+          preferredCheckInType: details.preferredCheckInType,
+        ),
+      ),
+    );
+
+    if (!context.mounted || created != true) {
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      CompanionRoute<void>(
+        context: context,
+        builder: (_) => MyScheduleScreen(
+          connectionId: details.connectionId,
+          elderId: details.elderId,
+          elderName: controller?.currentRequest?.elderDisplayName ?? '',
+          companionId: details.companionId,
+          companionName: details.companionName,
+          companionImageUrl: selectedCompanion.profileImageUrl,
+          preferredCheckInType: details.preferredCheckInType,
+        ),
+      ),
+    );
   }
 
   @override
@@ -150,6 +181,7 @@ class SchedulingHandoffScreen extends StatelessWidget {
                                 name: selectedCompanion.name,
                                 size: 96,
                                 imagePath: selectedCompanion.imagePath,
+                                imageUrl: selectedCompanion.profileImageUrl,
                               ),
                               const SizedBox(width: 20),
                               const Icon(

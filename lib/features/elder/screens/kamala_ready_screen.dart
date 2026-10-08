@@ -8,17 +8,44 @@ import '../services/firebase_elder_service.dart';
 import 'active_video_call_kamala_screen.dart';
 
 class KamalaReadyScreen extends StatefulWidget {
-  const KamalaReadyScreen({super.key, this.checkInId = ''});
+  const KamalaReadyScreen({
+    super.key,
+    this.checkInId = '',
+    this.elderName = 'Older Adult',
+    this.elderId,
+    this.elderImageUrl,
+    this.scheduledAt,
+    this.durationMinutes = 30,
+    this.mode = 'Video',
+    this.companionId,
+    this.connectionId,
+    this.onStartCall,
+    this.onVoiceCall,
+    this.onMessageInstead,
+    this.onConversationIdeas,
+  });
 
   // The preceding Reschedule screen can also pass this in RouteSettings.arguments.
   final String checkInId;
+  final String elderName;
+  final String? elderId;
+  final String? elderImageUrl;
+  final DateTime? scheduledAt;
+  final int durationMinutes;
+  final String mode;
+  final String? companionId;
+  final String? connectionId;
+  final VoidCallback? onStartCall;
+  final VoidCallback? onVoiceCall;
+  final VoidCallback? onMessageInstead;
+  final VoidCallback? onConversationIdeas;
 
   @override
   State<KamalaReadyScreen> createState() => _KamalaReadyScreenState();
 }
 
 class _KamalaReadyScreenState extends State<KamalaReadyScreen> {
-  final FirebaseElderService _service = FirebaseElderService.instance;
+  late final FirebaseElderService _service = FirebaseElderService.instance;
   bool _routeResolved = false;
   bool _loading = false;
   bool _starting = false;
@@ -86,6 +113,12 @@ class _KamalaReadyScreenState extends State<KamalaReadyScreen> {
   }
 
   Future<void> _startVideoCall() async {
+    // Older companion flow injects navigation and status management.
+    // The existing Elder flow still uses the real Firestore check-in ID.
+    if (widget.onStartCall != null) {
+      widget.onStartCall!();
+      return;
+    }
     if (_starting || _loading) return;
     if (_loadError != null || _checkIn == null) {
       _message(_loadError ?? 'Please select a check-in first.');
@@ -131,11 +164,14 @@ class _KamalaReadyScreenState extends State<KamalaReadyScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _IdentityRow(
-                      name: _checkIn?.elderName ?? 'Kamala Perera',
-                      role: 'Elder',
+                      name: _checkIn?.elderName ?? widget.elderName,
+                      role: 'Older Adult',
                       avatar: ElderAssets.kamalaAvatar,
                     ),
-                    _ReadyMetrics(minutes: _checkIn?.durationMinutes ?? 30),
+                    _ReadyMetrics(
+                      minutes:
+                          _checkIn?.durationMinutes ?? widget.durationMinutes,
+                    ),
                     ElderPrimaryButton(
                       label: _starting ? 'Starting...' : 'Start video call',
                       height: 54,
@@ -147,9 +183,11 @@ class _KamalaReadyScreenState extends State<KamalaReadyScreen> {
                           child: ElderOutlineButton(
                             label: 'Voice only',
                             height: 48,
-                            onPressed: () => _message(
-                              'Voice-only calling is not connected yet.',
-                            ),
+                            onPressed:
+                                widget.onVoiceCall ??
+                                () => _message(
+                                  'Voice-only calling is not connected yet.',
+                                ),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -157,8 +195,10 @@ class _KamalaReadyScreenState extends State<KamalaReadyScreen> {
                           child: ElderOutlineButton(
                             label: 'Message instead',
                             height: 48,
-                            onPressed: () =>
-                                _message('Messaging is not connected yet.'),
+                            onPressed:
+                                widget.onMessageInstead ??
+                                () =>
+                                    _message('Messaging is not connected yet.'),
                           ),
                         ),
                       ],
@@ -170,9 +210,11 @@ class _KamalaReadyScreenState extends State<KamalaReadyScreen> {
                         height: 48,
                         foregroundColor: ElderColors.darkTeal,
                         backgroundColor: const Color(0xFFBDF1F3),
-                        onPressed: () => _message(
-                          'Conversation ideas are not connected here yet.',
-                        ),
+                        onPressed:
+                            widget.onConversationIdeas ??
+                            () => _message(
+                              'Conversation ideas are not connected here yet.',
+                            ),
                       ),
                     ),
                     const _ControlInfo(),
@@ -216,7 +258,7 @@ class _KamalaReadyScreenState extends State<KamalaReadyScreen> {
             right: 18,
             bottom: 48,
             child: Text(
-              '${(_checkIn?.elderName ?? 'Kamala').split(' ').first} is ready',
+              '${_checkIn?.elderName ?? widget.elderName} is ready',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 27,

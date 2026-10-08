@@ -1,13 +1,25 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
 import 'elder_home_screen.dart';
 import 'memory_lane_screen.dart';
 
 class CheckInCompleteNethmiScreen extends StatelessWidget {
-  const CheckInCompleteNethmiScreen({super.key});
+  const CheckInCompleteNethmiScreen({
+    super.key,
+    this.companionName = 'Student Companion',
+    this.companionImageUrl,
+    this.scheduledAt,
+    this.durationMinutes = 28,
+    this.mode = 'Video',
+  });
+
+  final String companionName;
+  final String? companionImageUrl;
+  final DateTime? scheduledAt;
+  final int durationMinutes;
+  final String mode;
 
   void _replace(BuildContext context, Widget screen) {
     Navigator.of(context).pushAndRemoveUntil(
@@ -43,7 +55,7 @@ class CheckInCompleteNethmiScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _completeHeader(),
-                  const _SummaryRow(),
+                  _SummaryRow(durationMinutes: durationMinutes),
                   _personCard(),
                   const _ConsentCard(),
                   _actions(context),
@@ -87,10 +99,10 @@ class CheckInCompleteNethmiScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'A lovely 28-minute conversation with Nethmi',
+        Text(
+          'A lovely $durationMinutes-minute conversation with $companionName',
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             color: ElderColors.textMuted,
             fontSize: 10,
             fontWeight: FontWeight.w500,
@@ -101,6 +113,13 @@ class CheckInCompleteNethmiScreen extends StatelessWidget {
   }
 
   Widget _personCard() {
+    final initials = companionName
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0])
+        .join();
+
     return Container(
       height: 94,
       padding: const EdgeInsets.symmetric(horizontal: 13),
@@ -109,31 +128,53 @@ class CheckInCompleteNethmiScreen extends StatelessWidget {
         border: Border.all(color: ElderColors.deepTeal),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          ElderAvatar(
-            asset: ElderAssets.nethmiAvatar,
-            size: 52,
-            border: false,
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: ElderColors.mintSoft,
+            child: companionImageUrl == null || companionImageUrl!.isEmpty
+                ? Text(
+                    initials,
+                    style: const TextStyle(
+                      color: ElderColors.darkTeal,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  )
+                : ClipOval(
+                    child: Image.network(
+                      companionImageUrl!,
+                      width: 52,
+                      height: 52,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Text(
+                        initials,
+                        style: const TextStyle(
+                          color: ElderColors.darkTeal,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Nethmi Jayasooriya',
-                  style: TextStyle(
+                  companionName,
+                  style: const TextStyle(
                     color: ElderColors.textDark,
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'Video check-in • Today',
-                  style: TextStyle(
+                  '$mode check-in • Today',
+                  style: const TextStyle(
                     color: ElderColors.textMuted,
                     fontSize: 9,
                   ),
@@ -141,7 +182,7 @@ class CheckInCompleteNethmiScreen extends StatelessWidget {
               ],
             ),
           ),
-          ElderStatusPill('COMPLETED'),
+          const ElderStatusPill('COMPLETED'),
         ],
       ),
     );
@@ -176,17 +217,19 @@ class CheckInCompleteNethmiScreen extends StatelessWidget {
 }
 
 class _SummaryRow extends StatelessWidget {
-  const _SummaryRow();
+  const _SummaryRow({this.durationMinutes = 28});
+
+  final int durationMinutes;
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
         Expanded(
           child: _SummaryBox(
             icon: Icons.schedule_rounded,
             label: 'Duration',
-            value: '28 min',
+            value: '$durationMinutes min',
           ),
         ),
         SizedBox(width: 9),

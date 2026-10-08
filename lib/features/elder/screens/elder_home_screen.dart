@@ -1,46 +1,279 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
-import '../widgets/elder_assets.dart';
-import '../widgets/elder_colors.dart';
+import '../../companion/controllers/companion_controller.dart';
+import '../../companion/models/companion_connection.dart';
+import '../../companion/models/companion_language.dart';
+import '../../companion/models/match_preferences.dart';
+import '../../companion/models/match_request.dart';
+import '../../companion/screens/connection_accepted_screen.dart';
+import '../../companion/services/firebase_companion_service.dart';
+import '../models/check_in.dart';
+import '../services/firebase_elder_service.dart';
 import '../widgets/elder_ui.dart';
 import 'memory_lane_screen.dart';
 import 'my_schedule_screen.dart';
 
-class ElderHomeScreen extends StatelessWidget {
+class ElderHomeScreen extends StatefulWidget {
   const ElderHomeScreen({super.key});
 
+  @override
+  State<ElderHomeScreen> createState() => _ElderHomeScreenState();
+}
+
+class _ElderHomeScreenState extends State<ElderHomeScreen> {
+  final FirebaseElderService _service = FirebaseElderService.instance;
+
+  StreamSubscription<ElderConnectionDetails?>? _connectionSubscription;
+
+  ElderConnectionDetails? _connection;
+
+  String? _scheduleConnectionId;
+  Stream<ElderScheduleData>? _scheduleStream;
+
+  String _elderName = '';
+  Object? _connectionError;
+  Object? _elderNameError;
+  bool _loading = true;
+  bool _openingAcceptedRequest = false;
+
+  static const Color _darkTeal = Color(0xFF073F42);
+  static const Color _primaryTeal = Color(0xFF00776F);
+  static const Color _background = Color(0xFFF5FBF9);
+  static const Color _mint = Color(0xFFB1F4E6);
+  static const Color _coral = Color(0xFFFF5369);
+  static const Color _mutedText = Color(0xFF708486);
+
+  static const String _elderAvatar =
+      'assets/images/carelink_elder_avatar_demo.jpg';
+
+  static const String _heroImage = 'assets/images/carelink_home_hero_demo.jpg';
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadElderName();
+
+    _connectionSubscription = _service
+        .watchActiveConnectionForCurrentElder()
+        .listen(
+          (connection) {
+            if (!mounted) return;
+
+            if (_connection?.id != connection?.id) {
+              _scheduleConnectionId = null;
+              _scheduleStream = null;
+            }
+
+            setState(() {
+              _connection = connection;
+              _connectionError = null;
+              _loading = false;
+            });
+          },
+          onError: (Object error) {
+            if (!mounted) return;
+
+            setState(() {
+              _connectionError = error;
+              _loading = false;
+            });
+          },
+        );
+  }
+
+  @override
+  void dispose() {
+    unawaited(_connectionSubscription?.cancel());
+    super.dispose();
+  }
+
+  Future<void> _loadElderName() async {
+    try {
+      final name = await _service.getCurrentElderName();
+
+      if (!mounted) return;
+
+      setState(() {
+        _elderName = name;
+        _elderNameError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _elderNameError = error;
+      });
+    }
+  }
+
+  Stream<ElderScheduleData> _watchSchedule() {
+    final connection = _connection!;
+
+    if (_scheduleConnectionId != connection.id || _scheduleStream == null) {
+      _scheduleConnectionId = connection.id;
+
+      _scheduleStream = _service.watchScheduleForConnection(
+        elderId: connection.elderId,
+        companionId: connection.companionId,
+        connectionId: connection.id,
+      );
+    }
+
+    return _scheduleStream!;
+  }
+
   void _open(BuildContext context, Widget screen) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => screen),
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
+  void _openSchedule(BuildContext context) {
+    final connection = _connection;
+
+    _open(
+      context,
+      MyScheduleScreen(
+        connectionId: connection?.id,
+        elderId: connection?.elderId,
+        elderName: connection?.elderName,
+        companionId: connection?.companionId,
+        companionName: connection?.companionName,
+        companionImageUrl: connection?.companionImageUrl,
+      ),
     );
+  }
+
+  void _openCompanionMatching(BuildContext context) {
+    Navigator.of(context).pushNamed(AppRoutes.companionMatching);
+  }
+
+  /// Reopens the accepted W06 view using the actual Firestore connection.
+  /// No request/connection is created or simulated by this navigation.
+  Future<void> _openAcceptedRequest(BuildContext context) async {
+    final connection = _connection;
+    if (connection == null || _openingAcceptedRequest) return;
+
+    setState(() => _openingAcceptedRequest = true);
+    final companionService = FirebaseCompanionService();
+    final controller = CompanionController(service: companionService);
+
+    try {
+      final realConnection = await companionService.getCurrentConnection(
+        connection.elderId,
+      );
+      if (realConnection == null ||
+          realConnection.id != connection.id ||
+          realConnection.status != ConnectionStatus.active ||
+          realConnection.companionId != connection.companionId) {
+        throw StateError('This connection is no longer active.');
+      }
+
+      final profile = await companionService.getCompanionById(
+        realConnection.companionId,
+      );
+      if (profile == null) {
+        throw StateError('The verified companion profile is unavailable.');
+      }
+
+      controller.selectCompanion(profile);
+      controller.currentConnection = realConnection;
+
+      // Only previously saved Elder preferences are used to calculate
+      // "shared interests"; never make up profile/interests on W06.
+      CompanionLanguage language = CompanionLanguage.english;
+      try {
+        final snapshot = await FirebaseFirestore.instance
+            .collection('matching_preferences')
+            .doc(realConnection.elderId)
+            .get();
+        final data = snapshot.data();
+        if (data != null) {
+          final preferences = MatchPreferences.fromMap(data);
+          controller.currentPreferences = preferences;
+          language = switch (preferences.preferredLanguage.toLowerCase()) {
+            'sinhala' || 'සිංහල' => CompanionLanguage.sinhala,
+            'tamil' || 'தமிழ்' => CompanionLanguage.tamil,
+            _ => CompanionLanguage.english,
+          };
+        }
+      } on FirebaseException catch (error) {
+        debugPrint('Could not restore match preferences: ${error.code}');
+      }
+
+      final requestId = realConnection.matchRequestId;
+      if (requestId != null && requestId.isNotEmpty) {
+        try {
+          final request = await companionService
+              .watchMatchRequest(requestId)
+              .first;
+          if (request != null &&
+              request.status == MatchRequestStatus.accepted &&
+              request.elderId == realConnection.elderId &&
+              request.companionId == realConnection.companionId) {
+            controller.currentRequest = request;
+          }
+        } on FirebaseException catch (error) {
+          debugPrint('Could not restore accepted request: ${error.code}');
+        }
+      }
+
+      if (!context.mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ConnectionAcceptedScreen(
+            profile: profile,
+            selectedLanguage: language,
+            controller: controller,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open accepted connection: $error')),
+      );
+    } finally {
+      controller.dispose();
+      if (mounted) setState(() => _openingAcceptedRequest = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final displayName = _elderName.trim().isEmpty
+        ? 'Older Adult'
+        : _elderName.trim().split(RegExp(r'\s+')).first;
+
     return ElderPhoneScaffold(
-      backgroundColor: ElderColors.background,
-      statusBarColor: ElderColors.darkTeal,
+      backgroundColor: _background,
+      statusBarColor: _darkTeal,
       darkStatusBar: false,
       bottomNavigationBar: ElderBottomNav(
         selectedIndex: 0,
-        onSchedule: () => _open(context, const MyScheduleScreen()),
+        onSchedule: () => _openSchedule(context),
         onMemory: () => _open(context, const MemoryLaneScreen()),
       ),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 8),
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _header(),
+            _header(displayName),
+            if (_connection != null)
+              _acceptedNotificationBanner(context, _connection!),
             _checkInCard(context),
             const Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 9),
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 10),
               child: Text(
                 'Quick actions',
                 style: TextStyle(
-                  color: ElderColors.textDark,
-                  fontSize: 14,
+                  color: _darkTeal,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -48,258 +281,580 @@ class ElderHomeScreen extends StatelessWidget {
             _quickActions(context),
             const SizedBox(height: 14),
             _reminder(),
+            const SizedBox(height: 10),
           ],
         ),
       ),
     );
   }
 
-  Widget _header() {
+  Widget _header(String firstName) {
     return Container(
-      height: 165,
-      padding: const EdgeInsets.fromLTRB(18, 10, 14, 14),
+      width: double.infinity,
+      height: 158,
       decoration: const BoxDecoration(
-        color: ElderColors.darkTeal,
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(28),
+        color: _darkTeal,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 18, 16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  radius: 17,
+                  backgroundColor: Colors.white,
+                  child: Text(
+                    'C',
+                    style: TextStyle(
+                      color: _darkTeal,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 9),
+                const Text(
+                  'CareLink',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Notifications',
+                  onPressed: _connection == null
+                      ? null
+                      : () => _openAcceptedRequest(context),
+                  icon: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(
+                        Icons.notifications_none_rounded,
+                        color: Colors.white,
+                        size: 26,
+                      ),
+                      if (_connection != null)
+                        const Positioned(
+                          right: 1,
+                          top: 0,
+                          child: CircleAvatar(
+                            radius: 4,
+                            backgroundColor: _coral,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Good morning, $firstName',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                          height: 1.14,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        _connection == null
+                            ? 'Your next connection starts here'
+                            : 'Connected with ${_connection!.companionName}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFFD1EBE7),
+                          fontSize: 11,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ClipOval(
+                  child: Image.asset(
+                    _elderAvatar,
+                    width: 76,
+                    height: 76,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      debugPrint('Elder avatar loading error: $error');
+
+                      return CircleAvatar(
+                        radius: 38,
+                        backgroundColor: const Color(0xFFB5EFE5),
+                        child: Text(
+                          firstName.isEmpty ? '?' : firstName[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: _darkTeal,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.white,
-                child: Text(
-                  'C',
-                  style: TextStyle(
-                    color: ElderColors.darkTeal,
-                    fontWeight: FontWeight.w900,
+    );
+  }
+
+  Widget _acceptedNotificationBanner(
+    BuildContext context,
+    ElderConnectionDetails connection,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      child: Material(
+        color: const Color(0xFFE7F6F1),
+        borderRadius: BorderRadius.circular(15),
+        child: InkWell(
+          onTap: () => _openAcceptedRequest(context),
+          borderRadius: BorderRadius.circular(15),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFB5DFD2)),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  radius: 17,
+                  backgroundColor: _primaryTeal,
+                  child: Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
-              ),
-              const SizedBox(width: 7),
-              const Text(
-                'CareLink',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${connection.companionName} accepted your request',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _darkTeal,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'View request & check-in details',
+                        style: TextStyle(color: _mutedText, fontSize: 10),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Spacer(),
-              Stack(
-                clipBehavior: Clip.none,
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: _primaryTeal,
+                  size: 24,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _checkInCard(BuildContext context) {
+    final connection = _connection;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(23),
+        boxShadow: [
+          BoxShadow(
+            color: _darkTeal.withValues(alpha: 0.10),
+            blurRadius: 22,
+            spreadRadius: 0,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(23)),
+            child: SizedBox(
+              height: 145,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  const Icon(
-                    Icons.notifications_none_rounded,
-                    color: Colors.white,
-                    size: 22,
+                  Image.asset(
+                    _heroImage,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    errorBuilder: (context, error, stackTrace) {
+                      debugPrint('Hero image loading error: $error');
+
+                      return _companionPlaceholder(
+                        connection?.companionName ?? '',
+                      );
+                    },
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.05),
+                          _darkTeal.withValues(alpha: 0.93),
+                        ],
+                        stops: const [0.25, 0.52, 1.0],
+                      ),
+                    ),
                   ),
                   Positioned(
-                    right: 1,
-                    top: 0,
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: ElderColors.coral,
-                        shape: BoxShape.circle,
-                      ),
+                    left: 12,
+                    right: 12,
+                    bottom: 11,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            connection == null
+                                ? 'Find a trusted companion'
+                                : '${connection.companionName} · '
+                                      '${connection.companionVerified ? 'verified companion' : 'companion'}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 13,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _primaryTeal,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            connection == null ? 'DISCOVER' : 'ACTIVE',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 14),
-          const Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Good morning, Kamala',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 21,
-                        height: 1.05,
-                        fontWeight: FontWeight.w900,
-                      ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 15),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_loading)
+                  const LinearProgressIndicator(color: _primaryTeal)
+                else if (_connectionError != null || _elderNameError != null)
+                  Text(
+                    'Could not load connection or schedule: '
+                    '${_connectionError ?? _elderNameError}',
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                  )
+                else if (connection == null)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'You do not have an active companion yet.',
+                      style: TextStyle(color: _mutedText, fontSize: 13),
                     ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Your next check-in is ready',
-                      style: TextStyle(
-                        color: Color(0xFFD7EBE8),
-                        fontSize: 10,
+                  )
+                else
+                  StreamBuilder<ElderScheduleData>(
+                    stream: _watchSchedule(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Text(
+                          'Could not load your check-in: '
+                          '${snapshot.error}',
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
+                        );
+                      }
+
+                      if (!snapshot.hasData) {
+                        return const LinearProgressIndicator(
+                          color: _primaryTeal,
+                        );
+                      }
+
+                      final next = _nextCheckIn(snapshot.data!);
+
+                      if (next == null) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              connection.companionName,
+                              style: const TextStyle(
+                                color: _darkTeal,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Next check-in: Not scheduled yet',
+                              style: TextStyle(color: _mutedText, fontSize: 12),
+                            ),
+                          ],
+                        );
+                      }
+
+                      return _scheduledSummary(context, next);
+                    },
+                  ),
+                const SizedBox(height: 14),
+                if (connection == null)
+                  ElderPrimaryButton(
+                    label: 'Find a Companion',
+                    color: _coral,
+                    height: 48,
+                    onPressed: () => _openCompanionMatching(context),
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElderPrimaryButton(
+                          label: 'My Schedule',
+                          color: _coral,
+                          height: 48,
+                          onPressed: () => _openSchedule(context),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              ElderAvatar(
-                asset: ElderAssets.kamalaAvatar,
-                size: 66,
-              ),
-            ],
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElderOutlineButton(
+                          label: 'Find a Companion',
+                          foregroundColor: _primaryTeal,
+                          height: 48,
+                          onPressed: () => _openCompanionMatching(context),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _checkInCard(BuildContext context) {
-    return Transform.translate(
-      offset: const Offset(0, -2),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(17),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: .08),
-              blurRadius: 16,
-              offset: const Offset(0, 5),
-            ),
-          ],
+  Widget _companionPlaceholder(String name) {
+    final initials = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0].toUpperCase())
+        .join();
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF047C79), Color(0xFF07504D)],
         ),
-        child: Column(
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(17),
-              ),
-              child: Stack(
-                children: [
-                  Image.asset(
-                    ElderAssets.homeCheckin,
-                    width: double.infinity,
-                    height: 170,
-                    fit: BoxFit.cover,
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 11,
-                        vertical: 7,
-                      ),
-                      color: const Color(0xB9144A47),
-                      child: const Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Nethmi • verified companion',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          ElderStatusPill('TODAY', filled: true),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+      ),
+      child: Center(
+        child: CircleAvatar(
+          radius: 51,
+          backgroundColor: Color(0xFFDCF8F1),
+          child: Text(
+            initials.isEmpty ? 'C' : initials,
+            style: const TextStyle(
+              color: _darkTeal,
+              fontSize: 30,
+              fontWeight: FontWeight.w800,
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
-              child: Column(
-                children: [
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.schedule_rounded,
-                        color: ElderColors.darkTeal,
-                        size: 23,
-                      ),
-                      SizedBox(width: 9),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '6:30 PM',
-                              style: TextStyle(
-                                color: ElderColors.textDark,
-                                fontSize: 22,
-                                height: 1,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              '30 min • Video check-in',
-                              style: TextStyle(
-                                color: ElderColors.textMuted,
-                                fontSize: 9.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 11),
-                  ElderPrimaryButton(
-                    label: 'Find a Companion',
-                    color: ElderColors.coral,
-                    height: 52,
-                    onPressed: () =>
-                        Navigator.of(context)
-                            .pushNamed(AppRoutes.companionMatching),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _quickActions(BuildContext context) {
-    Widget item(IconData icon, String label, VoidCallback onTap) {
-      return Expanded(
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(13),
-          child: Container(
-            height: 92,
-            decoration: BoxDecoration(
-              color: ElderColors.mint,
-              border: Border.all(color: ElderColors.border),
-              borderRadius: BorderRadius.circular(13),
+  ({DateTime at, int duration, String mode, String companionName})?
+  _nextCheckIn(ElderScheduleData data) {
+    final now = DateTime.now();
+
+    final oneOff =
+        data.checkIns
+            .where(
+              (item) =>
+                  (item.status == CheckInStatus.scheduled ||
+                      item.status == CheckInStatus.ready ||
+                      item.status == CheckInStatus.inProgress) &&
+                  !item.scheduledAt.isBefore(now),
+            )
+            .toList()
+          ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+
+    if (oneOff.isNotEmpty) {
+      final next = oneOff.first;
+
+      return (
+        at: next.scheduledAt,
+        duration: next.durationMinutes,
+        mode: next.mode,
+        companionName: next.companionName,
+      );
+    }
+
+    final recurring =
+        data.recurringSchedules
+            .map(
+              (schedule) =>
+                  (schedule: schedule, next: schedule.nextOccurrence(now)),
+            )
+            .where((item) => item.next != null)
+            .toList()
+          ..sort((a, b) => a.next!.compareTo(b.next!));
+
+    if (recurring.isEmpty) return null;
+
+    final next = recurring.first;
+
+    return (
+      at: next.next!,
+      duration: next.schedule.durationMinutes,
+      mode: next.schedule.mode,
+      companionName: next.schedule.companionName,
+    );
+  }
+
+  Widget _scheduledSummary(
+    BuildContext context,
+    ({DateTime at, int duration, String mode, String companionName}) item,
+  ) {
+    final localizations = MaterialLocalizations.of(context);
+
+    final time = localizations.formatTimeOfDay(TimeOfDay.fromDateTime(item.at));
+
+    final date = localizations.formatMediumDate(item.at);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          time,
+          style: const TextStyle(
+            fontSize: 25,
+            height: 1.08,
+            color: _darkTeal,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Row(
+          children: [
+            const Icon(Icons.videocam_outlined, size: 15, color: _primaryTeal),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                '${item.duration} min · '
+                '${item.mode} check-in',
+                style: const TextStyle(color: _mutedText, fontSize: 12),
+              ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  color: ElderColors.textDark,
-                  size: 27,
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: ElderColors.textDark,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
+          ],
+        ),
+        const SizedBox(height: 5),
+        Text(
+          '$date · ${item.companionName}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: _mutedText, fontSize: 11),
+        ),
+      ],
+    );
+  }
+
+  Widget _quickActions(BuildContext context) {
+    Widget actionItem(IconData icon, String label, VoidCallback onTap) {
+      return Expanded(
+        child: Material(
+          color: _mint,
+          borderRadius: BorderRadius.circular(15),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(15),
+            child: Container(
+              height: 83,
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF8FD4C9)),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: _darkTeal, size: 29),
+                  const SizedBox(height: 6),
+                  Text(
+                    label,
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _darkTeal,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -307,30 +862,26 @@ class ElderHomeScreen extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          item(
+          actionItem(
             Icons.schedule_rounded,
             'Schedule',
-            () => _open(context, const MyScheduleScreen()),
+            () => _openSchedule(context),
           ),
           const SizedBox(width: 8),
-          item(
+          actionItem(
             Icons.menu_book_rounded,
             'Memory Lane',
             () => _open(context, const MemoryLaneScreen()),
           ),
           const SizedBox(width: 8),
-          item(
-            Icons.help_outline_rounded,
-            'Need Help',
-            () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Help options will open here.'),
-              ),
-            ),
-          ),
+          actionItem(Icons.help_outline_rounded, 'Need Help', () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Help options will open here.')),
+            );
+          }),
         ],
       ),
     );
@@ -338,27 +889,24 @@ class ElderHomeScreen extends StatelessWidget {
 
   Widget _reminder() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 18),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 18,
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
       decoration: BoxDecoration(
-        color: ElderColors.success,
-        borderRadius: BorderRadius.circular(13),
+        color: const Color(0xFF176D5B),
+        borderRadius: BorderRadius.circular(19),
       ),
       child: const Row(
         children: [
           CircleAvatar(
             radius: 22,
-            backgroundColor: ElderColors.coral,
+            backgroundColor: _coral,
             child: Icon(
               Icons.favorite_border_rounded,
-              color: ElderColors.textDark,
-              size: 21,
+              color: Colors.white,
+              size: 26,
             ),
           ),
-          SizedBox(width: 10),
+          SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,17 +915,18 @@ class ElderHomeScreen extends StatelessWidget {
                   'A gentle reminder',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 3),
+                SizedBox(height: 5),
                 Text(
-                  'Take your time. You can end or\nreschedule anytime.',
+                  'Take your time. You can end or '
+                  'reschedule anytime.',
                   style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 10,
-                    height: 1.18,
+                    color: Colors.white,
+                    fontSize: 12,
+                    height: 1.35,
                   ),
                 ),
               ],

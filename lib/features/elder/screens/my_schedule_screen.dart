@@ -14,7 +14,28 @@ import 'new_recurring_checkin_screen.dart';
 import 'reschedule_checkin_screen.dart';
 
 class MyScheduleScreen extends StatefulWidget {
-  const MyScheduleScreen({super.key});
+  const MyScheduleScreen({
+    super.key,
+    this.connectionId,
+    this.elderId,
+    this.elderName,
+    this.companionId,
+    this.companionName,
+    this.companionImageUrl,
+    this.preferredCheckInType,
+    this.navigationOnly = false,
+  });
+
+  // Accepted by both Older Adult / Companion routes. Firestore remains the
+  // authority for what the signed-in participant can actually access.
+  final String? connectionId;
+  final String? elderId;
+  final String? elderName;
+  final String? companionId;
+  final String? companionName;
+  final String? companionImageUrl;
+  final String? preferredCheckInType;
+  final bool navigationOnly;
 
   @override
   State<MyScheduleScreen> createState() => _MyScheduleScreenState();

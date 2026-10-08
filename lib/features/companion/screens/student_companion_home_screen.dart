@@ -10,9 +10,12 @@ import '../controllers/companion_controller.dart';
 import '../controllers/companion_controller_factory.dart';
 import '../models/companion_connection.dart';
 import '../models/companion_incoming_request.dart';
+import '../models/companion_language.dart';
+import '../models/companion_profile.dart';
 import '../models/match_request.dart';
 import '../widgets/companion_profile_avatar.dart';
 import 'my_connection_screen.dart';
+import 'conversation_ideas_screen.dart';
 
 /// Student Companion's home dashboard. Real profile, requests and connections
 /// come from the existing team controller; check-ins come from ElderService.
@@ -170,6 +173,47 @@ class _StudentCompanionHomeScreenState
       await _openConnection();
     } else {
       _toast('Request declined.');
+    }
+  }
+
+  // Preserve the Testing branch's conversation-ideas feature.
+  Future<void> _openConversationIdeas() async {
+    final connection = _controller.studentConnection;
+    final request = _controller.studentConnectionRequest;
+    if (connection == null ||
+        connection.status != ConnectionStatus.active ||
+        request == null) {
+      _toast('Conversation ideas require an active companion connection.');
+      return;
+    }
+    try {
+      final student = await _profile;
+      if (!mounted) return;
+      final profile = CompanionProfile(
+        id: _auth.currentUser?.uid ?? '',
+        userId: _auth.currentUser?.uid,
+        name: student.fullName,
+        imagePath: '',
+        profileImageUrl: student.profileImageUrl,
+        verified: student.verificationStatus == 'verified',
+        languages: student.languages,
+        interests: student.interests,
+        availability: '',
+        about: student.bio,
+      );
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ConversationIdeasScreen(
+            profile: profile,
+            selectedLanguage: CompanionLanguage.english,
+            controller: _controller,
+            interests: request.sharedInterests,
+            studentPerspective: true,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) _toast('Could not load conversation ideas: $error');
     }
   }
 
@@ -782,6 +826,16 @@ class _StudentCompanionHomeScreenState
           'Requests',
           _openRequests,
           _rose,
+          _coral,
+        ),
+      ),
+      const SizedBox(width: 9),
+      Expanded(
+        child: _quickAction(
+          Icons.lightbulb_outline_rounded,
+          'Ideas',
+          _openConversationIdeas,
+          const Color(0xFFFFF1EF),
           _coral,
         ),
       ),
