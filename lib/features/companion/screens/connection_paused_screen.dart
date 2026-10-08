@@ -250,6 +250,7 @@ class ConnectionPausedScreen extends StatelessWidget {
                     name: profile.name,
                     size: 116,
                     imagePath: profile.imagePath,
+                    imageUrl: profile.profileImageUrl,
                   ),
                 ),
               ),

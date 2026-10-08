@@ -213,6 +213,7 @@ class SendMatchRequestScreen extends StatelessWidget {
                     name: profile.name,
                     size: 44,
                     imagePath: profile.imagePath,
+                    imageUrl: profile.profileImageUrl,
                   ),
                   const SizedBox(width: 10),
                   Expanded(

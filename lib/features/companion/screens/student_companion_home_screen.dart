@@ -3,12 +3,21 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
+import '../../elder/models/check_in.dart';
+import '../../elder/screens/kamala_ready_screen.dart';
+import '../../elder/screens/active_video_call_screen.dart';
+import '../../elder/screens/my_schedule_screen.dart';
+import '../../elder/screens/student_checkin_complete_screen.dart';
+import '../../elder/services/firebase_elder_service.dart';
 import '../../elder/widgets/elder_colors.dart';
 import '../controllers/companion_controller.dart';
 import '../controllers/companion_controller_factory.dart';
 import '../models/companion_connection.dart';
 import '../models/companion_incoming_request.dart';
+import '../models/companion_language.dart';
+import '../models/companion_profile.dart';
 import '../models/match_request.dart';
+import 'conversation_ideas_screen.dart';
 
 class StudentCompanionHomeScreen extends StatefulWidget {
   const StudentCompanionHomeScreen({
@@ -32,6 +41,9 @@ class _StudentCompanionHomeScreenState
   late final CompanionController _controller;
   late final bool _ownsController;
   late final Future<_StudentProfileData> _profile;
+  Stream<ElderScheduleData>? _scheduleStream;
+  String? _scheduleConnectionId;
+  final GlobalKey _todaySectionKey = GlobalKey();
 
   FirebaseAuth get _auth => widget.auth ?? FirebaseAuth.instance;
   FirebaseFirestore get _firestore =>
@@ -118,8 +130,140 @@ class _StudentCompanionHomeScreenState
       );
   }
 
-  void _openRequests() =>
-      Navigator.of(context).pushNamed(AppRoutes.companionIncomingRequests);
+  void _openRequests() => Navigator.of(context)
+      .pushNamed(AppRoutes.companionIncomingRequests, arguments: _controller);
+
+  void _openSchedule() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: '/student-my-schedule'),
+        builder: (_) => const MyScheduleScreen(navigationOnly: true),
+      ),
+    );
+  }
+
+  Future<void> _openConversationIdeas() async {
+    final connection = _controller.studentConnection;
+    final request = _controller.studentConnectionRequest;
+    if (connection == null ||
+        connection.status != ConnectionStatus.active ||
+        request == null) {
+      _showUnavailable(
+        'Conversation ideas are available for an active connection.',
+      );
+      return;
+    }
+    try {
+      final student = await _profile;
+      if (!mounted) return;
+      final profile = CompanionProfile(
+        id: _auth.currentUser?.uid ?? '',
+        userId: _auth.currentUser?.uid,
+        name: student.fullName,
+        imagePath: '',
+        profileImageUrl: student.profileImageUrl,
+        verified: student.verificationStatus == 'verified',
+        languages: student.languages,
+        interests: student.interests,
+        availability: '',
+        about: student.bio,
+      );
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ConversationIdeasScreen(
+            profile: profile,
+            selectedLanguage: CompanionLanguage.english,
+            controller: _controller,
+            interests: request.sharedInterests,
+            studentPerspective: true,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showUnavailable('Could not load conversation ideas: $error');
+    }
+  }
+
+  Stream<ElderScheduleData> _scheduleFor(CompanionConnection connection) {
+    if (_scheduleConnectionId != connection.id || _scheduleStream == null) {
+      _scheduleConnectionId = connection.id;
+      _scheduleStream = _watchSchedule(connection);
+    }
+    return _scheduleStream!;
+  }
+
+  Stream<ElderScheduleData> _watchSchedule(
+    CompanionConnection connection,
+  ) async* {
+    yield* FirebaseElderService.instance.watchScheduleForConnection(
+      elderId: connection.elderId,
+      companionId: connection.companionId,
+      connectionId: connection.id,
+    );
+  }
+
+  void _openReadyScreen(CheckIn checkIn, CompanionConnection connection) {
+    void openCall(String callType) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ActiveVideoCallScreen(
+            elderId: checkIn.elderId,
+            elderName: checkIn.elderName,
+            elderImageUrl: checkIn.elderImageUrl,
+            companionId: checkIn.companionId,
+            connectionId: connection.id,
+            checkInId: checkIn.id,
+            scheduledAt: checkIn.scheduledAt,
+            durationMinutes: checkIn.durationMinutes,
+            callType: callType,
+            onEndCall: () async {
+              await FirebaseElderService.instance.updateCheckInStatus(
+                checkIn.id,
+                CheckInStatus.completed,
+              );
+              if (!mounted) return;
+              await Navigator.of(context).pushReplacement(
+                MaterialPageRoute<void>(
+                  builder: (_) => StudentCheckInCompleteScreen(
+                    elderId: checkIn.elderId,
+                    elderName: checkIn.elderName,
+                    elderImageUrl: checkIn.elderImageUrl,
+                    companionId: checkIn.companionId,
+                    connectionId: connection.id,
+                    checkInId: checkIn.id,
+                    scheduledAt: checkIn.scheduledAt,
+                    durationMinutes: checkIn.durationMinutes,
+                    callType: callType,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => KamalaReadyScreen(
+          elderId: checkIn.elderId,
+          elderName: checkIn.elderName,
+          elderImageUrl: checkIn.elderImageUrl,
+          scheduledAt: checkIn.scheduledAt,
+          durationMinutes: checkIn.durationMinutes,
+          mode: checkIn.mode,
+          companionId: checkIn.companionId,
+          connectionId: connection.id,
+          checkInId: checkIn.id,
+          onStartCall: () => openCall('Video'),
+          onVoiceCall: () => openCall('Voice'),
+          onMessageInstead: () =>
+              _showUnavailable('Messaging is not available in CareLink yet.'),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -298,9 +442,17 @@ class _StudentCompanionHomeScreenState
         const SizedBox(height: 9),
         _profileCard(profile),
         const SizedBox(height: 17),
-        _sectionTitle('Today'),
-        const SizedBox(height: 9),
-        _todayCard(),
+        KeyedSubtree(
+          key: _todaySectionKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sectionTitle('Today'),
+              const SizedBox(height: 9),
+              _todayCard(),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -321,7 +473,7 @@ class _StudentCompanionHomeScreenState
               case 1:
                 _openRequests();
               case 2:
-                _showUnavailable('Check-in scheduling is not available yet.');
+                _openSchedule();
               case 3:
                 _showProfile();
             }
@@ -436,42 +588,62 @@ class _StudentCompanionHomeScreenState
             ),
           );
         }
+        final request = _controller.studentConnectionRequest;
+        final elderName = request?.elderDisplayName.trim().isNotEmpty == true
+            ? request!.elderDisplayName
+            : 'Older Adult';
         return _sectionCard(
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const CircleAvatar(
-                backgroundColor: ElderColors.mintSoft,
-                child: Icon(
-                  Icons.favorite_rounded,
-                  color: ElderColors.darkTeal,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Your companion connection',
-                      style: TextStyle(
-                        color: ElderColors.textDark,
-                        fontWeight: FontWeight.w800,
-                      ),
+              Row(
+                children: [
+                  const CircleAvatar(
+                    backgroundColor: ElderColors.mintSoft,
+                    child: Icon(
+                      Icons.favorite_rounded,
+                      color: ElderColors.darkTeal,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      connection.status == ConnectionStatus.paused
-                          ? 'Connection paused'
-                          : 'Connection active',
-                      style: const TextStyle(
-                        color: ElderColors.textMuted,
-                        fontSize: 12,
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          elderName,
+                          style: const TextStyle(
+                            color: ElderColors.textDark,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          connection.status == ConnectionStatus.paused
+                              ? 'Connection paused'
+                              : 'Connection active',
+                          style: const TextStyle(
+                            color: ElderColors.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const Icon(Icons.chevron_right, color: ElderColors.darkTeal),
+              if (request?.sharedInterests.isNotEmpty == true) ...[
+                const SizedBox(height: 9),
+                _requestDetail(
+                  'Shared interests',
+                  request!.sharedInterests.join(', '),
+                ),
+              ],
+              if (request?.preferredLanguage.isNotEmpty == true)
+                _requestDetail(
+                  'Preferred language',
+                  request!.preferredLanguage,
+                ),
             ],
           ),
         );
@@ -638,17 +810,11 @@ class _StudentCompanionHomeScreenState
             'Incoming\nRequests',
             _openRequests,
           ),
-          _actionTile(
-            Icons.calendar_month_outlined,
-            'Schedule',
-            () => _showUnavailable('Check-in scheduling is not available yet.'),
-          ),
+          _actionTile(Icons.calendar_month_outlined, 'Schedule', _openSchedule),
           _actionTile(
             Icons.chat_bubble_outline_rounded,
             'Conversation\nIdeas',
-            () => _showUnavailable(
-              'Conversation ideas are not available here yet.',
-            ),
+            _openConversationIdeas,
           ),
           _actionTile(
             Icons.person_outline_rounded,
@@ -756,28 +922,142 @@ class _StudentCompanionHomeScreenState
       listenable: _controller,
       builder: (context, _) {
         final connection = _controller.studentConnection;
-        final message = connection == null
-            ? 'No check-ins are scheduled yet.'
-            : connection.status == ConnectionStatus.paused
-            ? 'Your companion connection is paused.'
-            : 'Your companion connection is active. Scheduled check-ins will '
-                  'appear here.';
+        if (connection == null) {
+          return _sectionCard(
+            child: const Text(
+              'No check-ins are scheduled yet.',
+              style: TextStyle(color: ElderColors.textDark, fontSize: 12),
+            ),
+          );
+        }
+        if (connection.status != ConnectionStatus.active) {
+          return _sectionCard(
+            child: const Text(
+              'Your companion connection is paused.',
+              style: TextStyle(color: ElderColors.textDark, fontSize: 12),
+            ),
+          );
+        }
         return _sectionCard(
-          child: Row(
-            children: [
-              const Icon(Icons.today_outlined, color: ElderColors.darkTeal),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(
-                    color: ElderColors.textDark,
-                    fontSize: 12,
-                    height: 1.35,
+          child: StreamBuilder<ElderScheduleData>(
+            stream: _scheduleFor(connection),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Text(
+                  'Could not load shared check-ins: ${snapshot.error}',
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                );
+              }
+              if (!snapshot.hasData) {
+                return const Center(
+                  child: CircularProgressIndicator(color: ElderColors.darkTeal),
+                );
+              }
+              final now = DateTime.now();
+              final checkIns =
+                  snapshot.data!.checkIns
+                      .where(
+                        (item) =>
+                            item.status == CheckInStatus.scheduled ||
+                            item.status == CheckInStatus.ready ||
+                            item.status == CheckInStatus.inProgress,
+                      )
+                      .where(
+                        (item) =>
+                            item.status == CheckInStatus.ready ||
+                            !item.scheduledAt.isBefore(now),
+                      )
+                      .toList()
+                    ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+              if (checkIns.isNotEmpty) {
+                final checkIn = checkIns.first;
+                final localizations = MaterialLocalizations.of(context);
+                final date = localizations.formatMediumDate(
+                  checkIn.scheduledAt,
+                );
+                final time = localizations.formatTimeOfDay(
+                  TimeOfDay.fromDateTime(checkIn.scheduledAt),
+                );
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Next check-in with ${checkIn.elderName}',
+                      style: const TextStyle(
+                        color: ElderColors.textDark,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '$date · $time · ${checkIn.durationMinutes} min · ${checkIn.mode}',
+                      style: const TextStyle(
+                        color: ElderColors.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 9),
+                    if (checkIn.status == CheckInStatus.scheduled ||
+                        checkIn.status == CheckInStatus.ready)
+                      FilledButton(
+                        onPressed: () => _openReadyScreen(checkIn, connection),
+                        child: const Text('View Check-in'),
+                      ),
+                  ],
+                );
+              }
+              final recurring =
+                  snapshot.data!.recurringSchedules
+                      .map(
+                        (schedule) => (
+                          schedule: schedule,
+                          next: schedule.nextOccurrence(now),
+                        ),
+                      )
+                      .where((item) => item.next != null)
+                      .toList()
+                    ..sort((a, b) => a.next!.compareTo(b.next!));
+              if (recurring.isEmpty) {
+                return const Text(
+                  'No upcoming check-ins are scheduled yet.',
+                  style: TextStyle(color: ElderColors.textDark, fontSize: 12),
+                );
+              }
+              final next = recurring.first;
+              final date = MaterialLocalizations.of(context)
+                  .formatMediumDate(next.next!);
+              final time = MaterialLocalizations.of(context)
+                  .formatTimeOfDay(TimeOfDay.fromDateTime(next.next!));
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Next check-in with ${next.schedule.elderName}',
+                    style: const TextStyle(
+                      color: ElderColors.textDark,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-              ),
-            ],
+                  const SizedBox(height: 5),
+                  Text(
+                    '$date · $time · ${next.schedule.durationMinutes} min · ${next.schedule.mode}',
+                    style: const TextStyle(
+                      color: ElderColors.textMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Recurring check-in',
+                    style: TextStyle(
+                      color: ElderColors.darkTeal,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         );
       },

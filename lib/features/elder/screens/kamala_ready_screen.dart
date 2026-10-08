@@ -1,12 +1,39 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
-import 'active_video_call_nethmi_screen.dart';
 
 class KamalaReadyScreen extends StatelessWidget {
-  const KamalaReadyScreen({super.key});
+  const KamalaReadyScreen({
+    super.key,
+    this.elderName = 'Older Adult',
+    this.elderId,
+    this.elderImageUrl,
+    this.scheduledAt,
+    this.durationMinutes = 30,
+    this.mode = 'Video',
+    this.companionId,
+    this.connectionId,
+    this.checkInId,
+    this.onStartCall,
+    this.onVoiceCall,
+    this.onMessageInstead,
+    this.onConversationIdeas,
+  });
+
+  final String elderName;
+  final String? elderId;
+  final String? elderImageUrl;
+  final DateTime? scheduledAt;
+  final int durationMinutes;
+  final String mode;
+  final String? companionId;
+  final String? connectionId;
+  final String? checkInId;
+  final VoidCallback? onStartCall;
+  final VoidCallback? onVoiceCall;
+  final VoidCallback? onMessageInstead;
+  final VoidCallback? onConversationIdeas;
 
   @override
   Widget build(BuildContext context) {
@@ -30,22 +57,27 @@ class KamalaReadyScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const _IdentityRow(
-                      name: 'Kamala Perera',
-                      role: 'Elder',
-                      avatar: ElderAssets.kamalaAvatar,
+                    _IdentityRow(
+                      name: elderName,
+                      role: 'Older Adult',
+                      avatar: '',
+                      imageUrl: elderImageUrl,
                     ),
-                    const _ReadyMetrics(),
+                    _ReadyMetrics(durationMinutes: durationMinutes, mode: mode),
                     ElderPrimaryButton(
-                      label: 'Start video call',
+                      label: mode.toLowerCase() == 'voice'
+                          ? 'Start voice call'
+                          : 'Start video call',
                       height: 54,
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ActiveVideoCallNethmiScreen(),
+                      onPressed:
+                          onStartCall ??
+                          () => ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Calling is not available in CareLink yet.',
+                              ),
+                            ),
                           ),
-                        );
-                      },
                     ),
                     Row(
                       children: [
@@ -53,7 +85,7 @@ class KamalaReadyScreen extends StatelessWidget {
                           child: ElderOutlineButton(
                             label: 'Voice only',
                             height: 48,
-                            onPressed: () {},
+                            onPressed: onVoiceCall ?? () {},
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -61,20 +93,21 @@ class KamalaReadyScreen extends StatelessWidget {
                           child: ElderOutlineButton(
                             label: 'Message instead',
                             height: 48,
-                            onPressed: () {},
+                            onPressed:
+                                onMessageInstead ??
+                                onConversationIdeas ??
+                                () => ScaffoldMessenger.of(context)
+                                  ..hideCurrentSnackBar()
+                                  ..showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Messaging is not available in CareLink yet.',
+                                      ),
+                                    ),
+                                  ),
                           ),
                         ),
                       ],
-                    ),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElderOutlineButton(
-                        label: 'Conversation Ideas',
-                        height: 48,
-                        foregroundColor: ElderColors.darkTeal,
-                        backgroundColor: const Color(0xFFBDF1F3),
-                        onPressed: () {},
-                      ),
                     ),
                     const _ControlInfo(),
                   ],
@@ -93,7 +126,13 @@ class KamalaReadyScreen extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(ElderAssets.kamalaReady, fit: BoxFit.cover),
+          elderImageUrl == null || elderImageUrl!.isEmpty
+              ? _elderPlaceholder
+              : Image.network(
+                  elderImageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _elderPlaceholder,
+                ),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -112,13 +151,13 @@ class KamalaReadyScreen extends StatelessWidget {
               onPressed: () => Navigator.of(context).maybePop(),
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 18,
             right: 18,
             bottom: 48,
             child: Text(
-              'Kamala is ready',
-              style: TextStyle(
+              '$elderName is ready',
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 27,
                 height: 1,
@@ -126,13 +165,13 @@ class KamalaReadyScreen extends StatelessWidget {
               ),
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 18,
             right: 18,
             bottom: 27,
             child: Text(
-              'Today • 6:30 PM • Video check-in',
-              style: TextStyle(
+              '${_scheduleDate(context)} · ${_scheduleTime(context)} · $mode check-in',
+              style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
@@ -143,24 +182,83 @@ class KamalaReadyScreen extends StatelessWidget {
       ),
     );
   }
+
+  String _scheduleDate(BuildContext context) {
+    final scheduled = scheduledAt;
+    if (scheduled == null) return '';
+    final now = DateTime.now();
+    if (scheduled.year == now.year &&
+        scheduled.month == now.month &&
+        scheduled.day == now.day) {
+      return 'Today';
+    }
+    return MaterialLocalizations.of(context).formatMediumDate(scheduled);
+  }
+
+  String _scheduleTime(BuildContext context) {
+    final scheduled = scheduledAt;
+    if (scheduled == null) return '';
+    return MaterialLocalizations.of(context)
+        .formatTimeOfDay(TimeOfDay.fromDateTime(scheduled));
+  }
+
+  Widget get _elderPlaceholder => Container(
+    color: ElderColors.deepTeal,
+    alignment: Alignment.center,
+    child: CircleAvatar(
+      radius: 58,
+      backgroundColor: ElderColors.mintSoft,
+      child: Text(
+        elderName
+            .split(RegExp(r'\s+'))
+            .where((part) => part.isNotEmpty)
+            .take(2)
+            .map((part) => part[0])
+            .join(),
+        style: const TextStyle(
+          color: ElderColors.darkTeal,
+          fontSize: 32,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    ),
+  );
 }
 
 class _IdentityRow extends StatelessWidget {
   final String name;
   final String role;
   final String avatar;
+  final String? imageUrl;
 
   const _IdentityRow({
     required this.name,
     required this.role,
     required this.avatar,
+    required this.imageUrl,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        ElderAvatar(asset: avatar, size: 54, border: false),
+        imageUrl != null && imageUrl!.isNotEmpty
+            ? ClipOval(
+                child: Image.network(
+                  imageUrl!,
+                  width: 54,
+                  height: 54,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _initials(name),
+                ),
+              )
+            : avatar.isEmpty
+            ? CircleAvatar(
+                radius: 27,
+                backgroundColor: ElderColors.mintSoft,
+                child: _initials(name),
+              )
+            : ElderAvatar(asset: avatar, size: 54, border: false),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -190,10 +288,26 @@ class _IdentityRow extends StatelessWidget {
       ],
     );
   }
+
+  Widget _initials(String name) => Text(
+    name
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0])
+        .join(),
+    style: const TextStyle(
+      color: ElderColors.darkTeal,
+      fontWeight: FontWeight.w800,
+    ),
+  );
 }
 
 class _ReadyMetrics extends StatelessWidget {
-  const _ReadyMetrics();
+  const _ReadyMetrics({required this.durationMinutes, required this.mode});
+
+  final int durationMinutes;
+  final String mode;
 
   @override
   Widget build(BuildContext context) {
@@ -204,11 +318,11 @@ class _ReadyMetrics extends StatelessWidget {
         border: Border.all(color: ElderColors.deepTeal),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Expanded(child: _Metric('30 min', 'planned')),
+          Expanded(child: _Metric('$durationMinutes min', 'planned')),
           VerticalDivider(width: 1, color: ElderColors.border),
-          Expanded(child: _Metric('Video', 'private call')),
+          Expanded(child: _Metric(mode, 'check-in type')),
           VerticalDivider(width: 1, color: ElderColors.border),
           Expanded(child: _Metric('Safe', 'controls on')),
         ],
@@ -239,10 +353,7 @@ class _Metric extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: ElderColors.textMuted,
-            fontSize: 8.5,
-          ),
+          style: const TextStyle(color: ElderColors.textMuted, fontSize: 8.5),
         ),
       ],
     );
@@ -286,10 +397,7 @@ class _ControlInfo extends StatelessWidget {
                 SizedBox(height: 3),
                 Text(
                   'End, retry or ask for help at any time.',
-                  style: TextStyle(
-                    color: ElderColors.textMuted,
-                    fontSize: 9,
-                  ),
+                  style: TextStyle(color: ElderColors.textMuted, fontSize: 9),
                 ),
               ],
             ),

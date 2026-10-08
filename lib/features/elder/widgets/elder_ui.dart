@@ -1,7 +1,11 @@
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'elder_colors.dart';
 
+/// Responsive scaffold without a simulated phone frame.
+/// Uses the device's actual status bar and safe areas.
 class ElderPhoneScaffold extends StatelessWidget {
   final Widget child;
   final Widget? bottomNavigationBar;
@@ -34,65 +38,48 @@ class ElderPhoneScaffold extends StatelessWidget {
             child: child,
           );
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF151110),
-      body: Center(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth < 393 ? constraints.maxWidth : 393.0;
-            final height = constraints.maxHeight < 852 ? constraints.maxHeight : 852.0;
-
-            return Container(
-              width: width,
-              height: height,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                borderRadius: BorderRadius.circular(width < 393 ? 0 : 32),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: statusBarColor ?? backgroundColor,
+        statusBarIconBrightness:
+            darkStatusBar ? Brightness.dark : Brightness.light,
+        statusBarBrightness:
+            darkStatusBar ? Brightness.light : Brightness.dark,
+        systemNavigationBarColor: backgroundColor,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: backgroundColor,
+        resizeToAvoidBottomInset: true,
+        body: ColoredBox(
+          color: statusBarColor ?? backgroundColor,
+          child: SafeArea(
+            top: true,
+            bottom: bottomNavigationBar == null,
+            child: ColoredBox(
+              color: backgroundColor,
+              child: SizedBox.expand(
+                child: content,
               ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Column(
-                      children: [
-                        ElderIosStatusBar(
-                          backgroundColor: statusBarColor ?? backgroundColor,
-                          darkIcons: darkStatusBar,
-                        ),
-                        Expanded(
-                          child: content,
-                        ),
-                        ?bottomNavigationBar,
-                        const ElderHomeIndicator(),
-                      ],
-                    ),
-                  ),
-
-                  // Preview scaling can create a 1-pixel hairline exactly
-                  // between the mock iOS status bar and the first screen
-                  // section. Paint a tiny overlap using the same status-bar
-                  // colour so that seam is never visible.
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 25,
-                    height: 3,
-                    child: IgnorePointer(
-                      child: ColoredBox(
-                        color: statusBarColor ?? backgroundColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+            ),
+          ),
         ),
+        bottomNavigationBar: bottomNavigationBar == null
+            ? null
+            : ColoredBox(
+                color: backgroundColor,
+                child: SafeArea(
+                  top: false,
+                  child: bottomNavigationBar!,
+                ),
+              ),
       ),
     );
   }
 }
 
+/// Retained for compatibility with any other preview screens.
+/// ElderPhoneScaffold no longer displays a fake status bar.
 class ElderIosStatusBar extends StatelessWidget {
   final Color backgroundColor;
   final bool darkIcons;
@@ -105,7 +92,8 @@ class ElderIosStatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = darkIcons ? const Color(0xFF111719) : Colors.white;
+    final color =
+        darkIcons ? const Color(0xFF111719) : Colors.white;
 
     return Container(
       height: 26,
@@ -116,112 +104,42 @@ class ElderIosStatusBar extends StatelessWidget {
           Text(
             '9:41',
             style: TextStyle(
-              color: c,
+              color: color,
               fontSize: 11,
-              height: 1,
               fontWeight: FontWeight.w700,
             ),
           ),
           const Spacer(),
-          _SignalBars(color: c),
+          Icon(Icons.signal_cellular_alt_rounded,
+              color: color, size: 14),
           const SizedBox(width: 4),
-          Icon(Icons.wifi_rounded, color: c, size: 14),
+          Icon(Icons.wifi_rounded, color: color, size: 14),
           const SizedBox(width: 4),
-          _BatteryIcon(color: c),
+          Icon(Icons.battery_full_rounded,
+              color: color, size: 17),
         ],
       ),
     );
   }
 }
 
-class _SignalBars extends StatelessWidget {
-  final Color color;
-
-  const _SignalBars({required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 16,
-      height: 11,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [4.0, 6.0, 8.0, 10.0]
-            .map(
-              (h) => Container(
-                width: 3,
-                height: h,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(1),
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-}
-
-class _BatteryIcon extends StatelessWidget {
-  final Color color;
-
-  const _BatteryIcon({required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 20,
-          height: 10,
-          padding: const EdgeInsets.all(1.5),
-          decoration: BoxDecoration(
-            border: Border.all(color: color, width: 1.3),
-            borderRadius: BorderRadius.circular(3),
-          ),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: .76,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 1),
-        Container(
-          width: 2,
-          height: 4,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(1),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
+/// Available for existing preview code, but not automatically
+/// inserted into the real app scaffold.
 class ElderHomeIndicator extends StatelessWidget {
   const ElderHomeIndicator({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: 14,
-      alignment: Alignment.center,
-      color: Colors.transparent,
-      child: Container(
-        width: 128,
-        height: 4,
-        decoration: BoxDecoration(
-          color: const Color(0xFF0E2426),
-          borderRadius: BorderRadius.circular(4),
+      child: Center(
+        child: Container(
+          width: 128,
+          height: 4,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0E2426),
+            borderRadius: BorderRadius.circular(4),
+          ),
         ),
       ),
     );
@@ -254,16 +172,16 @@ class ElderBottomNav extends StatelessWidget {
     ];
 
     return Container(
-      height: 66,
-      margin: const EdgeInsets.fromLTRB(14, 5, 14, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      height: 68,
+      margin: const EdgeInsets.fromLTRB(14, 5, 14, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 5),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: .06),
-            blurRadius: 16,
+            color: const Color(0xFF073F42).withValues(alpha: 0.08),
+            blurRadius: 18,
             offset: const Offset(0, -3),
           ),
         ],
@@ -274,32 +192,45 @@ class ElderBottomNav extends StatelessWidget {
           final item = items[index];
 
           return Expanded(
-            child: InkWell(
-              onTap: item.$3,
-              borderRadius: BorderRadius.circular(14),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 32,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: selected ? ElderColors.mint : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: item.$3,
+                borderRadius: BorderRadius.circular(16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: 38,
+                      height: 34,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? ElderColors.mint
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Icon(
+                        item.$1,
+                        size: 20,
+                        color: ElderColors.textDark,
+                      ),
                     ),
-                    child: Icon(item.$1, size: 19, color: ElderColors.textDark),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    item.$2,
-                    style: const TextStyle(
-                      color: ElderColors.textDark,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
+                    const SizedBox(height: 2),
+                    Text(
+                      item.$2,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: ElderColors.textDark,
+                        fontSize: 10,
+                        fontWeight: selected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
@@ -328,11 +259,23 @@ class ElderAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: border ? Border.all(color: Colors.white, width: 2) : null,
-        image: DecorationImage(
-          image: AssetImage(asset),
-          fit: BoxFit.cover,
-        ),
+        border: border
+            ? Border.all(color: Colors.white, width: 2)
+            : null,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return const ColoredBox(
+            color: ElderColors.mint,
+            child: Icon(
+              Icons.person_rounded,
+              color: ElderColors.darkTeal,
+            ),
+          );
+        },
       ),
     );
   }
@@ -364,13 +307,14 @@ class ElderPrimaryButton extends StatelessWidget {
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(13),
           ),
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -403,14 +347,18 @@ class ElderOutlineButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: foregroundColor,
-          backgroundColor: backgroundColor,
-          side: BorderSide(color: foregroundColor, width: 1),
+          backgroundColor: backgroundColor ?? Colors.white,
+          side: BorderSide(
+            color: foregroundColor,
+            width: 1,
+          ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(13),
           ),
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -441,9 +389,13 @@ class ElderBackButton extends StatelessWidget {
         height: 34,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: filled ? const Color(0xFFCAF1EC) : Colors.transparent,
+          color: filled
+              ? const Color(0xFFCAF1EC)
+              : Colors.transparent,
           shape: BoxShape.circle,
-          border: filled ? null : Border.all(color: ElderColors.deepTeal),
+          border: filled
+              ? null
+              : Border.all(color: ElderColors.deepTeal),
         ),
         child: const Icon(
           Icons.arrow_back_ios_new_rounded,
@@ -488,7 +440,11 @@ class ElderInfoCard extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: ElderColors.border),
             ),
-            child: Icon(icon, color: ElderColors.deepTeal, size: 18),
+            child: Icon(
+              icon,
+              color: ElderColors.deepTeal,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -508,8 +464,8 @@ class ElderInfoCard extends StatelessWidget {
                   subtitle,
                   style: const TextStyle(
                     color: ElderColors.textMuted,
-                    fontSize: 9.5,
-                    height: 1.2,
+                    fontSize: 10,
+                    height: 1.3,
                   ),
                 ),
               ],
@@ -534,7 +490,10 @@ class ElderStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 11,
+        vertical: 7,
+      ),
       decoration: BoxDecoration(
         color: filled ? ElderColors.darkTeal : Colors.white,
         border: Border.all(color: ElderColors.deepTeal),
@@ -571,8 +530,9 @@ Future<bool> elderConfirm(
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor:
-                    destructive ? ElderColors.coral : ElderColors.darkTeal,
+                backgroundColor: destructive
+                    ? ElderColors.coral
+                    : ElderColors.darkTeal,
               ),
               onPressed: () => Navigator.pop(context, true),
               child: Text(confirmLabel),

@@ -62,7 +62,7 @@ void main() {
 
       await tester.tap(find.text(strings.continueToScheduling));
       await tester.pump();
-      expect(find.text(strings.schedulingIntegrationPending), findsOneWidget);
+      expect(find.text(strings.connectionNotActive), findsOneWidget);
       expect(find.byType(SchedulingHandoffScreen), findsOneWidget);
 
       await tester.tap(find.text(strings.backToConnection));

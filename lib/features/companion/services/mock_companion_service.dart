@@ -227,6 +227,12 @@ class MockCompanionService implements CompanionService {
   }
 
   @override
+  Future<MatchRequest?> getAcceptedRequest(String requestId) async {
+    final request = _requests[requestId];
+    return request?.status == MatchRequestStatus.accepted ? request : null;
+  }
+
+  @override
   Future<CompanionConnection> createConnectionFromAcceptedRequest(
     MatchRequest request,
   ) async {

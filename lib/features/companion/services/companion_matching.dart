@@ -5,23 +5,12 @@ import '../models/match_recommendation.dart';
 /// The same transparent scoring for mock and Firebase candidates.
 List<MatchRecommendation> rankCompanions(
   Iterable<CompanionProfile> candidates,
-  MatchPreferences preferences, {
-  void Function(String message)? debugLog,
-}) {
-  debugLog?.call(
-    'Match preferences: language=${preferences.preferredLanguage}, '
-    'interests=${preferences.interests}, '
-    'availability=${preferences.availability}, '
-    'preferredTime=${preferences.preferredTime}',
-  );
+  MatchPreferences preferences,
+) {
   final profiles = candidates.toList();
   final ranked = <MatchRecommendation>[];
   for (final companion in profiles) {
     if (!companion.verified || !companion.active) {
-      debugLog?.call(
-        'Companion ${companion.id} excluded by scorer: '
-        'verified=${companion.verified}, active=${companion.active}',
-      );
       continue;
     }
     final shared = preferences.interests
@@ -65,11 +54,6 @@ List<MatchRecommendation> rankCompanions(
       if (dayMatch && !timeMatch) 'Available on your preferred days',
       if (timeMatch && !dayMatch) 'Available at your preferred time of day',
     ]);
-    debugLog?.call(
-      'Companion ${companion.id}: score=$score, '
-      'reasons=$reasons; languageMatch=$languageMatch, '
-      'sharedInterests=$shared, dayMatch=$dayMatch, timeMatch=$timeMatch',
-    );
     ranked.add(
       MatchRecommendation(companion: companion, score: score, reasons: reasons),
     );
