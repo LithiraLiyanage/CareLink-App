@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/check_in.dart';
+import '../models/check_in_scheduling.dart';
 import '../models/memory_item.dart';
 import '../models/recurring_schedule.dart';
 import 'elder_service.dart';
@@ -225,6 +226,63 @@ class FirebaseElderService implements ElderService {
     return _checkInFromDocument(doc);
   }
 
+  @override
+  Future<CheckIn> createCheckIn(CheckIn checkIn) async {
+    final connection = await getActiveConnectionForCurrentElder();
+    if (connection == null) {
+      throw StateError(
+        'An active companion connection is required to schedule.',
+      );
+    }
+    if (checkIn.elderId != connection.elderId ||
+        checkIn.companionId != connection.companionId) {
+      throw StateError(
+        'This check-in must use your active companion connection.',
+      );
+    }
+
+    final error = CheckInScheduling.validateSelection(
+      scheduledAt: checkIn.scheduledAt,
+      durationMinutes: checkIn.durationMinutes,
+      mode: checkIn.mode,
+    );
+    if (error != null) {
+      throw StateError(error);
+    }
+
+    final ref = checkIn.id.isEmpty ? _checkIns.doc() : _checkIns.doc(checkIn.id);
+    final created = checkIn.copyWith(
+      id: ref.id,
+      elderName: checkIn.elderName.trim().isEmpty
+          ? connection.elderName
+          : checkIn.elderName,
+      companionName: checkIn.companionName.trim().isEmpty
+          ? connection.companionName
+          : checkIn.companionName,
+      status: CheckInStatus.scheduled,
+    );
+
+    await ref.set(_checkInDocumentData(created));
+    return created;
+  }
+
+  Map<String, dynamic> _checkInDocumentData(CheckIn checkIn) {
+    return {
+      'elderId': checkIn.elderId,
+      'elderName': checkIn.elderName,
+      'elderImageUrl': checkIn.elderImageUrl,
+      'companionId': checkIn.companionId,
+      'companionName': checkIn.companionName,
+      'scheduledAt': Timestamp.fromDate(checkIn.scheduledAt),
+      'durationMinutes': checkIn.durationMinutes,
+      'mode': checkIn.mode,
+      'status': CheckInStatus.scheduled.name,
+      'reflection': null,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
   Future<void> createScheduleWithFirstCheckIn({
     required RecurringSchedule schedule,
     required CheckIn checkIn,
@@ -264,20 +322,7 @@ class FirebaseElderService implements ElderService {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    batch.set(checkInRef, {
-      'elderId': createdCheckIn.elderId,
-      'elderName': createdCheckIn.elderName,
-      'elderImageUrl': createdCheckIn.elderImageUrl,
-      'companionId': createdCheckIn.companionId,
-      'companionName': createdCheckIn.companionName,
-      'scheduledAt': Timestamp.fromDate(createdCheckIn.scheduledAt),
-      'durationMinutes': createdCheckIn.durationMinutes,
-      'mode': createdCheckIn.mode,
-      'status': CheckInStatus.scheduled.name,
-      'reflection': null,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    batch.set(checkInRef, _checkInDocumentData(createdCheckIn));
 
     await batch.commit();
   }
@@ -292,6 +337,16 @@ class FirebaseElderService implements ElderService {
 
     if (!snapshot.exists) {
       throw StateError('Check-in not found: $checkInId');
+    }
+
+    final existing = _checkInFromDocument(snapshot);
+    final error = CheckInScheduling.validateSelection(
+      scheduledAt: newDateTime,
+      durationMinutes: existing.durationMinutes,
+      mode: existing.mode,
+    );
+    if (error != null) {
+      throw StateError(error);
     }
 
     await ref.update({
@@ -476,6 +531,7 @@ class FirebaseElderService implements ElderService {
       elderImageUrl: data['elderImageUrl'] as String?,
       companionId: data['companionId'] as String? ?? '',
       companionName: data['companionName'] as String? ?? '',
+      companionImageUrl: data['companionImageUrl'] as String?,
       scheduledAt: scheduledAt,
       durationMinutes: durationMinutes,
       mode: mode,

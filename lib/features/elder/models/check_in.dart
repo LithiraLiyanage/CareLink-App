@@ -14,6 +14,7 @@ class CheckIn {
   final String? elderImageUrl;
   final String companionId;
   final String companionName;
+  final String? companionImageUrl;
   final DateTime scheduledAt;
   final int durationMinutes;
   final String mode;
@@ -27,6 +28,7 @@ class CheckIn {
     this.elderImageUrl,
     required this.companionId,
     required this.companionName,
+    this.companionImageUrl,
     required this.scheduledAt,
     required this.durationMinutes,
     required this.mode,
@@ -41,6 +43,7 @@ class CheckIn {
     String? elderImageUrl,
     String? companionId,
     String? companionName,
+    String? companionImageUrl,
     DateTime? scheduledAt,
     int? durationMinutes,
     String? mode,
@@ -54,6 +57,7 @@ class CheckIn {
       elderImageUrl: elderImageUrl ?? this.elderImageUrl,
       companionId: companionId ?? this.companionId,
       companionName: companionName ?? this.companionName,
+      companionImageUrl: companionImageUrl ?? this.companionImageUrl,
       scheduledAt: scheduledAt ?? this.scheduledAt,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       mode: mode ?? this.mode,
