@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../companion/widgets/companion_profile_avatar.dart';
+
+import '../../companion/screens/student_companion_home_screen.dart';
 import '../models/check_in.dart';
 import '../services/firebase_elder_service.dart';
-import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
+import 'kamala_ready_screen.dart';
 import 'memory_lane_screen.dart';
-import 'nethmi_ready_screen.dart';
 import 'new_recurring_checkin_screen.dart';
 import 'reschedule_checkin_screen.dart';
 
@@ -20,8 +23,12 @@ class MyScheduleScreen extends StatefulWidget {
 class _MyScheduleScreenState extends State<MyScheduleScreen> {
   final FirebaseElderService _service = FirebaseElderService.instance;
 
-  List<CheckIn> _checkIns = [];
+  List<CheckIn> _checkIns = <CheckIn>[];
+  ElderFlowContext? _connection;
+  String? _companionPhotoUrl;
   bool _loading = true;
+  String? _error;
+  int _selectedTab = 1; // Today, Upcoming, Past
 
   @override
   void initState() {
@@ -30,27 +37,116 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
   }
 
   Future<void> _loadCheckIns() async {
-    final items = await _service.getCheckIns();
-
     if (!mounted) return;
-
     setState(() {
-      _checkIns = items
-          .where((item) => item.status != CheckInStatus.cancelled)
-          .toList();
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+
+    try {
+      final connection = await _service.getCurrentFlowContext();
+      final items = await _service.getCheckIns();
+      String? companionPhotoUrl;
+      try {
+        final companionProfile = await FirebaseFirestore.instance
+            .collection('companion_profiles')
+            .doc(connection.companionId)
+            .get();
+        companionPhotoUrl =
+            companionProfile.data()?['profileImageUrl'] as String?;
+        if (companionPhotoUrl == null || companionPhotoUrl.isEmpty) {
+          final user = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(connection.companionId)
+              .get();
+          companionPhotoUrl = user.data()?['profileImageUrl'] as String?;
+        }
+      } catch (_) {
+        // The bundled avatar still works if a remote image is unavailable.
+      }
+      if (!mounted) return;
+
+      items.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      setState(() {
+        _connection = connection;
+        _companionPhotoUrl = companionPhotoUrl;
+        _checkIns = items;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = error.toString();
+      });
+    }
   }
 
   Future<void> _openAndRefresh(Widget screen) async {
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
-
-    if (!mounted) return;
-    await _loadCheckIns();
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => screen));
+    if (mounted) await _loadCheckIns();
   }
 
-  void _open(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  void _goHome() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        builder: (_) => const StudentCompanionHomeScreen(),
+      ),
+      (route) => false,
+    );
+  }
+
+  void _openCreate() {
+    if (_loading) return;
+    if (_connection == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Accept an Elder request before creating a check-in.',
+            ),
+          ),
+        );
+      return;
+    }
+    _openAndRefresh(const NewRecurringCheckInScreen());
+  }
+
+  bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  bool _isFinished(CheckIn checkIn) =>
+      checkIn.status == CheckInStatus.completed ||
+      checkIn.status == CheckInStatus.cancelled ||
+      checkIn.status == CheckInStatus.missed;
+
+  List<CheckIn> get _visibleCheckIns {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+
+    final filtered = _checkIns.where((checkIn) {
+      final finished = _isFinished(checkIn);
+      switch (_selectedTab) {
+        case 0:
+          return !finished && _sameDay(checkIn.scheduledAt, now);
+        case 1:
+          // Upcoming includes today's remaining sessions.
+          return !finished && !checkIn.scheduledAt.isBefore(startOfToday);
+        case 2:
+          return finished || checkIn.scheduledAt.isBefore(startOfToday);
+        default:
+          return false;
+      }
+    }).toList();
+
+    if (_selectedTab == 2) {
+      filtered.sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+    } else {
+      filtered.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    }
+    return filtered;
   }
 
   @override
@@ -61,15 +157,16 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
       darkStatusBar: true,
       bottomNavigationBar: ElderBottomNav(
         selectedIndex: 1,
+        onHome: _goHome,
         onSchedule: () {},
-        onMemory: () => _open(context, const MemoryLaneScreen()),
+        onMemory: () => _openAndRefresh(const MemoryLaneScreen()),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _topBar(context),
+            _topBar(),
             const SizedBox(height: 10),
             const Text(
               'My Schedule',
@@ -91,78 +188,114 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
             ),
             const SizedBox(height: 14),
             _tabs(),
-            const SizedBox(height: 16),
-            Expanded(child: _loading ? _loadingView() : _scheduleContent()),
+            const SizedBox(height: 12),
+            Expanded(child: _mainContent()),
+            const SizedBox(height: 10),
+            ElderPrimaryButton(
+              label: '+  Create recurring check-in',
+              color: ElderColors.darkTeal,
+              height: 54,
+              onPressed: _openCreate,
+            ),
+            const SizedBox(height: 10),
+            _infoCard(),
           ],
         ),
       ),
     );
   }
 
-  Widget _loadingView() {
-    return const Center(
-      child: CircularProgressIndicator(color: ElderColors.darkTeal),
-    );
-  }
-
-  Widget _scheduleContent() {
-    final visible = _checkIns.take(3).toList();
-
-    return Column(
-      children: [
-        for (int index = 0; index < visible.length; index++) ...[
-          _scheduleCard(
-            checkIn: visible[index],
-            badge: index == 0 ? 'NEXT' : 'RECURRING',
-            filledBadge: index == 0,
-            onTap: () {
-              if (index == 0) {
-                _openAndRefresh(const NethmiReadyScreen());
-              } else {
-                _openAndRefresh(
-                  RescheduleCheckInScreen(checkInId: visible[index].id),
-                );
-              }
-            },
+  Widget _mainContent() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: ElderColors.darkTeal),
+      );
+    }
+    if (_error != null) {
+      return Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline_rounded,
+                color: ElderColors.darkTeal,
+                size: 34,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Could not load your check-ins.\n$_error',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: ElderColors.textMuted,
+                  fontSize: 11,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: _loadCheckIns,
+                icon: const Icon(Icons.refresh_rounded, size: 17),
+                label: const Text('Retry'),
+              ),
+            ],
           ),
-          if (index != visible.length - 1) const SizedBox(height: 13),
-        ],
-        if (visible.isEmpty) _emptySchedule(),
-        const Spacer(),
-        ElderPrimaryButton(
-          label: '+  Create recurring check-in',
-          color: ElderColors.darkTeal,
-          height: 54,
-          onPressed: () => _openAndRefresh(const NewRecurringCheckInScreen()),
         ),
-        const SizedBox(height: 10),
-        _infoCard(),
-      ],
+      );
+    }
+
+    final visible = _visibleCheckIns;
+    if (visible.isEmpty) {
+      final message = _selectedTab == 0
+          ? 'No check-ins scheduled for today.'
+          : _selectedTab == 2
+          ? 'No past check-ins yet.'
+          : 'No upcoming check-ins yet.\nCreate your first recurring check-in below.';
+      return RefreshIndicator(
+        onRefresh: _loadCheckIns,
+        color: ElderColors.darkTeal,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [const SizedBox(height: 26), _emptySchedule(message)],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadCheckIns,
+      color: ElderColors.darkTeal,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(top: 1, bottom: 12),
+        itemCount: visible.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final checkIn = visible[index];
+          final finished = _isFinished(checkIn);
+          return _scheduleCard(
+            checkIn: checkIn,
+            badge: finished
+                ? checkIn.status.name.toUpperCase()
+                : index == 0
+                ? 'NEXT'
+                : 'RECURRING',
+            filledBadge: !finished && index == 0,
+            onTap: finished
+                ? null
+                : () => _openAndRefresh(
+                    // Next check-in can open the ready screen directly.
+                    // Other scheduled sessions can be rescheduled first.
+                    index == 0
+                        ? KamalaReadyScreen(checkInId: checkIn.id)
+                        : RescheduleCheckInScreen(checkInId: checkIn.id),
+                  ),
+          );
+        },
+      ),
     );
   }
 
-  Widget _emptySchedule() {
-    return Container(
-      height: 104,
-      width: double.infinity,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: ElderColors.border),
-      ),
-      child: const Text(
-        'No upcoming check-ins',
-        style: TextStyle(
-          color: ElderColors.textMuted,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-
-  Widget _topBar(BuildContext context) {
+  Widget _topBar() {
     return Row(
       children: [
         InkWell(
@@ -215,36 +348,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
   }
 
   Widget _tabs() {
-    Widget tab(String label, {bool selected = false}) {
-      return Expanded(
-        child: Container(
-          height: 42,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(13),
-            boxShadow: selected
-                ? const [
-                    BoxShadow(
-                      color: Color(0x0D000000),
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: ElderColors.textDark,
-              fontSize: 10.5,
-              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-            ),
-          ),
-        ),
-      );
-    }
-
+    const labels = <String>['Today', 'Upcoming', 'Past'];
     return Container(
       height: 50,
       padding: const EdgeInsets.all(4),
@@ -253,7 +357,64 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
         borderRadius: BorderRadius.circular(15),
       ),
       child: Row(
-        children: [tab('Today'), tab('Upcoming', selected: true), tab('Past')],
+        children: List.generate(labels.length, (index) {
+          final selected = _selectedTab == index;
+          return Expanded(
+            child: InkWell(
+              onTap: () => setState(() => _selectedTab = index),
+              borderRadius: BorderRadius.circular(13),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(13),
+                  boxShadow: selected
+                      ? const [
+                          BoxShadow(
+                            color: Color(0x0D000000),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  labels[index],
+                  style: TextStyle(
+                    color: ElderColors.textDark,
+                    fontSize: 10.5,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _emptySchedule(String message) {
+    return Container(
+      height: 116,
+      width: double.infinity,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: ElderColors.border),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: ElderColors.textMuted,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          height: 1.5,
+        ),
       ),
     );
   }
@@ -261,14 +422,21 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
   Widget _scheduleCard({
     required CheckIn checkIn,
     required String badge,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
     bool filledBadge = false,
   }) {
+    final companionName = checkIn.companionName.trim().isEmpty
+        ? (_connection?.companionName ?? 'Student Companion')
+        : checkIn.companionName.trim();
+    final firstName = companionName.split(RegExp(r'\s+')).first;
+    final companionLabel = firstName.isEmpty
+        ? 'Companion'
+        : '${firstName[0].toUpperCase()}${firstName.substring(1)}';
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(17),
       child: Container(
-        height: 104,
+        height: 100,
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -284,7 +452,11 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
         ),
         child: Row(
           children: [
-            const ElderAvatar(asset: ElderAssets.nethmiAvatar, size: 48),
+            CompanionProfileAvatar(
+              name: companionName,
+              imageUrl: _companionPhotoUrl,
+              size: 48,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -293,15 +465,19 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
                 children: [
                   Text(
                     _formatSchedule(checkIn.scheduledAt),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: ElderColors.textDark,
-                      fontSize: 13.5,
+                      fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    '${checkIn.companionName.split(' ').first} • ${checkIn.mode}',
+                    '$companionLabel • ${checkIn.mode}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: ElderColors.textMuted,
                       fontSize: 9.5,
@@ -311,7 +487,7 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             ElderStatusPill(badge, filled: filledBadge),
           ],
         ),
@@ -319,13 +495,14 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
     );
   }
 
-  String _formatSchedule(DateTime value) {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final day = days[value.weekday - 1];
-    final hour = value.hour > 12 ? value.hour - 12 : value.hour;
-    final minute = value.minute.toString().padLeft(2, '0');
-    final period = value.hour >= 12 ? 'PM' : 'AM';
-    return '$day • $hour:$minute $period';
+  String _formatSchedule(DateTime date) {
+    const days = <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final today = DateTime.now();
+    final label = _sameDay(date, today) ? 'Today' : days[date.weekday - 1];
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour >= 12 ? 'PM' : 'AM';
+    return '$label • $hour:$minute $period';
   }
 
   Widget _infoCard() {

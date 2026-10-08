@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/check_in.dart';
 import '../models/recurring_schedule.dart';
 import '../services/firebase_elder_service.dart';
 import '../widgets/elder_assets.dart';
@@ -19,35 +20,130 @@ class _NewRecurringCheckInScreenState extends State<NewRecurringCheckInScreen> {
   final FirebaseElderService _service = FirebaseElderService.instance;
 
   final Set<int> selectedDays = {0, 2, 4};
+  late Future<ElderFlowContext> _connectionFuture;
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 18, minute: 30);
+  int _durationMinutes = 30;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _connectionFuture = _service.getCurrentFlowContext();
+  }
+
+  void _retryConnection() {
+    setState(() {
+      _connectionFuture = _service.getCurrentFlowContext();
+    });
+  }
+
+  String _timeLabel() {
+    final hour = _selectedTime.hourOfPeriod == 0
+        ? 12
+        : _selectedTime.hourOfPeriod;
+    final minute = _selectedTime.minute.toString().padLeft(2, '0');
+    final period = _selectedTime.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$hour:$minute $period';
+  }
+
+  Future<void> _chooseTime() async {
+    final selected = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+      helpText: 'Choose check-in time',
+    );
+    if (selected != null && mounted) {
+      setState(() => _selectedTime = selected);
+    }
+  }
+
+  Future<void> _chooseDuration() async {
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(title: Text('Check-in duration')),
+            for (final minutes in [15, 30, 45, 60])
+              ListTile(
+                title: Text('$minutes minutes'),
+                trailing: _durationMinutes == minutes
+                    ? const Icon(Icons.check, color: ElderColors.deepTeal)
+                    : null,
+                onTap: () => Navigator.of(sheetContext).pop(minutes),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null && mounted) {
+      setState(() => _durationMinutes = selected);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   Future<void> _createSchedule() async {
     if (_saving) return;
+    if (selectedDays.isEmpty) {
+      _showError('Select at least one repeat day.');
+      return;
+    }
 
     setState(() => _saving = true);
 
-    await _service.createRecurringSchedule(
-      RecurringSchedule(
-        id: '',
-        elderId: 'elder-kamala',
-        elderName: 'Kamala Perera',
-        companionId: 'companion-nethmi',
-        companionName: 'Nethmi Jayasooriya',
-        weekdays: selectedDays.map((index) => index + 1).toList()..sort(),
-        hour: 18,
-        minute: 30,
-        durationMinutes: 30,
-        isActive: true,
-      ),
-    );
+    String writeStage = 'loading active connection';
+    try {
+      final connection = await _connectionFuture;
+      writeStage = 'creating recurring_schedules document';
+      final schedule = await _service.createRecurringSchedule(
+        RecurringSchedule(
+          id: '',
+          elderId: connection.elderId,
+          elderName: connection.elderName,
+          companionId: connection.companionId,
+          companionName: connection.companionName,
+          weekdays: selectedDays.map((index) => index + 1).toList()..sort(),
+          hour: _selectedTime.hour,
+          minute: _selectedTime.minute,
+          durationMinutes: _durationMinutes,
+          isActive: true,
+        ),
+      );
 
-    if (!mounted) return;
+      // Use an actual Firestore ID, not a demo ID like 'checkin-001'.
+      // If the second write fails, undo the newly created routine where possible.
+      late final CheckIn checkIn;
+      try {
+        writeStage = 'creating check_ins document';
+        checkIn = await _service.createInitialCheckInForSchedule(schedule);
+      } catch (_) {
+        try {
+          await _service.deleteRecurringSchedule(schedule.id);
+        } catch (_) {
+          // A cleanup failure should not hide the original write failure.
+        }
+        rethrow;
+      }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const RescheduleCheckInScreen(checkInId: 'checkin-001'),
-      ),
-    );
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => RescheduleCheckInScreen(checkInId: checkIn.id),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      debugPrint('CareLink write stage: $writeStage | $error');
+      _showError('Failed at $writeStage: $error');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -68,12 +164,14 @@ class _NewRecurringCheckInScreenState extends State<NewRecurringCheckInScreen> {
             _fieldSection(
               label: 'Time',
               icon: Icons.schedule_rounded,
-              value: '6:30 PM',
+              value: _timeLabel(),
+              onTap: _chooseTime,
             ),
             _fieldSection(
               label: 'Duration',
               icon: Icons.timelapse_rounded,
-              value: '30 minutes',
+              value: '$_durationMinutes minutes',
+              onTap: _chooseDuration,
             ),
             _elderSection(),
             _actions(),
@@ -194,6 +292,7 @@ class _NewRecurringCheckInScreenState extends State<NewRecurringCheckInScreen> {
     required String label,
     required IconData icon,
     required String value,
+    required VoidCallback onTap,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,43 +306,47 @@ class _NewRecurringCheckInScreenState extends State<NewRecurringCheckInScreen> {
           ),
         ),
         const SizedBox(height: 7),
-        Container(
-          height: 60,
-          padding: const EdgeInsets.symmetric(horizontal: 13),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFDCE9E7)),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: ElderColors.mintSoft,
-                  shape: BoxShape.circle,
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(15),
+          child: Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 13),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFDCE9E7)),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: ElderColors.mintSoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: ElderColors.deepTeal, size: 18),
                 ),
-                child: Icon(icon, color: ElderColors.deepTeal, size: 18),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Text(
-                  value,
-                  style: const TextStyle(
-                    color: ElderColors.textDark,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      color: ElderColors.textDark,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: ElderColors.textMuted,
-                size: 21,
-              ),
-            ],
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: ElderColors.textMuted,
+                  size: 21,
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -271,40 +374,94 @@ class _NewRecurringCheckInScreenState extends State<NewRecurringCheckInScreen> {
             border: Border.all(color: ElderColors.deepTeal, width: 1.1),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: const Row(
-            children: [
-              ElderAvatar(
-                asset: ElderAssets.kamalaAvatar,
-                size: 54,
-                border: false,
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: FutureBuilder<ElderFlowContext>(
+            future: _connectionFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(
+                  child: CircularProgressIndicator(color: ElderColors.darkTeal),
+                );
+              }
+              if (snapshot.hasError || !snapshot.hasData) {
+                return Row(
                   children: [
-                    Text(
-                      'Kamala Perera',
-                      style: TextStyle(
-                        color: ElderColors.textDark,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w900,
+                    const Icon(
+                      Icons.error_outline,
+                      color: ElderColors.darkTeal,
+                    ),
+                    const SizedBox(width: 9),
+                    const Expanded(
+                      child: Text(
+                        'Cannot load your Elder connection.',
+                        maxLines: 2,
+                        style: TextStyle(fontSize: 11),
                       ),
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Selected elder',
-                      style: TextStyle(
-                        color: ElderColors.textMuted,
-                        fontSize: 9.5,
-                      ),
+                    TextButton(
+                      onPressed: _retryConnection,
+                      child: const Text('Retry'),
                     ),
                   ],
-                ),
-              ),
-              ElderStatusPill('SELECTED', filled: true),
-            ],
+                );
+              }
+
+              final elderName = snapshot.data!.elderName;
+              final isExampleKamala = elderName.toLowerCase().contains(
+                'kamala',
+              );
+
+              return Row(
+                children: [
+                  if (isExampleKamala)
+                    const ElderAvatar(
+                      asset: ElderAssets.kamalaAvatar,
+                      size: 54,
+                      border: false,
+                    )
+                  else
+                    CircleAvatar(
+                      radius: 27,
+                      backgroundColor: ElderColors.mintSoft,
+                      child: Text(
+                        elderName.isEmpty ? '?' : elderName[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: ElderColors.darkTeal,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          elderName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: ElderColors.textDark,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Connected elder',
+                          style: TextStyle(
+                            color: ElderColors.textMuted,
+                            fontSize: 9.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const ElderStatusPill('SELECTED', filled: true),
+                ],
+              );
+            },
           ),
         ),
       ],

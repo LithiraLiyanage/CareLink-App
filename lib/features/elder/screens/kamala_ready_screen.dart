@@ -3,10 +3,110 @@ import 'package:flutter/material.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
-import 'active_video_call_nethmi_screen.dart';
+import '../models/check_in.dart';
+import '../services/firebase_elder_service.dart';
+import 'active_video_call_kamala_screen.dart';
 
-class KamalaReadyScreen extends StatelessWidget {
-  const KamalaReadyScreen({super.key});
+class KamalaReadyScreen extends StatefulWidget {
+  const KamalaReadyScreen({super.key, this.checkInId = ''});
+
+  // The preceding Reschedule screen can also pass this in RouteSettings.arguments.
+  final String checkInId;
+
+  @override
+  State<KamalaReadyScreen> createState() => _KamalaReadyScreenState();
+}
+
+class _KamalaReadyScreenState extends State<KamalaReadyScreen> {
+  final FirebaseElderService _service = FirebaseElderService.instance;
+  bool _routeResolved = false;
+  bool _loading = false;
+  bool _starting = false;
+  String _checkInId = '';
+  String? _loadError;
+  CheckIn? _checkIn;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_routeResolved) return;
+    _routeResolved = true;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    _checkInId = widget.checkInId.isNotEmpty
+        ? widget.checkInId
+        : (args is String ? args : '');
+    if (_checkInId.isNotEmpty) {
+      _loadCheckIn();
+    } else {
+      _loadError = 'Open this screen from My Schedule.';
+    }
+  }
+
+  Future<void> _loadCheckIn() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final checkIn = await _service.getCheckInById(_checkInId);
+      if (checkIn == null) throw StateError('Check-in not found.');
+      if (checkIn.status == CheckInStatus.cancelled ||
+          checkIn.status == CheckInStatus.completed) {
+        throw StateError('This check-in is no longer available.');
+      }
+      if (!mounted) return;
+      setState(() => _checkIn = checkIn);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loadError = 'Could not load check-in: $error');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _message(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _dateAndTime(DateTime date) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final today = DateTime.now();
+    final isToday =
+        date.year == today.year &&
+        date.month == today.month &&
+        date.day == today.day;
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '${isToday ? 'Today' : days[date.weekday - 1]} '
+        '• $hour:$minute ${date.hour >= 12 ? 'PM' : 'AM'} '
+        '• Video check-in';
+  }
+
+  Future<void> _startVideoCall() async {
+    if (_starting || _loading) return;
+    if (_loadError != null || _checkIn == null) {
+      _message(_loadError ?? 'Please select a check-in first.');
+      return;
+    }
+    setState(() => _starting = true);
+    try {
+      await _service.updateCheckInStatus(_checkInId, CheckInStatus.inProgress);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          settings: RouteSettings(arguments: _checkInId),
+          builder: (_) => ActiveVideoCallKamalaScreen(checkInId: _checkInId),
+        ),
+      );
+    } catch (error) {
+      _message('Could not start check-in: $error');
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,22 +130,16 @@ class KamalaReadyScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const _IdentityRow(
-                      name: 'Kamala Perera',
+                    _IdentityRow(
+                      name: _checkIn?.elderName ?? 'Kamala Perera',
                       role: 'Elder',
                       avatar: ElderAssets.kamalaAvatar,
                     ),
-                    const _ReadyMetrics(),
+                    _ReadyMetrics(minutes: _checkIn?.durationMinutes ?? 30),
                     ElderPrimaryButton(
-                      label: 'Start video call',
+                      label: _starting ? 'Starting...' : 'Start video call',
                       height: 54,
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ActiveVideoCallNethmiScreen(),
-                          ),
-                        );
-                      },
+                      onPressed: _startVideoCall,
                     ),
                     Row(
                       children: [
@@ -53,7 +147,9 @@ class KamalaReadyScreen extends StatelessWidget {
                           child: ElderOutlineButton(
                             label: 'Voice only',
                             height: 48,
-                            onPressed: () {},
+                            onPressed: () => _message(
+                              'Voice-only calling is not connected yet.',
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -61,7 +157,8 @@ class KamalaReadyScreen extends StatelessWidget {
                           child: ElderOutlineButton(
                             label: 'Message instead',
                             height: 48,
-                            onPressed: () {},
+                            onPressed: () =>
+                                _message('Messaging is not connected yet.'),
                           ),
                         ),
                       ],
@@ -73,7 +170,9 @@ class KamalaReadyScreen extends StatelessWidget {
                         height: 48,
                         foregroundColor: ElderColors.darkTeal,
                         backgroundColor: const Color(0xFFBDF1F3),
-                        onPressed: () {},
+                        onPressed: () => _message(
+                          'Conversation ideas are not connected here yet.',
+                        ),
                       ),
                     ),
                     const _ControlInfo(),
@@ -112,12 +211,12 @@ class KamalaReadyScreen extends StatelessWidget {
               onPressed: () => Navigator.of(context).maybePop(),
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 18,
             right: 18,
             bottom: 48,
             child: Text(
-              'Kamala is ready',
+              '${(_checkIn?.elderName ?? 'Kamala').split(' ').first} is ready',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 27,
@@ -126,12 +225,14 @@ class KamalaReadyScreen extends StatelessWidget {
               ),
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 18,
             right: 18,
             bottom: 27,
             child: Text(
-              'Today • 6:30 PM • Video check-in',
+              _checkIn == null
+                  ? 'Today • 6:30 PM • Video check-in'
+                  : _dateAndTime(_checkIn!.scheduledAt),
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 10,
@@ -193,7 +294,9 @@ class _IdentityRow extends StatelessWidget {
 }
 
 class _ReadyMetrics extends StatelessWidget {
-  const _ReadyMetrics();
+  const _ReadyMetrics({required this.minutes});
+
+  final int minutes;
 
   @override
   Widget build(BuildContext context) {
@@ -204,13 +307,13 @@ class _ReadyMetrics extends StatelessWidget {
         border: Border.all(color: ElderColors.deepTeal),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Expanded(child: _Metric('30 min', 'planned')),
-          VerticalDivider(width: 1, color: ElderColors.border),
-          Expanded(child: _Metric('Video', 'private call')),
-          VerticalDivider(width: 1, color: ElderColors.border),
-          Expanded(child: _Metric('Safe', 'controls on')),
+          Expanded(child: _Metric('$minutes min', 'planned')),
+          const VerticalDivider(width: 1, color: ElderColors.border),
+          const Expanded(child: _Metric('Video', 'private call')),
+          const VerticalDivider(width: 1, color: ElderColors.border),
+          const Expanded(child: _Metric('Safe', 'controls on')),
         ],
       ),
     );
@@ -239,10 +342,7 @@ class _Metric extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: ElderColors.textMuted,
-            fontSize: 8.5,
-          ),
+          style: const TextStyle(color: ElderColors.textMuted, fontSize: 8.5),
         ),
       ],
     );
@@ -286,10 +386,7 @@ class _ControlInfo extends StatelessWidget {
                 SizedBox(height: 3),
                 Text(
                   'End, retry or ask for help at any time.',
-                  style: TextStyle(
-                    color: ElderColors.textMuted,
-                    fontSize: 9,
-                  ),
+                  style: TextStyle(color: ElderColors.textMuted, fontSize: 9),
                 ),
               ],
             ),

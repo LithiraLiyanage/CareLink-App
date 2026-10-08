@@ -1,9 +1,28 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/check_in.dart';
 import '../models/memory_item.dart';
 import '../models/recurring_schedule.dart';
 import 'elder_service.dart';
+
+class ElderFlowContext {
+  const ElderFlowContext({
+    required this.connectionId,
+    required this.matchRequestId,
+    required this.elderId,
+    required this.elderName,
+    required this.companionId,
+    required this.companionName,
+  });
+
+  final String connectionId;
+  final String matchRequestId;
+  final String elderId;
+  final String elderName;
+  final String companionId;
+  final String companionName;
+}
 
 class FirebaseElderService implements ElderService {
   FirebaseElderService._();
@@ -11,6 +30,19 @@ class FirebaseElderService implements ElderService {
   static final FirebaseElderService instance = FirebaseElderService._();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  CollectionReference<Map<String, dynamic>> get _users =>
+      _firestore.collection('users');
+
+  CollectionReference<Map<String, dynamic>> get _companionProfiles =>
+      _firestore.collection('companion_profiles');
+
+  CollectionReference<Map<String, dynamic>> get _connections =>
+      _firestore.collection('connections');
+
+  CollectionReference<Map<String, dynamic>> get _matchRequests =>
+      _firestore.collection('match_requests');
 
   CollectionReference<Map<String, dynamic>> get _checkIns =>
       _firestore.collection('check_ins');
@@ -21,15 +53,167 @@ class FirebaseElderService implements ElderService {
   CollectionReference<Map<String, dynamic>> get _memories =>
       _firestore.collection('memories');
 
+  String get _uid {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw StateError('Please sign in before using check-ins.');
+    }
+    return uid;
+  }
+
+  Future<Map<String, dynamic>> _currentUserData() async {
+    final snapshot = await _users.doc(_uid).get();
+    final data = snapshot.data();
+
+    if (data == null) {
+      throw StateError('Your CareLink user profile could not be found.');
+    }
+
+    return data;
+  }
+
+  Future<QueryDocumentSnapshot<Map<String, dynamic>>>
+  _currentConnectionDocument() async {
+    final uid = _uid;
+    final userData = await _currentUserData();
+    final role = userData['role'] as String?;
+
+    Query<Map<String, dynamic>> query;
+
+    if (role == 'Student Companion') {
+      query = _connections.where('companionId', isEqualTo: uid);
+    } else if (role == 'Older Adult') {
+      query = _connections.where('elderId', isEqualTo: uid);
+    } else {
+      throw StateError(
+        'Only an Older Adult or Student Companion can use check-ins.',
+      );
+    }
+
+    final snapshot = await query.get();
+
+    final active = snapshot.docs
+        .where(
+          (doc) =>
+              doc.data()['status'] == 'active' ||
+              doc.data()['status'] == 'paused',
+        )
+        .toList();
+
+    // Prefer an active connection over a paused one when multiple exist.
+    active.sort((a, b) {
+      final aIsActive = a.data()['status'] == 'active';
+      final bIsActive = b.data()['status'] == 'active';
+      if (aIsActive != bIsActive) return aIsActive ? -1 : 1;
+      final aStarted = a.data()['startedAt'];
+      final bStarted = b.data()['startedAt'];
+
+      if (aStarted is Timestamp && bStarted is Timestamp) {
+        return bStarted.compareTo(aStarted);
+      }
+
+      return 0;
+    });
+
+    if (active.isEmpty) {
+      throw StateError(
+        role == 'Student Companion'
+            ? 'Accept an Elder request before creating check-ins.'
+            : 'No active companion connection was found.',
+      );
+    }
+
+    return active.first;
+  }
+
+  Future<ElderFlowContext> getCurrentFlowContext() async {
+    final connection = await _currentConnectionDocument();
+    final connectionData = connection.data();
+
+    final elderId = connectionData['elderId'] as String? ?? '';
+    final companionId = connectionData['companionId'] as String? ?? '';
+    final matchRequestId = connectionData['matchRequestId'] as String? ?? '';
+
+    if (elderId.isEmpty || companionId.isEmpty || matchRequestId.isEmpty) {
+      throw StateError('The active connection is missing required data.');
+    }
+
+    final requestSnapshot = await _matchRequests.doc(matchRequestId).get();
+    final requestData = requestSnapshot.data();
+
+    if (requestData == null) {
+      throw StateError('The accepted companion request could not be found.');
+    }
+
+    final currentUserSnapshot = await _users.doc(_uid).get();
+    final currentUserData =
+        currentUserSnapshot.data() ?? const <String, dynamic>{};
+    final currentRole = currentUserData['role'] as String?;
+
+    String elderName =
+        requestData['elderDisplayName'] as String? ?? 'Older Adult';
+    String companionName = 'Student Companion';
+
+    if (currentRole == 'Student Companion') {
+      companionName =
+          currentUserData['fullName'] as String? ?? 'Student Companion';
+    } else {
+      final profileSnapshot = await _companionProfiles.doc(companionId).get();
+      final profileData =
+          profileSnapshot.data() ?? const <String, dynamic>{};
+      companionName =
+          profileData['fullName'] as String? ?? 'Student Companion';
+
+      elderName =
+          currentUserData['fullName'] as String? ??
+          requestData['elderDisplayName'] as String? ??
+          'Older Adult';
+    }
+
+    return ElderFlowContext(
+      connectionId: connection.id,
+      matchRequestId: matchRequestId,
+      elderId: elderId,
+      elderName: elderName,
+      companionId: companionId,
+      companionName: companionName,
+    );
+  }
+
+  bool _belongsToCurrentUser(Map<String, dynamic> data) {
+    final uid = _uid;
+    return data['elderId'] == uid || data['companionId'] == uid;
+  }
+
+  Future<void> _requireCurrentParticipant(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) async {
+    final data = snapshot.data();
+
+    if (data == null || !_belongsToCurrentUser(data)) {
+      throw StateError('This check-in is not available to your account.');
+    }
+  }
+
   // ============================================================
   // CHECK-INS
   // ============================================================
 
   @override
   Future<List<CheckIn>> getCheckIns() async {
-    final snapshot = await _checkIns.orderBy('scheduledAt').get();
+    final context = await getCurrentFlowContext();
 
-    return snapshot.docs.map((doc) => _checkInFromDocument(doc)).toList();
+    final snapshot = await _checkIns
+        .where('elderId', isEqualTo: context.elderId)
+        .where('companionId', isEqualTo: context.companionId)
+        .get();
+
+    final items = snapshot.docs
+        .map((doc) => _checkInFromDocument(doc))
+        .toList();
+
+    items.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    return items;
   }
 
   @override
@@ -40,7 +224,41 @@ class FirebaseElderService implements ElderService {
       return null;
     }
 
+    await _requireCurrentParticipant(doc);
     return _checkInFromDocument(doc);
+  }
+
+  Future<CheckIn> createInitialCheckInForSchedule(
+    RecurringSchedule schedule,
+  ) async {
+    final context = await getCurrentFlowContext();
+
+    final scheduledAt = _nextOccurrence(
+      schedule.weekdays,
+      schedule.hour,
+      schedule.minute,
+    );
+
+    final ref = _checkIns.doc();
+
+    await ref.set({
+      'connectionId': context.connectionId,
+      'matchRequestId': context.matchRequestId,
+      'elderId': context.elderId,
+      'elderName': context.elderName,
+      'companionId': context.companionId,
+      'companionName': context.companionName,
+      'scheduledAt': Timestamp.fromDate(scheduledAt),
+      'durationMinutes': schedule.durationMinutes,
+      'mode': 'Video',
+      'status': CheckInStatus.scheduled.name,
+      'reflection': null,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    final created = await ref.get();
+    return _checkInFromDocument(created);
   }
 
   @override
@@ -55,14 +273,15 @@ class FirebaseElderService implements ElderService {
       throw StateError('Check-in not found: $checkInId');
     }
 
+    await _requireCurrentParticipant(snapshot);
+
     await ref.update({
       'scheduledAt': Timestamp.fromDate(newDateTime),
-      'status': CheckInStatus.scheduled.name,
+      'status': CheckInStatus.ready.name,
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
     final updated = await ref.get();
-
     return _checkInFromDocument(updated);
   }
 
@@ -79,9 +298,15 @@ class FirebaseElderService implements ElderService {
       throw StateError('Check-in not found: $checkInId');
     }
 
+    await _requireCurrentParticipant(snapshot);
+
     final data = <String, dynamic>{
       'status': status.name,
       'updatedAt': FieldValue.serverTimestamp(),
+      if (status == CheckInStatus.inProgress)
+        'startedAt': FieldValue.serverTimestamp(),
+      if (status == CheckInStatus.completed)
+        'completedAt': FieldValue.serverTimestamp(),
     };
 
     if (reflection != null) {
@@ -91,7 +316,6 @@ class FirebaseElderService implements ElderService {
     await ref.update(data);
 
     final updated = await ref.get();
-
     return _checkInFromDocument(updated);
   }
 
@@ -106,7 +330,12 @@ class FirebaseElderService implements ElderService {
 
   @override
   Future<List<RecurringSchedule>> getRecurringSchedules() async {
-    final snapshot = await _recurringSchedules.get();
+    final context = await getCurrentFlowContext();
+
+    final snapshot = await _recurringSchedules
+        .where('elderId', isEqualTo: context.elderId)
+        .where('companionId', isEqualTo: context.companionId)
+        .get();
 
     return snapshot.docs
         .map((doc) => _recurringScheduleFromDocument(doc))
@@ -117,13 +346,23 @@ class FirebaseElderService implements ElderService {
   Future<RecurringSchedule> createRecurringSchedule(
     RecurringSchedule schedule,
   ) async {
+    final context = await getCurrentFlowContext();
+
     final DocumentReference<Map<String, dynamic>> ref = schedule.id.isEmpty
         ? _recurringSchedules.doc()
         : _recurringSchedules.doc(schedule.id);
 
-    final createdSchedule = schedule.copyWith(id: ref.id);
+    final createdSchedule = schedule.copyWith(
+      id: ref.id,
+      elderId: context.elderId,
+      elderName: context.elderName,
+      companionId: context.companionId,
+      companionName: context.companionName,
+    );
 
     await ref.set({
+      'connectionId': context.connectionId,
+      'matchRequestId': context.matchRequestId,
       'elderId': createdSchedule.elderId,
       'elderName': createdSchedule.elderName,
       'companionId': createdSchedule.companionId,
@@ -134,6 +373,7 @@ class FirebaseElderService implements ElderService {
       'durationMinutes': createdSchedule.durationMinutes,
       'isActive': createdSchedule.isActive,
       'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     });
 
     return createdSchedule;
@@ -141,7 +381,14 @@ class FirebaseElderService implements ElderService {
 
   @override
   Future<void> deleteRecurringSchedule(String scheduleId) async {
-    await _recurringSchedules.doc(scheduleId).delete();
+    final snapshot = await _recurringSchedules.doc(scheduleId).get();
+    final data = snapshot.data();
+
+    if (data == null || !_belongsToCurrentUser(data)) {
+      throw StateError('This recurring schedule is not available to you.');
+    }
+
+    await snapshot.reference.delete();
   }
 
   // ============================================================
@@ -150,23 +397,78 @@ class FirebaseElderService implements ElderService {
 
   @override
   Future<List<MemoryItem>> getMemories() async {
-    final snapshot = await _memories
-        .orderBy('createdAt', descending: true)
-        .get();
+    final context = await getCurrentFlowContext();
+    final uid = _uid;
 
-    return snapshot.docs.map((doc) => _memoryFromDocument(doc)).toList();
+    // Query only documents the rules can prove this user may read.
+    // Querying the whole pair would expose 'Only me' memories and be denied.
+    final owned = await _memories.where('ownerId', isEqualTo: uid).get();
+
+    Query<Map<String, dynamic>> sharedQuery;
+    if (uid == context.companionId) {
+      sharedQuery = _memories
+          .where('companionId', isEqualTo: uid)
+          .where('visibility', isEqualTo: 'Companion');
+    } else {
+      sharedQuery = _memories
+          .where('elderId', isEqualTo: uid)
+          .where('visibility', isEqualTo: 'Companion');
+    }
+    final shared = await sharedQuery.get();
+
+    final unique = <String, MemoryItem>{};
+    for (final doc in [...owned.docs, ...shared.docs]) {
+      final data = doc.data();
+      if (data['elderId'] != context.elderId ||
+          data['companionId'] != context.companionId) {
+        continue;
+      }
+      unique[doc.id] = _memoryFromDocument(doc);
+    }
+
+    final items = unique.values.toList();
+    items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return items;
   }
 
   @override
   Future<MemoryItem> addMemory(MemoryItem memory) async {
+    final context = await getCurrentFlowContext();
+
     final DocumentReference<Map<String, dynamic>> ref = memory.id.isEmpty
         ? _memories.doc()
         : _memories.doc(memory.id);
 
-    final createdMemory = memory.copyWith(id: ref.id);
+    final currentUid = _uid;
+    final createdMemory = memory.copyWith(
+      id: ref.id,
+      ownerId: currentUid,
+    );
+
+    // The rules allow editing only content fields, not the connection/owner IDs.
+    // Use update() for an existing memory; set() would rewrite server metadata.
+    if (memory.id.isNotEmpty) {
+      final previous = await ref.get();
+      if (previous.data()?['ownerId'] != currentUid) {
+        throw StateError('Only the memory creator can edit it.');
+      }
+      await ref.update({
+        'title': createdMemory.title,
+        'caption': createdMemory.caption,
+        'mediaPath': createdMemory.mediaPath,
+        'memoryDate': Timestamp.fromDate(createdMemory.memoryDate),
+        'visibility': createdMemory.visibility,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return createdMemory;
+    }
 
     await ref.set({
-      'ownerId': createdMemory.ownerId,
+      'connectionId': context.connectionId,
+      'matchRequestId': context.matchRequestId,
+      'elderId': context.elderId,
+      'companionId': context.companionId,
+      'ownerId': currentUid,
       'type': createdMemory.type.name,
       'title': createdMemory.title,
       'caption': createdMemory.caption,
@@ -174,6 +476,7 @@ class FirebaseElderService implements ElderService {
       'memoryDate': Timestamp.fromDate(createdMemory.memoryDate),
       'createdAt': Timestamp.fromDate(createdMemory.createdAt),
       'visibility': createdMemory.visibility,
+      'updatedAt': FieldValue.serverTimestamp(),
     });
 
     return createdMemory;
@@ -181,14 +484,25 @@ class FirebaseElderService implements ElderService {
 
   @override
   Future<void> deleteMemory(String memoryId) async {
-    await _memories.doc(memoryId).delete();
+    final snapshot = await _memories.doc(memoryId).get();
+    final data = snapshot.data();
+
+    if (data == null ||
+        !_belongsToCurrentUser(data) ||
+        data['ownerId'] != _uid) {
+      throw StateError('Only the memory creator can delete it.');
+    }
+
+    await snapshot.reference.delete();
   }
 
   // ============================================================
   // FIRESTORE -> MODEL
   // ============================================================
 
-  CheckIn _checkInFromDocument(DocumentSnapshot<Map<String, dynamic>> doc) {
+  CheckIn _checkInFromDocument(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data();
 
     if (data == null) {
@@ -215,13 +529,18 @@ class FirebaseElderService implements ElderService {
     final data = doc.data();
 
     if (data == null) {
-      throw StateError('Recurring schedule document has no data: ${doc.id}');
+      throw StateError(
+        'Recurring schedule document has no data: ${doc.id}',
+      );
     }
 
     final rawWeekdays = data['weekdays'];
 
     final weekdays = rawWeekdays is List
-        ? rawWeekdays.whereType<num>().map((value) => value.toInt()).toList()
+        ? rawWeekdays
+              .whereType<num>()
+              .map((value) => value.toInt())
+              .toList()
         : <int>[];
 
     return RecurringSchedule(
@@ -238,7 +557,9 @@ class FirebaseElderService implements ElderService {
     );
   }
 
-  MemoryItem _memoryFromDocument(DocumentSnapshot<Map<String, dynamic>> doc) {
+  MemoryItem _memoryFromDocument(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data();
 
     if (data == null) {
@@ -257,92 +578,6 @@ class FirebaseElderService implements ElderService {
       visibility: data['visibility'] as String? ?? 'Only me',
     );
   }
-
-  Future<void> seedDemoDataIfEmpty() async {
-    final checkInSnapshot = await _checkIns.limit(1).get();
-
-    if (checkInSnapshot.docs.isEmpty) {
-      await _checkIns.doc('checkin-001').set({
-        'elderId': 'elder-kamala',
-        'elderName': 'Kamala Perera',
-        'companionId': 'companion-nethmi',
-        'companionName': 'Nethmi Jayasooriya',
-        'scheduledAt': Timestamp.fromDate(DateTime(2026, 10, 6, 18, 30)),
-        'durationMinutes': 30,
-        'mode': 'Video',
-        'status': CheckInStatus.ready.name,
-        'reflection': null,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      await _checkIns.doc('checkin-002').set({
-        'elderId': 'elder-kamala',
-        'elderName': 'Kamala Perera',
-        'companionId': 'companion-nethmi',
-        'companionName': 'Nethmi Jayasooriya',
-        'scheduledAt': Timestamp.fromDate(DateTime(2026, 10, 8, 18, 30)),
-        'durationMinutes': 30,
-        'mode': 'Video',
-        'status': CheckInStatus.scheduled.name,
-        'reflection': null,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      await _checkIns.doc('checkin-003').set({
-        'elderId': 'elder-kamala',
-        'elderName': 'Kamala Perera',
-        'companionId': 'companion-nethmi',
-        'companionName': 'Nethmi Jayasooriya',
-        'scheduledAt': Timestamp.fromDate(DateTime(2026, 10, 10, 18, 30)),
-        'durationMinutes': 30,
-        'mode': 'Video',
-        'status': CheckInStatus.scheduled.name,
-        'reflection': null,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    }
-
-    final memorySnapshot = await _memories.limit(1).get();
-
-    if (memorySnapshot.docs.isEmpty) {
-      await _memories.doc('memory-001').set({
-        'ownerId': 'elder-kamala',
-        'type': MemoryType.photo.name,
-        'title': 'A favourite family moment',
-        'caption': 'Colombo • Jan 1998',
-        'mediaPath': 'assets/elder/family_memory.jpg',
-        'memoryDate': Timestamp.fromDate(DateTime(1998, 1, 1)),
-        'createdAt': Timestamp.fromDate(DateTime.now()),
-        'visibility': 'Only me',
-      });
-
-      await _memories.doc('memory-002').set({
-        'ownerId': 'elder-kamala',
-        'type': MemoryType.voice.name,
-        'title': "Listen to Amma's Story",
-        'caption': '02:45',
-        'mediaPath': null,
-        'memoryDate': Timestamp.fromDate(DateTime(2000, 4, 10)),
-        'createdAt': Timestamp.fromDate(DateTime.now()),
-        'visibility': 'Only me',
-      });
-
-      await _memories.doc('memory-003').set({
-        'ownerId': 'elder-kamala',
-        'type': MemoryType.song.name,
-        'title': 'Favourite Song',
-        'caption': null,
-        'mediaPath': null,
-        'memoryDate': Timestamp.fromDate(DateTime(2001, 6, 15)),
-        'createdAt': Timestamp.fromDate(DateTime.now()),
-        'visibility': 'Only me',
-      });
-    }
-  }
-
-  // ============================================================
-  // HELPERS
-  // ============================================================
 
   DateTime _dateTimeFromFirestore(dynamic value) {
     if (value is Timestamp) {
@@ -375,4 +610,35 @@ class FirebaseElderService implements ElderService {
 
     return MemoryType.photo;
   }
+
+  DateTime _nextOccurrence(
+    List<int> weekdays,
+    int hour,
+    int minute,
+  ) {
+    if (weekdays.isEmpty) {
+      throw StateError('Select at least one day for the recurring check-in.');
+    }
+
+    final now = DateTime.now();
+
+    for (int offset = 0; offset < 14; offset++) {
+      final day = DateTime(
+        now.year,
+        now.month,
+        now.day + offset,
+        hour,
+        minute,
+      );
+
+      if (weekdays.contains(day.weekday) && day.isAfter(now)) {
+        return day;
+      }
+    }
+
+    throw StateError('Could not calculate the next check-in time.');
+  }
+
+  @Deprecated('Do not seed demo data into the shared CareLink Firebase project.')
+  Future<void> seedDemoDataIfEmpty() async {}
 }
