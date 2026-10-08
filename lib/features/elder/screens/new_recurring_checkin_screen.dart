@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/check_in.dart';
 import '../models/recurring_schedule.dart';
 import '../services/firebase_elder_service.dart';
+import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
 import 'reschedule_checkin_screen.dart';
@@ -19,6 +20,8 @@ class NewRecurringCheckInScreen extends StatefulWidget {
     this.navigationOnly = false,
   });
 
+  // Compatibility with the existing Companion Matching handoff.
+  // The service independently verifies the current Firestore connection.
   final String? connectionId;
   final String? elderId;
   final String? elderName;
@@ -35,209 +38,130 @@ class NewRecurringCheckInScreen extends StatefulWidget {
 class _NewRecurringCheckInScreenState extends State<NewRecurringCheckInScreen> {
   final FirebaseElderService _service = FirebaseElderService.instance;
 
-  final Set<int> selectedDays = {};
-  TimeOfDay? _selectedTime;
-  int? _durationMinutes;
-  String? _mode;
+  final Set<int> selectedDays = {0, 2, 4};
+  late Future<ElderFlowContext> _connectionFuture;
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 18, minute: 30);
+  int _durationMinutes = 30;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    final requestedType = widget.preferredCheckInType?.trim();
-    if (requestedType == 'Video' || requestedType == 'Voice') {
-      _mode = requestedType;
+    _connectionFuture = _service.getCurrentFlowContext();
+  }
+
+  void _retryConnection() {
+    setState(() {
+      _connectionFuture = _service.getCurrentFlowContext();
+    });
+  }
+
+  String _timeLabel() {
+    final hour = _selectedTime.hourOfPeriod == 0
+        ? 12
+        : _selectedTime.hourOfPeriod;
+    final minute = _selectedTime.minute.toString().padLeft(2, '0');
+    final period = _selectedTime.period == DayPeriod.am ? 'AM' : 'PM';
+    return '$hour:$minute $period';
+  }
+
+  Future<void> _chooseTime() async {
+    final selected = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+      helpText: 'Choose check-in time',
+    );
+    if (selected != null && mounted) {
+      setState(() => _selectedTime = selected);
     }
+  }
+
+  Future<void> _chooseDuration() async {
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(title: Text('Check-in duration')),
+            for (final minutes in [15, 30, 45, 60])
+              ListTile(
+                title: Text('$minutes minutes'),
+                trailing: _durationMinutes == minutes
+                    ? const Icon(Icons.check, color: ElderColors.deepTeal)
+                    : null,
+                onTap: () => Navigator.of(sheetContext).pop(minutes),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null && mounted) {
+      setState(() => _durationMinutes = selected);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _createSchedule() async {
     if (_saving) return;
-
-    if (widget.navigationOnly) {
-      final now = DateTime.now();
-      final time = _selectedTime ?? const TimeOfDay(hour: 10, minute: 0);
-      final preview = CheckIn(
-        id: '',
-        elderId: widget.elderId ?? '',
-        elderName: widget.elderName ?? '',
-        elderImageUrl: null,
-        companionId: widget.companionId ?? '',
-        companionName: widget.companionName ?? '',
-        scheduledAt: DateTime(
-          now.year,
-          now.month,
-          now.day,
-          time.hour,
-          time.minute,
-        ),
-        durationMinutes: _durationMinutes ?? 30,
-        mode: _mode ?? widget.preferredCheckInType ?? 'Video',
-        status: CheckInStatus.scheduled,
-      );
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => RescheduleCheckInScreen(
-            initialCheckIn: preview,
-            navigationOnly: true,
-          ),
-        ),
-      );
+    if (selectedDays.isEmpty) {
+      _showError('Select at least one repeat day.');
       return;
     }
 
+    setState(() => _saving = true);
+
+    String writeStage = 'loading active connection';
     try {
-      final connection =
-          widget.connectionId == null ||
-              widget.elderId == null ||
-              widget.companionId == null ||
-              widget.companionName?.trim().isEmpty != false
-          ? await _service.getActiveConnectionForCurrentElder()
-          : null;
-
-      final connectionId = widget.connectionId ?? connection?.id;
-      final elderId = widget.elderId ?? connection?.elderId;
-      var elderName = widget.elderName?.trim() ?? '';
-      final companionId = widget.companionId ?? connection?.companionId;
-      var companionName = widget.companionName?.trim() ?? '';
-
-      if (elderName.isEmpty) {
-        elderName = connection?.elderName.trim() ?? '';
-      }
-      if (elderName.isEmpty) {
-        elderName = (await _service.getCurrentElderName()).trim();
-      }
-      if (companionName.isEmpty) {
-        companionName = connection?.companionName.trim() ?? '';
-      }
-
-      if (connectionId == null || connectionId.isEmpty) {
-        throw StateError(
-          'An active companion connection is required to schedule.',
-        );
-      }
-      if (elderId == null || elderId.isEmpty) {
-        throw StateError('Could not identify the Older Adult account.');
-      }
-      if (companionId == null || companionId.isEmpty || companionName.isEmpty) {
-        throw StateError('Could not identify the connected companion.');
-      }
-      if (selectedDays.isEmpty) {
-        throw StateError('Choose at least one day.');
-      }
-      if (_selectedTime == null) {
-        throw StateError('Choose a time.');
-      }
-      if (_durationMinutes == null) {
-        throw StateError('Choose a duration.');
-      }
-      if (_mode == null) {
-        throw StateError('Choose Video or Voice.');
-      }
-
-      final schedule = RecurringSchedule(
-        id: '',
-        elderId: elderId,
-        elderName: elderName,
-        companionId: companionId,
-        companionName: companionName,
-        connectionId: connectionId,
-        mode: _mode!,
-        weekdays: selectedDays.map((index) => index + 1).toList()..sort(),
-        hour: _selectedTime!.hour,
-        minute: _selectedTime!.minute,
-        durationMinutes: _durationMinutes!,
-        isActive: true,
-      );
-
-      final nextOccurrence = schedule.nextOccurrence(DateTime.now());
-      if (nextOccurrence == null) {
-        throw StateError('Could not calculate the next check-in.');
-      }
-
-      const dayNames = [
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday',
-      ];
-      final selectedDayNames = schedule.weekdays
-          .where((day) => day >= 1 && day <= 7)
-          .map((day) => dayNames[day - 1])
-          .join(', ');
-
-      if (!mounted) return;
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Confirm check-in'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Companion: $companionName'),
-              const SizedBox(height: 8),
-              Text('Repeat: $selectedDayNames'),
-              const SizedBox(height: 8),
-              Text('Time: ${_selectedTime!.format(context)}'),
-              const SizedBox(height: 8),
-              Text('Duration: $_durationMinutes minutes'),
-              const SizedBox(height: 8),
-              Text('Type: $_mode'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Back'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Confirm Schedule'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmed != true || !mounted) return;
-      setState(() => _saving = true);
-
-      await _service.createScheduleWithFirstCheckIn(
-        schedule: schedule,
-        checkIn: CheckIn(
+      final connection = await _connectionFuture;
+      writeStage = 'creating recurring_schedules document';
+      final schedule = await _service.createRecurringSchedule(
+        RecurringSchedule(
           id: '',
-          elderId: elderId,
-          elderName: elderName,
-          elderImageUrl: null,
-          companionId: companionId,
-          companionName: companionName,
-          scheduledAt: nextOccurrence,
-          durationMinutes: _durationMinutes!,
-          mode: _mode!,
-          status: CheckInStatus.scheduled,
+          elderId: connection.elderId,
+          elderName: connection.elderName,
+          companionId: connection.companionId,
+          companionName: connection.companionName,
+          weekdays: selectedDays.map((index) => index + 1).toList()..sort(),
+          hour: _selectedTime.hour,
+          minute: _selectedTime.minute,
+          durationMinutes: _durationMinutes,
+          isActive: true,
         ),
       );
 
+      // Use an actual Firestore ID, not a demo ID like 'checkin-001'.
+      // If the second write fails, undo the newly created routine where possible.
+      late final CheckIn checkIn;
+      try {
+        writeStage = 'creating check_ins document';
+        checkIn = await _service.createInitialCheckInForSchedule(schedule);
+      } catch (_) {
+        try {
+          await _service.deleteRecurringSchedule(schedule.id);
+        } catch (_) {
+          // A cleanup failure should not hide the original write failure.
+        }
+        rethrow;
+      }
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Check-in scheduled successfully.')),
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => RescheduleCheckInScreen(checkInId: checkIn.id),
+        ),
       );
-      Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(error.toString().replaceFirst('Bad state: ', '')),
-          ),
-        );
+      debugPrint('CareLink write stage: $writeStage | $error');
+      _showError('Failed at $writeStage: $error');
     } finally {
-      if (mounted && _saving) {
-        setState(() => _saving = false);
-      }
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -259,87 +183,21 @@ class _NewRecurringCheckInScreenState extends State<NewRecurringCheckInScreen> {
             _fieldSection(
               label: 'Time',
               icon: Icons.schedule_rounded,
-              value: _selectedTime == null
-                  ? 'Choose a time'
-                  : _selectedTime!.format(context),
+              value: _timeLabel(),
               onTap: _chooseTime,
             ),
             _fieldSection(
               label: 'Duration',
               icon: Icons.timelapse_rounded,
-              value: _durationMinutes == null
-                  ? 'Choose a duration'
-                  : '$_durationMinutes minutes',
+              value: '$_durationMinutes minutes',
               onTap: _chooseDuration,
             ),
-            _fieldSection(
-              label: 'Check-in type',
-              icon: Icons.video_call_outlined,
-              value: _mode ?? 'Choose Video or Voice',
-              onTap: _chooseMode,
-            ),
-            _companionSection(
-              widget.companionName?.trim().isNotEmpty == true
-                  ? widget.companionName!.trim()
-                  : 'Connected companion',
-            ),
+            _elderSection(),
             _actions(),
           ],
         ),
       ),
     );
-  }
-
-  Future<void> _chooseTime() async {
-    final selected = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime ?? TimeOfDay.now(),
-    );
-    if (selected != null && mounted) {
-      setState(() => _selectedTime = selected);
-    }
-  }
-
-  Future<void> _chooseDuration() async {
-    final selected = await showModalBottomSheet<int>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final duration in [15, 30, 45, 60])
-              ListTile(
-                title: Text('$duration minutes'),
-                onTap: () => Navigator.of(context).pop(duration),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (selected != null && mounted) {
-      setState(() => _durationMinutes = selected);
-    }
-  }
-
-  Future<void> _chooseMode() async {
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final mode in ['Video', 'Voice'])
-              ListTile(
-                title: Text(mode),
-                onTap: () => Navigator.of(context).pop(mode),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (selected != null && mounted) {
-      setState(() => _mode = selected);
-    }
   }
 
   Widget _header(BuildContext context) {
@@ -514,19 +372,12 @@ class _NewRecurringCheckInScreenState extends State<NewRecurringCheckInScreen> {
     );
   }
 
-  Widget _companionSection(String companionName) {
-    final initials = companionName
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty)
-        .take(2)
-        .map((part) => part[0].toUpperCase())
-        .join();
-
+  Widget _elderSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Companion',
+          'Elder',
           style: TextStyle(
             color: ElderColors.textMuted,
             fontSize: 10,
@@ -542,46 +393,94 @@ class _NewRecurringCheckInScreenState extends State<NewRecurringCheckInScreen> {
             border: Border.all(color: ElderColors.deepTeal, width: 1.1),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 27,
-                backgroundColor: ElderColors.mintSoft,
-                child: Text(
-                  initials.isEmpty ? '?' : initials,
-                  style: const TextStyle(
-                    color: ElderColors.darkTeal,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: FutureBuilder<ElderFlowContext>(
+            future: _connectionFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(
+                  child: CircularProgressIndicator(color: ElderColors.darkTeal),
+                );
+              }
+              if (snapshot.hasError || !snapshot.hasData) {
+                return Row(
                   children: [
-                    Text(
-                      companionName,
-                      style: const TextStyle(
-                        color: ElderColors.textDark,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w900,
+                    const Icon(
+                      Icons.error_outline,
+                      color: ElderColors.darkTeal,
+                    ),
+                    const SizedBox(width: 9),
+                    const Expanded(
+                      child: Text(
+                        'Cannot load your Elder connection.',
+                        maxLines: 2,
+                        style: TextStyle(fontSize: 11),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Connected Student Companion',
-                      style: TextStyle(
-                        color: ElderColors.textMuted,
-                        fontSize: 9.5,
-                      ),
+                    TextButton(
+                      onPressed: _retryConnection,
+                      child: const Text('Retry'),
                     ),
                   ],
-                ),
-              ),
-              const ElderStatusPill('CONNECTED', filled: true),
-            ],
+                );
+              }
+
+              final elderName = snapshot.data!.elderName;
+              final isExampleKamala = elderName.toLowerCase().contains(
+                'kamala',
+              );
+
+              return Row(
+                children: [
+                  if (isExampleKamala)
+                    const ElderAvatar(
+                      asset: ElderAssets.kamalaAvatar,
+                      size: 54,
+                      border: false,
+                    )
+                  else
+                    CircleAvatar(
+                      radius: 27,
+                      backgroundColor: ElderColors.mintSoft,
+                      child: Text(
+                        elderName.isEmpty ? '?' : elderName[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: ElderColors.darkTeal,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          elderName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: ElderColors.textDark,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Connected elder',
+                          style: TextStyle(
+                            color: ElderColors.textMuted,
+                            fontSize: 9.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const ElderStatusPill('SELECTED', filled: true),
+                ],
+              );
+            },
           ),
         ),
       ],
@@ -592,7 +491,7 @@ class _NewRecurringCheckInScreenState extends State<NewRecurringCheckInScreen> {
     return Column(
       children: [
         ElderPrimaryButton(
-          label: _saving ? 'Creating...' : 'Review & create schedule',
+          label: _saving ? 'Creating...' : 'Create schedule',
           color: ElderColors.coral,
           height: 54,
           onPressed: _createSchedule,
