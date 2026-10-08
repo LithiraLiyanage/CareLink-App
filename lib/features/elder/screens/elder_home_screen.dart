@@ -14,6 +14,7 @@ import '../../companion/services/firebase_companion_service.dart';
 import '../models/check_in.dart';
 import '../services/firebase_elder_service.dart';
 import '../widgets/elder_ui.dart';
+import '../widgets/family_requests_section.dart';
 import 'memory_lane_screen.dart';
 import 'my_schedule_screen.dart';
 
@@ -325,6 +326,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
                   ),
                 ),
                 const Spacer(),
+                const FamilyRequestsButton(),
                 IconButton(
                   tooltip: 'Notifications',
                   onPressed: _connection == null
