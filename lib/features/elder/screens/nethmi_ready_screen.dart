@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../companion/models/companion_language.dart';
+import '../../companion/models/companion_profile.dart';
+import '../../companion/screens/conversation_ideas_screen.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
+import 'active_video_call_screen.dart';
+import 'checkin_complete_nethmi_screen.dart';
 
 class NethmiReadyScreen extends StatelessWidget {
   const NethmiReadyScreen({
@@ -11,6 +16,9 @@ class NethmiReadyScreen extends StatelessWidget {
     this.scheduledAt,
     this.durationMinutes = 30,
     this.mode = 'Video',
+    this.onStartCall,
+    this.onVoiceCall,
+    this.onConversationIdeas,
   });
 
   final String companionName;
@@ -18,6 +26,107 @@ class NethmiReadyScreen extends StatelessWidget {
   final DateTime? scheduledAt;
   final int durationMinutes;
   final String mode;
+  final VoidCallback? onStartCall;
+  final VoidCallback? onVoiceCall;
+  final VoidCallback? onConversationIdeas;
+
+  void _startVideoCall(BuildContext context) {
+    if (onStartCall != null) {
+      onStartCall!();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ActiveVideoCallScreen(
+          elderId: 'elder-kamala',
+          elderName: 'Older Adult',
+          companionId: 'companion-1',
+          companionName: companionName,
+          companionImageUrl: companionImageUrl,
+          connectionId: '',
+          checkInId: 'checkin-1',
+          scheduledAt: scheduledAt ?? DateTime.now(),
+          durationMinutes: durationMinutes,
+          callType: mode,
+          onEndCall: () async {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute<void>(
+                builder: (_) => CheckInCompleteNethmiScreen(
+                  companionName: companionName,
+                  companionImageUrl: companionImageUrl,
+                  scheduledAt: scheduledAt,
+                  durationMinutes: durationMinutes,
+                  mode: mode,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _startVoiceCall(BuildContext context) {
+    if (onVoiceCall != null) {
+      onVoiceCall!();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ActiveVideoCallScreen(
+          elderId: 'elder-kamala',
+          elderName: 'Older Adult',
+          companionId: 'companion-1',
+          companionName: companionName,
+          companionImageUrl: companionImageUrl,
+          connectionId: '',
+          checkInId: 'checkin-1',
+          scheduledAt: scheduledAt ?? DateTime.now(),
+          durationMinutes: durationMinutes,
+          callType: 'Voice',
+          onEndCall: () async {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute<void>(
+                builder: (_) => CheckInCompleteNethmiScreen(
+                  companionName: companionName,
+                  companionImageUrl: companionImageUrl,
+                  scheduledAt: scheduledAt,
+                  durationMinutes: durationMinutes,
+                  mode: 'Voice',
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _openConversationIdeas(BuildContext context) {
+    if (onConversationIdeas != null) {
+      onConversationIdeas!();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ConversationIdeasScreen(
+          profile: CompanionProfile(
+            id: 'companion-1',
+            name: companionName,
+            imagePath: '',
+            profileImageUrl: companionImageUrl,
+            verified: true,
+            languages: const ['English', 'Sinhala'],
+            interests: const ['Gardening', 'Music', 'Stories'],
+            availability: 'Available today',
+            about: 'Verified Student Companion',
+          ),
+          selectedLanguage: CompanionLanguage.english,
+          openedFromCheckIn: true,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,15 +159,7 @@ class NethmiReadyScreen extends StatelessWidget {
                     ElderPrimaryButton(
                       label: 'Start video call',
                       height: 54,
-                      onPressed: () => ScaffoldMessenger.of(context)
-                        ..hideCurrentSnackBar()
-                        ..showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Calling is not available in CareLink yet.',
-                            ),
-                          ),
-                        ),
+                      onPressed: () => _startVideoCall(context),
                     ),
                     Row(
                       children: [
@@ -66,7 +167,7 @@ class NethmiReadyScreen extends StatelessWidget {
                           child: ElderOutlineButton(
                             label: 'Voice only',
                             height: 48,
-                            onPressed: () {},
+                            onPressed: () => _startVoiceCall(context),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -74,7 +175,15 @@ class NethmiReadyScreen extends StatelessWidget {
                           child: ElderOutlineButton(
                             label: 'Message instead',
                             height: 48,
-                            onPressed: () {},
+                            onPressed: () => ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Messaging is not available in CareLink yet.',
+                                  ),
+                                ),
+                              ),
                           ),
                         ),
                       ],
@@ -86,7 +195,7 @@ class NethmiReadyScreen extends StatelessWidget {
                         height: 48,
                         foregroundColor: ElderColors.darkTeal,
                         backgroundColor: const Color(0xFFBDF1F3),
-                        onPressed: () {},
+                        onPressed: () => _openConversationIdeas(context),
                       ),
                     ),
                     const _ControlInfo(),

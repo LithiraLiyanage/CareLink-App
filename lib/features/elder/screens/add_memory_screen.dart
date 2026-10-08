@@ -7,9 +7,14 @@ import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
 
 class AddMemoryScreen extends StatefulWidget {
-  const AddMemoryScreen({super.key, this.navigationOnly = false});
+  const AddMemoryScreen({
+    super.key,
+    this.navigationOnly = false,
+    this.isEditing = false,
+  });
 
   final bool navigationOnly;
+  final bool isEditing;
 
   @override
   State<AddMemoryScreen> createState() => _AddMemoryScreenState();
@@ -358,25 +363,27 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
           height: 54,
           onPressed: _saveMemory,
         ),
-        const SizedBox(height: 9),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: OutlinedButton(
-            onPressed: _deleteMemory,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFFC94354),
-              side: const BorderSide(color: ElderColors.coral),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+        if (widget.isEditing) ...[
+          const SizedBox(height: 9),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton(
+              onPressed: _deleteMemory,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFC94354),
+                side: const BorderSide(color: ElderColors.coral),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text(
+                'Delete memory',
+                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
               ),
             ),
-            child: const Text(
-              'Delete memory',
-              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
-            ),
           ),
-        ),
+        ],
       ],
     );
   }

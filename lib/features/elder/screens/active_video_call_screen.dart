@@ -11,6 +11,8 @@ class ActiveVideoCallScreen extends StatefulWidget {
     required this.elderId,
     required this.elderName,
     required this.companionId,
+    this.companionName,
+    this.companionImageUrl,
     required this.connectionId,
     required this.checkInId,
     required this.scheduledAt,
@@ -24,6 +26,8 @@ class ActiveVideoCallScreen extends StatefulWidget {
   final String elderName;
   final String? elderImageUrl;
   final String companionId;
+  final String? companionName;
+  final String? companionImageUrl;
   final String connectionId;
   final String checkInId;
   final DateTime scheduledAt;
@@ -173,6 +177,12 @@ class _ActiveVideoCallScreenState extends State<ActiveVideoCallScreen> {
     );
   }
 
+  String get _remoteName => widget.companionName ?? widget.elderName;
+  String? get _remoteImage => widget.companionImageUrl ?? widget.elderImageUrl;
+  String get _remoteRole => widget.companionName != null
+      ? 'Verified student companion · ${_voiceOnly ? 'Voice call' : 'Video call'}'
+      : (_voiceOnly ? 'Elder · Voice call' : 'Elder · Video call');
+
   Widget _hero(BuildContext context) {
     final localizations = MaterialLocalizations.of(context);
     return SizedBox(
@@ -180,11 +190,9 @@ class _ActiveVideoCallScreenState extends State<ActiveVideoCallScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (!_voiceOnly &&
-              widget.elderImageUrl != null &&
-              widget.elderImageUrl!.isNotEmpty)
+          if (!_voiceOnly && _remoteImage != null && _remoteImage!.isNotEmpty)
             Image.network(
-              widget.elderImageUrl!,
+              _remoteImage!,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => _elderPlaceholder,
             )
@@ -267,7 +275,7 @@ class _ActiveVideoCallScreenState extends State<ActiveVideoCallScreen> {
       radius: 64,
       backgroundColor: ElderColors.mintSoft,
       child: Text(
-        widget.elderName
+        _remoteName
             .split(RegExp(r'\s+'))
             .where((part) => part.isNotEmpty)
             .take(2)
@@ -283,7 +291,7 @@ class _ActiveVideoCallScreenState extends State<ActiveVideoCallScreen> {
   );
 
   Widget _identityRow() {
-    final initials = widget.elderName
+    final initials = _remoteName
         .split(RegExp(r'\s+'))
         .where((part) => part.isNotEmpty)
         .take(2)
@@ -294,7 +302,7 @@ class _ActiveVideoCallScreenState extends State<ActiveVideoCallScreen> {
         CircleAvatar(
           radius: 27,
           backgroundColor: ElderColors.mintSoft,
-          child: widget.elderImageUrl == null || widget.elderImageUrl!.isEmpty
+          child: _remoteImage == null || _remoteImage!.isEmpty
               ? Text(
                   initials,
                   style: const TextStyle(
@@ -304,7 +312,7 @@ class _ActiveVideoCallScreenState extends State<ActiveVideoCallScreen> {
                 )
               : ClipOval(
                   child: Image.network(
-                    widget.elderImageUrl!,
+                    _remoteImage!,
                     width: 54,
                     height: 54,
                     fit: BoxFit.cover,
@@ -324,7 +332,7 @@ class _ActiveVideoCallScreenState extends State<ActiveVideoCallScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                widget.elderName,
+                _remoteName,
                 style: const TextStyle(
                   color: ElderColors.textDark,
                   fontSize: 14,
@@ -333,7 +341,7 @@ class _ActiveVideoCallScreenState extends State<ActiveVideoCallScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                _voiceOnly ? 'Elder · Voice call' : 'Elder · Video call',
+                _remoteRole,
                 style: const TextStyle(
                   color: ElderColors.textMuted,
                   fontSize: 9.5,
