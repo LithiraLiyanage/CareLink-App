@@ -1,19 +1,155 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../companion/screens/student_companion_home_screen.dart';
+import '../models/check_in.dart';
+import '../services/firebase_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
-import 'elder_home_screen.dart';
 import 'memory_lane_screen.dart';
+import 'my_schedule_screen.dart';
 
-class CheckInCompleteKamalaScreen extends StatelessWidget {
-  const CheckInCompleteKamalaScreen({super.key});
+/// Completion screen for the authenticated Student Companion flow.
+/// The active call passes the saved check-in document ID via route arguments.
+class CheckInCompleteKamalaScreen extends StatefulWidget {
+  const CheckInCompleteKamalaScreen({super.key, this.checkInId = ''});
 
-  void _replace(BuildContext context, Widget screen) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => screen),
+  final String checkInId;
+
+  @override
+  State<CheckInCompleteKamalaScreen> createState() =>
+      _CheckInCompleteKamalaScreenState();
+}
+
+class _CheckInCompleteKamalaScreenState
+    extends State<CheckInCompleteKamalaScreen> {
+  final FirebaseElderService _service = FirebaseElderService.instance;
+
+  bool _resolvedRoute = false;
+  bool _loading = true;
+  String _checkInId = '';
+  String? _error;
+  CheckIn? _completedCheckIn;
+  int? _actualDurationMinutes;
+  String? _nextCheckInText;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_resolvedRoute) return;
+    _resolvedRoute = true;
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    _checkInId = widget.checkInId.isNotEmpty
+        ? widget.checkInId
+        : (args is String ? args : '');
+
+    if (_checkInId.isEmpty) {
+      _loading = false;
+      _error = 'Open this screen after completing a check-in.';
+      return;
+    }
+
+    _loadCompletion();
+  }
+
+  Future<void> _loadCompletion() async {
+    if (_checkInId.isEmpty) return;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final completed = await _service.getCheckInById(_checkInId);
+      if (completed == null) {
+        throw StateError('The completed check-in could not be found.');
+      }
+      if (completed.status != CheckInStatus.completed) {
+        throw StateError('This check-in has not been completed yet.');
+      }
+
+      // Use the actual timestamps written on Start / End, rather than
+      // displaying a fabricated duration from the design screenshot.
+      final doc = await FirebaseFirestore.instance
+          .collection('check_ins')
+          .doc(_checkInId)
+          .get();
+      final data = doc.data() ?? const <String, dynamic>{};
+      final started = data['startedAt'];
+      final ended = data['completedAt'];
+      int? duration;
+      if (started is Timestamp && ended is Timestamp) {
+        final seconds = ended.toDate().difference(started.toDate()).inSeconds;
+        if (seconds >= 0) {
+          duration = seconds ~/ 60;
+        }
+      }
+
+      // An unavailable next-session query should not hide an already
+      // completed check-in. It only affects the optional Next field.
+      String? next;
+      try {
+        final all = await _service.getCheckIns();
+        final now = DateTime.now();
+        final upcoming = all.where((item) {
+          return item.id != completed.id &&
+              item.scheduledAt.isAfter(now) &&
+              (item.status == CheckInStatus.scheduled ||
+                  item.status == CheckInStatus.ready);
+        }).toList()..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+        if (upcoming.isNotEmpty) {
+          next = _nextTime(upcoming.first.scheduledAt);
+        }
+      } catch (_) {
+        next = null;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _completedCheckIn = completed;
+        _actualDurationMinutes = duration;
+        _nextCheckInText = next;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Could not load completed check-in: $error';
+      });
+    }
+  }
+
+  static String _nextTime(DateTime value) {
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '${weekdays[value.weekday - 1]} $hour:$minute';
+  }
+
+  void _goHome() {
+    Navigator.of(context).pushAndRemoveUntil<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const StudentCompanionHomeScreen(),
+      ),
       (_) => false,
     );
+  }
+
+  void _openFromHome(Widget destination) {
+    final navigator = Navigator.of(context);
+    // Retain Student Companion Home underneath the requested screen so
+    // its back arrow leads home rather than reopening the finished call.
+    navigator.pushAndRemoveUntil<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const StudentCompanionHomeScreen(),
+      ),
+      (_) => false,
+    );
+    navigator.push<void>(MaterialPageRoute<void>(builder: (_) => destination));
   }
 
   @override
@@ -24,8 +160,9 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
       darkStatusBar: true,
       bottomNavigationBar: ElderBottomNav(
         selectedIndex: 0,
-        onHome: () => _replace(context, const ElderHomeScreen()),
-        onMemory: () => _replace(context, const MemoryLaneScreen()),
+        onHome: _goHome,
+        onSchedule: () => _openFromHome(const MyScheduleScreen()),
+        onMemory: () => _openFromHome(const MemoryLaneScreen()),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
@@ -33,22 +170,19 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
           children: [
             Align(
               alignment: Alignment.centerLeft,
-              child: ElderBackButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
+              child: ElderBackButton(onPressed: _goHome),
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _completeHeader(),
-                  const _SummaryRow(),
-                  _personCard(),
-                  const _ConsentCard(),
-                  _actions(context),
-                ],
-              ),
+              child: _loading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: ElderColors.darkTeal,
+                      ),
+                    )
+                  : _error != null
+                  ? _errorView()
+                  : _completionContent(),
             ),
           ],
         ),
@@ -56,7 +190,74 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
     );
   }
 
+  Widget _errorView() {
+    return Center(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 42,
+              color: ElderColors.deepTeal,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: ElderColors.textDark, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            if (_checkInId.isNotEmpty)
+              TextButton.icon(
+                onPressed: _loadCompletion,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Try again'),
+              ),
+            const SizedBox(height: 10),
+            ElderPrimaryButton(
+              label: 'Back to home',
+              height: 52,
+              onPressed: _goHome,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _completionContent() {
+    // Scroll when system text scale or display height is smaller, while
+    // preserving the screenshot's spacing at 393 x 852 logical pixels.
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: IntrinsicHeight(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _completeHeader(),
+                const SizedBox(height: 15),
+                _summaryRow(),
+                const SizedBox(height: 15),
+                _personCard(),
+                const SizedBox(height: 15),
+                const _ConsentCard(),
+                const SizedBox(height: 15),
+                _actions(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _completeHeader() {
+    final name = _completedCheckIn!.elderName.trim().isEmpty
+        ? 'your elder companion'
+        : _completedCheckIn!.elderName;
     return Column(
       children: [
         Container(
@@ -65,10 +266,7 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
           decoration: BoxDecoration(
             color: ElderColors.mintSoft,
             shape: BoxShape.circle,
-            border: Border.all(
-              color: ElderColors.deepTeal,
-              width: 1.3,
-            ),
+            border: Border.all(color: ElderColors.deepTeal, width: 1.3),
           ),
           child: const Icon(
             Icons.check_rounded,
@@ -79,6 +277,7 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
         const SizedBox(height: 10),
         const Text(
           'Check-in complete',
+          textAlign: TextAlign.center,
           style: TextStyle(
             color: ElderColors.textDark,
             fontSize: 24,
@@ -87,10 +286,10 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'A lovely 28-minute conversation with Nethmi',
+        Text(
+          'Video check-in completed with $name',
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             color: ElderColors.textMuted,
             fontSize: 10,
             fontWeight: FontWeight.w500,
@@ -100,7 +299,44 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
     );
   }
 
+  Widget _summaryRow() {
+    final reflection = _completedCheckIn!.reflection?.trim();
+    final duration = _actualDurationMinutes == null
+        ? '—'
+        : _actualDurationMinutes == 0
+        ? '<1 min'
+        : '$_actualDurationMinutes min';
+    return Row(
+      children: [
+        Expanded(
+          child: _SummaryBox(
+            icon: Icons.schedule_rounded,
+            label: 'Duration',
+            value: duration,
+          ),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: _SummaryBox(
+            icon: Icons.favorite_outline_rounded,
+            label: 'Reflection',
+            value: reflection == null || reflection.isEmpty ? '—' : reflection,
+          ),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: _SummaryBox(
+            icon: Icons.event_available_outlined,
+            label: 'Next',
+            value: _nextCheckInText ?? 'None',
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _personCard() {
+    final checkIn = _completedCheckIn!;
     return Container(
       height: 94,
       padding: const EdgeInsets.symmetric(horizontal: 13),
@@ -109,31 +345,35 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
         border: Border.all(color: ElderColors.deepTeal),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          ElderAvatar(
+          const ElderAvatar(
             asset: ElderAssets.kamalaAvatar,
             size: 52,
             border: false,
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Kamala Perera',
-                  style: TextStyle(
+                  checkIn.elderName.isEmpty ? 'Older Adult' : checkIn.elderName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     color: ElderColors.textDark,
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'Video check-in • Today',
-                  style: TextStyle(
+                  '${checkIn.mode} check-in • Completed',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     color: ElderColors.textMuted,
                     fontSize: 9,
                   ),
@@ -141,22 +381,19 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
               ],
             ),
           ),
-          ElderStatusPill('COMPLETED'),
+          const ElderStatusPill('COMPLETED'),
         ],
       ),
     );
   }
 
-  Widget _actions(BuildContext context) {
+  Widget _actions() {
     return Column(
       children: [
         ElderPrimaryButton(
           label: 'Back to home',
           height: 54,
-          onPressed: () => _replace(
-            context,
-            const ElderHomeScreen(),
-          ),
+          onPressed: _goHome,
         ),
         const SizedBox(height: 10),
         SizedBox(
@@ -164,45 +401,7 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
           child: ElderOutlineButton(
             label: 'View Memory Lane',
             height: 48,
-            onPressed: () => _replace(
-              context,
-              const MemoryLaneScreen(),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(
-          child: _SummaryBox(
-            icon: Icons.schedule_rounded,
-            label: 'Duration',
-            value: '28 min',
-          ),
-        ),
-        SizedBox(width: 9),
-        Expanded(
-          child: _SummaryBox(
-            icon: Icons.favorite_outline_rounded,
-            label: 'Reflection',
-            value: 'Good',
-          ),
-        ),
-        SizedBox(width: 9),
-        Expanded(
-          child: _SummaryBox(
-            icon: Icons.event_available_outlined,
-            label: 'Next',
-            value: 'Wed 6:30',
+            onPressed: () => _openFromHome(const MemoryLaneScreen()),
           ),
         ),
       ],
@@ -211,24 +410,21 @@ class _SummaryRow extends StatelessWidget {
 }
 
 class _SummaryBox extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
   const _SummaryBox({
     required this.icon,
     required this.label,
     required this.value,
   });
 
+  final IconData icon;
+  final String label;
+  final String value;
+
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 82,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 10,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: ElderColors.border),
@@ -250,6 +446,8 @@ class _SummaryBox extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: ElderColors.textDark,
               fontSize: 12.5,
@@ -293,7 +491,7 @@ class _ConsentCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Family visibility is off',
+                  'Choose what to share',
                   style: TextStyle(
                     color: ElderColors.textDark,
                     fontSize: 10.5,
@@ -302,11 +500,9 @@ class _ConsentCard extends StatelessWidget {
                 ),
                 SizedBox(height: 3),
                 Text(
-                  'Nothing is shared without your consent.',
-                  style: TextStyle(
-                    color: ElderColors.textMuted,
-                    fontSize: 9,
-                  ),
+                  'Set the visibility of each memory before saving.',
+                  maxLines: 2,
+                  style: TextStyle(color: ElderColors.textMuted, fontSize: 9),
                 ),
               ],
             ),

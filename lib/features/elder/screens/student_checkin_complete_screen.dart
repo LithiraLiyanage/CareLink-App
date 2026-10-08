@@ -185,8 +185,7 @@ class StudentCheckInCompleteScreen extends StatelessWidget {
                   height: 54,
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) =>
-                          const MemoryLaneScreen(navigationOnly: true),
+                      builder: (_) => const MemoryLaneScreen(),
                     ),
                   ),
                 ),

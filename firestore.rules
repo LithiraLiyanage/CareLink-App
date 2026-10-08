@@ -878,10 +878,217 @@ service cloud.firestore {
         && isOlderAdult(request.auth.uid);
     }
 
+    // Ownership-aware Memory Lane. Preserve the Older Adult legacy record format
+    // while preventing unrelated older adults from reading private memories.
     match /memories/{documentId} {
-      allow read, create, update, delete:
-        if request.auth != null
-        && isOlderAdult(request.auth.uid);
+      allow get, list: if request.auth != null
+        && (
+          resource.data.ownerId == request.auth.uid
+          || (
+            resource.data.visibility == 'Companion'
+            && carelinkFlowParticipant(resource.data)
+          )
+        );
+
+      // Current Student + Elder pair schema.
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && carelinkFlowParticipant(request.resource.data)
+        && carelinkFlowActiveConnection(request.resource.data)
+        && carelinkValidMemory(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+
+      // Legacy Older Adult memories only: ownerId must match the signed-in elder.
+      allow create: if request.auth != null
+        && isOlderAdult(request.auth.uid)
+        && request.resource.data.ownerId == request.auth.uid;
+
+      allow update: if request.auth != null
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId
+        && (
+          (isOlderAdult(request.auth.uid))
+          || (
+            carelinkFlowParticipant(resource.data)
+            && carelinkValidMemory(request.resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'title', 'caption', 'mediaPath', 'memoryDate',
+              'visibility', 'updatedAt'
+            ])
+            && request.resource.data.updatedAt == request.time
+          )
+        );
+
+      allow delete: if request.auth != null
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+        // =========================================================
+    // STUDENT COMPANION CHECK-INS / RECURRING ROUTINES
+    // These additive rules accept the current Flutter service's pair-linked
+    // documents without changing existing Older Adult and matching rules.
+    // =========================================================
+
+    function carelinkFlowParticipant(data) {
+      return request.auth != null
+        && (
+          (data.elderId == request.auth.uid && isOlderAdult(request.auth.uid))
+          || (data.companionId == request.auth.uid && isVerifiedStudent(request.auth.uid))
+        );
+    }
+
+    function carelinkFlowActiveConnection(data) {
+      return data.keys().hasAll([
+          'connectionId', 'matchRequestId', 'elderId', 'companionId'
+        ])
+        && data.connectionId is string
+        && data.matchRequestId is string
+        && data.elderId is string
+        && data.companionId is string
+        && exists(/databases/$(database)/documents/connections/$(data.connectionId))
+        && get(/databases/$(database)/documents/connections/$(data.connectionId)).data.status == 'active'
+        && get(/databases/$(database)/documents/connections/$(data.connectionId)).data.elderId == data.elderId
+        && get(/databases/$(database)/documents/connections/$(data.connectionId)).data.companionId == data.companionId
+        && get(/databases/$(database)/documents/connections/$(data.connectionId)).data.matchRequestId == data.matchRequestId;
+    }
+
+    function carelinkValidCheckIn(data) {
+      return data.keys().hasAll([
+          'connectionId', 'matchRequestId', 'elderId', 'elderName',
+          'companionId', 'companionName', 'scheduledAt',
+          'durationMinutes', 'mode', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'connectionId', 'matchRequestId', 'elderId', 'elderName',
+          'companionId', 'companionName', 'scheduledAt',
+          'durationMinutes', 'mode', 'status', 'reflection',
+          'createdAt', 'updatedAt', 'startedAt', 'completedAt'
+        ])
+        && data.elderName is string
+        && data.companionName is string
+        && data.scheduledAt is timestamp
+        && data.durationMinutes is int
+        && data.durationMinutes >= 5 && data.durationMinutes <= 180
+        && data.mode in ['Video', 'Voice']
+        && data.status in [
+          'scheduled', 'ready', 'inProgress', 'completed', 'cancelled', 'missed'
+        ]
+        && (
+          !data.keys().hasAny(['reflection'])
+          || data.reflection == null
+          || data.reflection is string
+        );
+    }
+
+    function carelinkValidCheckInTransition(oldStatus, newStatus) {
+      return oldStatus == newStatus
+        || (oldStatus in ['scheduled', 'ready']
+            && newStatus in ['ready', 'inProgress', 'cancelled', 'missed'])
+        || (oldStatus == 'inProgress' && newStatus == 'completed');
+    }
+
+    // Additional match statements are OR-combined by Firestore with the
+    // original check_ins rules. The previous Elder behavior is retained.
+    match /check_ins/{documentId} {
+      allow get, list: if carelinkFlowParticipant(resource.data);
+
+      allow create: if carelinkFlowParticipant(request.resource.data)
+        && carelinkFlowActiveConnection(request.resource.data)
+        && carelinkValidCheckIn(request.resource.data)
+        && request.resource.data.status == 'scheduled'
+        && request.resource.data.scheduledAt > request.time
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if carelinkFlowParticipant(resource.data)
+        && carelinkValidCheckIn(resource.data)
+        && carelinkFlowActiveConnection(resource.data)
+        && carelinkValidCheckInTransition(resource.data.status, request.resource.data.status)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'scheduledAt', 'status', 'reflection', 'updatedAt',
+          'startedAt', 'completedAt'
+        ])
+        && carelinkValidCheckIn(request.resource.data)
+        && request.resource.data.updatedAt == request.time
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['scheduledAt'])
+          || request.resource.data.scheduledAt > request.time
+        )
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['startedAt'])
+          || request.resource.data.startedAt == request.time
+        )
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['completedAt'])
+          || request.resource.data.completedAt == request.time
+        );
+    }
+
+    function carelinkValidRecurring(data) {
+      return data.keys().hasAll([
+          'connectionId', 'matchRequestId', 'elderId', 'elderName',
+          'companionId', 'companionName', 'weekdays', 'hour', 'minute',
+          'durationMinutes', 'isActive', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'connectionId', 'matchRequestId', 'elderId', 'elderName',
+          'companionId', 'companionName', 'weekdays', 'hour', 'minute',
+          'durationMinutes', 'isActive', 'createdAt', 'updatedAt'
+        ])
+        && data.elderName is string
+        && data.companionName is string
+        && data.weekdays is list
+        && data.weekdays.size() > 0 && data.weekdays.size() <= 7
+        && data.hour is int && data.hour >= 0 && data.hour <= 23
+        && data.minute is int && data.minute >= 0 && data.minute <= 59
+        && data.durationMinutes is int
+        && data.durationMinutes >= 5 && data.durationMinutes <= 180
+        && data.isActive is bool;
+    }
+
+    match /recurring_schedules/{documentId} {
+      allow get, list: if carelinkFlowParticipant(resource.data);
+
+      allow create: if carelinkFlowParticipant(request.resource.data)
+        && carelinkFlowActiveConnection(request.resource.data)
+        && carelinkValidRecurring(request.resource.data)
+        && request.resource.data.isActive == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if carelinkFlowParticipant(resource.data)
+        && carelinkFlowActiveConnection(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'weekdays', 'hour', 'minute', 'durationMinutes', 'isActive',
+          'updatedAt'
+        ])
+        && carelinkValidRecurring(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if carelinkFlowParticipant(resource.data)
+        && carelinkFlowActiveConnection(resource.data);
+    }
+
+    function carelinkValidMemory(data) {
+      return data.keys().hasAll([
+          'connectionId', 'matchRequestId', 'elderId', 'companionId',
+          'ownerId', 'type', 'title', 'memoryDate', 'createdAt',
+          'visibility', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'connectionId', 'matchRequestId', 'elderId', 'companionId',
+          'ownerId', 'type', 'title', 'caption', 'mediaPath',
+          'memoryDate', 'createdAt', 'visibility', 'updatedAt'
+        ])
+        && data.ownerId is string
+        && data.type in ['photo', 'voice', 'song']
+        && data.title is string
+        && data.title.size() > 0 && data.title.size() <= 150
+        && data.memoryDate is timestamp
+        && data.createdAt is timestamp
+        && data.visibility in ['Only me', 'Family', 'Companion']
+        && (!data.keys().hasAny(['caption']) || data.caption == null || data.caption is string)
+        && (!data.keys().hasAny(['mediaPath']) || data.mediaPath == null || data.mediaPath is string);
     }
 
     // =========================================================
@@ -905,11 +1112,13 @@ service cloud.firestore {
     }
 
     match /family_link_requests/{requestId} {
+            // The family member who sent the request can read it.
       allow get, list: if request.auth != null
-        && (
-          resource.data.requesterId == request.auth.uid
-          || isAddressedElder(resource.data)
-        );
+        && resource.data.requesterId == request.auth.uid;
+      // The older adult the request is addressed to can read it.
+      allow get, list: if request.auth != null
+        && isAddressedElder(resource.data);
+
       allow create: if request.auth != null
         && isFamilyCaregiver(request.auth.uid)
         && request.resource.data.keys().hasOnly([
@@ -952,12 +1161,14 @@ service cloud.firestore {
           .hasOnly(['requesterSeenAt']);
     }
 
-    // Family caregivers can read check-ins (read-only) for the family
-    // dashboard. This is in addition to the elder's access rule above.
+        // Family caregivers can read check-ins (read-only) for the family
+    // dashboard.
     match /check_ins/{documentId} {
-      allow read: if request.auth != null
+      allow get, list: if request.auth != null
         && isFamilyCaregiver(request.auth.uid);
     }
+
+
 
   }
 }
