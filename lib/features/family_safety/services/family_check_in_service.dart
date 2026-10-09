@@ -33,6 +33,7 @@ class FamilyCheckInService {
         .map((snapshot) {
       final checkIns = snapshot.docs
           .map(_checkInFromDocument)
+          .whereType<CheckIn>()
           .where((checkIn) =>
               FamilyLinkService.firstNameKey(checkIn.elderName) == elderKey)
           .where((checkIn) => checkIn.status != CheckInStatus.cancelled)
@@ -78,23 +79,26 @@ class FamilyCheckInService {
       checkIn.status == CheckInStatus.ready ||
       checkIn.status == CheckInStatus.inProgress;
 
-  CheckIn _checkInFromDocument(DocumentSnapshot<Map<String, dynamic>> doc) {
+  /// The check-in in [doc], or null when it has no scheduled time or an
+  /// unknown status, so family members never see a time or status the
+  /// document doesn't actually hold.
+  CheckIn? _checkInFromDocument(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
     final scheduledAt = data['scheduledAt'];
+    final status = CheckInStatus.values
+        .where((status) => status.name == data['status'])
+        .firstOrNull;
+    if (scheduledAt is! Timestamp || status == null) return null;
     return CheckIn(
       id: doc.id,
       elderId: data['elderId'] as String? ?? '',
       elderName: data['elderName'] as String? ?? '',
       companionId: data['companionId'] as String? ?? '',
       companionName: data['companionName'] as String? ?? '',
-      scheduledAt:
-          scheduledAt is Timestamp ? scheduledAt.toDate() : DateTime.now(),
+      scheduledAt: scheduledAt.toDate(),
       durationMinutes: (data['durationMinutes'] as num?)?.toInt() ?? 30,
       mode: data['mode'] as String? ?? 'Video',
-      status: CheckInStatus.values.firstWhere(
-        (status) => status.name == data['status'],
-        orElse: () => CheckInStatus.scheduled,
-      ),
+      status: status,
       reflection: data['reflection'] as String?,
     );
   }

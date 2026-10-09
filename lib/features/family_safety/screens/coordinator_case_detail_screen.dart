@@ -1,10 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
+import '../../coordinator/coordinator_case_scope.dart';
+import '../../coordinator/coordinator_case_ui.dart';
+import '../../coordinator/models/case_outcome.dart';
+import '../../coordinator/models/elder_consent_context.dart';
+import '../../coordinator/models/safety_case.dart';
+import '../../coordinator/services/coordinator_case_repository.dart';
 
-/// Static detail view for a coordinator safety case.
-class CoordinatorCaseDetailScreen extends StatelessWidget {
-  const CoordinatorCaseDetailScreen({super.key});
+typedef _CaseView = ({SafetyCase safetyCase, ElderConsentContext consent});
+
+/// Detail view for one coordinator safety case, opened with its case id as
+/// the route argument.
+class CoordinatorCaseDetailScreen extends StatefulWidget {
+  const CoordinatorCaseDetailScreen({super.key, this.caseId});
+
+  /// Case to show; when null the route argument is used.
+  final String? caseId;
 
   static const _teal = Color(0xFF00776F);
   static const _darkTeal = Color(0xFF073F42);
@@ -13,13 +25,130 @@ class CoordinatorCaseDetailScreen extends StatelessWidget {
   static const _secondary = Color(0xFF708486);
   static const _line = Color(0xFFD1EBE7);
   static const _orange = Color(0xFFF59E0B);
-  static const _lightWarning = Color(0xFFFFF4DF);
-  static const _success = Color(0xFF00A878);
+  static const _muted = Color(0xFF9AABAC);
+
+  @override
+  State<CoordinatorCaseDetailScreen> createState() =>
+      _CoordinatorCaseDetailScreenState();
+}
+
+class _CoordinatorCaseDetailScreenState
+    extends State<CoordinatorCaseDetailScreen> {
+  late CoordinatorCaseRepository _repository;
+  String? _caseId;
+  Future<_CaseView?>? _view;
+  bool _busy = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_view != null) return;
+    _repository = CoordinatorCaseScope.of(context);
+    _caseId = widget.caseId ?? caseIdFromRoute(context);
+    _view = _load();
+  }
+
+  Future<_CaseView?> _load() async {
+    final caseId = _caseId;
+    if (caseId == null) return null;
+    final safetyCase = await _repository.getCase(caseId);
+    final consent = await _repository.getConsentContext(caseId);
+    if (safetyCase == null || consent == null) return null;
+    return (safetyCase: safetyCase, consent: consent);
+  }
+
+  void _reload() => setState(() {
+        _view = _load();
+      });
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _record(
+    CaseAction action, {
+    String note = '',
+    required String success,
+  }) async {
+    setState(() => _busy = true);
+    try {
+      await _repository.recordCaseAction(
+        caseId: _caseId!,
+        action: action,
+        note: note,
+      );
+      _showMessage(success);
+    } catch (error) {
+      _showMessage('Could not record action: ${describeCaseError(error)}');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _view = _load();
+        });
+      }
+    }
+  }
+
+  Future<void> _retry(SafetyCase safetyCase) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Retry check-in?'),
+        content: Text(
+          "This records a retry request for ${safetyCase.elderDisplayName}'s "
+          'missed check-in. It does not change their check-in schedule.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Request retry'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _record(
+      CaseAction.retryCheckIn,
+      success: 'Check-in retry requested.',
+    );
+  }
+
+  Future<void> _reschedule() async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: today.add(const Duration(days: 1)),
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 60)),
+      helpText: 'Reschedule check-in',
+    );
+    if (picked == null) return;
+    final date = formatCaseDate(picked);
+    // Only the request is recorded; Elder Check-in schedules are not changed.
+    await _record(
+      CaseAction.rescheduleCheckIn,
+      note: 'Requested new check-in date: $date',
+      success: 'Reschedule request recorded for $date.',
+    );
+  }
+
+  Future<void> _open(String route) async {
+    await Navigator.pushNamed(context, route, arguments: _caseId);
+    if (mounted) _reload();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _mint,
+      backgroundColor: CoordinatorCaseDetailScreen._mint,
       appBar: AppBar(
         toolbarHeight: 60,
         backgroundColor: Color(0xFF073F42),
@@ -62,70 +191,11 @@ class CoordinatorCaseDetailScreen extends StatelessWidget {
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Case #001',
-                              style: TextStyle(
-                                color: _darkTeal,
-                                fontSize: 19,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: _lightWarning,
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: const Text(
-                              'Pending Review',
-                              style: TextStyle(
-                                color: _orange,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      const _ProfileCard(),
-                      const SizedBox(height: 12),
-                      const _CaseInformationCard(),
-                      const SizedBox(height: 17),
-                      const Text(
-                        'Actions',
-                        style: TextStyle(
-                          color: _darkTeal,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const _ActionRow(icon: Icons.phone_outlined, label: 'Retry'),
-                      const SizedBox(height: 7),
-                      const _ActionRow(
-                          icon: Icons.calendar_month_outlined, label: 'Reschedule'),
-                      const SizedBox(height: 7),
-                      const _ActionRow(
-                          icon: Icons.shield_outlined, label: 'Review Consent'),
-                      const SizedBox(height: 7),
-                      _ActionRow(
-                        icon: Icons.person_outline,
-                        label: 'Contact Approved Person',
-                        onTap: () =>
-                            Navigator.of(context).pushNamed(AppRoutes.consentContextReview),
-                      ),
-                    ],
+                child: FutureBuilder<_CaseView?>(
+                  future: _view,
+                  builder: (context, snapshot) => SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(18, 10, 18, 20),
+                    child: _buildContent(snapshot),
                   ),
                 ),
               ),
@@ -135,43 +205,186 @@ class CoordinatorCaseDetailScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildContent(AsyncSnapshot<_CaseView?> snapshot) {
+    if (snapshot.hasError) {
+      return CoordinatorCaseMessage(
+        icon: Icons.error_outline_rounded,
+        title: 'Could not load this case.',
+        message: describeCaseError(snapshot.error!),
+        actionLabel: 'Try again',
+        onAction: _reload,
+      );
+    }
+    final view = snapshot.data;
+    if (view == null) {
+      if (snapshot.connectionState != ConnectionState.done) {
+        return const CoordinatorCaseMessage.loading();
+      }
+      return CoordinatorCaseMessage(
+        icon: Icons.search_off_rounded,
+        title: _caseId == null ? 'No case selected.' : 'Case not found.',
+        message: 'Open a case from the Safety Cases list.',
+      );
+    }
+
+    final safetyCase = view.safetyCase;
+    final consent = view.consent;
+    final status = caseStatusColors(safetyCase.status);
+    final isOpen = !safetyCase.isClosed && !_busy;
+    final canContact = consent.canContactApprovedPerson;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                safetyCase.caseLabel,
+                style: const TextStyle(
+                  color: CoordinatorCaseDetailScreen._darkTeal,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: status.background,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Text(
+                safetyCase.status.label,
+                style: TextStyle(
+                  color: status.foreground,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _ProfileCard(safetyCase: safetyCase),
+        const SizedBox(height: 10),
+        _CaseDetailsCard(safetyCase: safetyCase, consent: consent),
+        const SizedBox(height: 16),
+        const _SectionTitle('Actions'),
+        const SizedBox(height: 8),
+        _ActionRow(
+          icon: Icons.phone_outlined,
+          label: 'Retry',
+          subtitle: safetyCase.isClosed ? 'Case is closed' : null,
+          onTap: isOpen ? () => _retry(safetyCase) : null,
+        ),
+        const SizedBox(height: 7),
+        _ActionRow(
+          icon: Icons.calendar_month_outlined,
+          label: 'Reschedule',
+          subtitle: safetyCase.isClosed ? 'Case is closed' : null,
+          onTap: isOpen ? _reschedule : null,
+        ),
+        const SizedBox(height: 7),
+        _ActionRow(
+          icon: Icons.shield_outlined,
+          label: 'Review Consent',
+          onTap: _busy ? null : () => _open(AppRoutes.consentContextReview),
+        ),
+        const SizedBox(height: 7),
+        _ActionRow(
+          icon: Icons.person_outline,
+          label: 'Contact Approved Person',
+          subtitle: safetyCase.isClosed
+              ? 'Case is closed'
+              : canContact
+              ? consent.approvedContact!.displayLabel
+              : 'No approved consent and contact on record',
+          onTap: isOpen && canContact
+              ? () => _open(AppRoutes.approvedContactAction)
+              : null,
+        ),
+        const SizedBox(height: 7),
+        if (safetyCase.isClosed)
+          _ActionRow(
+            icon: Icons.history_rounded,
+            label: 'View Audit Timeline',
+            onTap: () => _open(AppRoutes.caseClosed),
+          )
+        else
+          _ActionRow(
+            icon: Icons.assignment_turned_in_outlined,
+            label: 'Record Outcome & Close',
+            onTap: isOpen ? () => _open(AppRoutes.auditOutcomeCloseCase) : null,
+          ),
+        if (_repository.usesMockData) ...[
+          const SizedBox(height: 12),
+          const CoordinatorMockDataNote(
+            'Showing mock case data. Not connected to live sessions.',
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        style: const TextStyle(
+          color: CoordinatorCaseDetailScreen._darkTeal,
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+        ),
+      );
 }
 
 class _ProfileCard extends StatelessWidget {
-  const _ProfileCard();
+  const _ProfileCard({required this.safetyCase});
+
+  final SafetyCase safetyCase;
 
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
         decoration: _cardDecoration(),
-        child: const Row(
+        child: Row(
           children: [
-            CircleAvatar(
+            const CircleAvatar(
               radius: 26,
               backgroundColor: CoordinatorCaseDetailScreen._lightTeal,
               child: Icon(Icons.person_rounded,
                   size: 30, color: CoordinatorCaseDetailScreen._teal),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Mrs. Silva',
-                      style: TextStyle(
+                  Text(safetyCase.elderDisplayName,
+                      style: const TextStyle(
                         color: CoordinatorCaseDetailScreen._darkTeal,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                       )),
-                  SizedBox(height: 2),
-                  Text('Mother',
-                      style: TextStyle(
-                          color: CoordinatorCaseDetailScreen._secondary,
-                          fontSize: 12)),
-                  SizedBox(height: 2),
-                  Text('Elder ID: EL001',
-                      style: TextStyle(
-                          color: Color(0xFF9AABAC), fontSize: 10)),
+                  if (safetyCase.elderRelationship != null) ...[
+                    const SizedBox(height: 2),
+                    Text(safetyCase.elderRelationship!,
+                        style: const TextStyle(
+                            color: CoordinatorCaseDetailScreen._secondary,
+                            fontSize: 12)),
+                  ],
+                  const SizedBox(height: 2),
+                  Text('Elder ID: ${safetyCase.elderReference}',
+                      style: const TextStyle(
+                          color: CoordinatorCaseDetailScreen._muted,
+                          fontSize: 10)),
                 ],
               ),
             ),
@@ -180,43 +393,53 @@ class _ProfileCard extends StatelessWidget {
       );
 }
 
-class _CaseInformationCard extends StatelessWidget {
-  const _CaseInformationCard();
+/// Compact summary of the missed check-in and the elder's consent. Only
+/// fields stored on the case and consent record are shown; full consent
+/// details are on the Consent Context Review screen.
+class _CaseDetailsCard extends StatelessWidget {
+  const _CaseDetailsCard({required this.safetyCase, required this.consent});
+
+  final SafetyCase safetyCase;
+  final ElderConsentContext consent;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: _cardDecoration(),
-        child: const Column(
-          children: [
-            _InformationRow(
-              icon: Icons.calendar_today_outlined,
-              label: 'Scheduled Time',
-              value: '30 Sep 2026, 10:30 AM',
-            ),
-            _InformationRow(
-              icon: Icons.error_outline_rounded,
-              label: 'Status',
-              value: 'Missed Check-in',
-              valueColor: CoordinatorCaseDetailScreen._orange,
-              indicatorColor: CoordinatorCaseDetailScreen._orange,
-            ),
-            _InformationRow(
-              icon: Icons.phone_outlined,
-              label: 'Previous Attempts',
-              value: '1 attempt',
-            ),
-            _InformationRow(
-              icon: Icons.shield_outlined,
-              label: 'Consent',
-              value: 'Approved family contact',
-              valueColor: CoordinatorCaseDetailScreen._success,
-              indicatorColor: CoordinatorCaseDetailScreen._success,
-              last: true,
-            ),
-          ],
-        ),
-      );
+  Widget build(BuildContext context) {
+    final attempts = safetyCase.previousAttempts;
+    final summary = consentSummary(consent);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: _cardDecoration(),
+      child: Column(
+        children: [
+          _InformationRow(
+            icon: Icons.calendar_today_outlined,
+            label: 'Scheduled Time',
+            value: formatCaseDateTime(safetyCase.scheduledAt),
+          ),
+          _InformationRow(
+            icon: Icons.error_outline_rounded,
+            label: 'Status',
+            value: safetyCase.reason.label,
+            valueColor: CoordinatorCaseDetailScreen._orange,
+            indicatorColor: CoordinatorCaseDetailScreen._orange,
+          ),
+          _InformationRow(
+            icon: Icons.phone_outlined,
+            label: 'Previous Attempts',
+            value: '$attempts attempt${attempts == 1 ? '' : 's'}',
+          ),
+          _InformationRow(
+            icon: Icons.shield_outlined,
+            label: 'Consent',
+            value: summary.label,
+            valueColor: summary.color,
+            indicatorColor: summary.color,
+            last: true,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _InformationRow extends StatelessWidget {
@@ -238,8 +461,8 @@ class _InformationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        constraints: const BoxConstraints(minHeight: 47),
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        constraints: const BoxConstraints(minHeight: 42),
+        padding: const EdgeInsets.symmetric(vertical: 7),
         decoration: BoxDecoration(
           border: last
               ? null
@@ -296,50 +519,83 @@ class _InformationRow extends StatelessWidget {
 }
 
 class _ActionRow extends StatelessWidget {
-  const _ActionRow({required this.icon, required this.label, this.onTap});
+  const _ActionRow({
+    required this.icon,
+    required this.label,
+    this.subtitle,
+    this.onTap,
+  });
 
   final IconData icon;
   final String label;
+  final String? subtitle;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-        height: 50,
-        padding: const EdgeInsets.symmetric(horizontal: 13),
-        decoration: BoxDecoration(
-          color: Colors.white,
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    final color = enabled
+        ? CoordinatorCaseDetailScreen._teal
+        : CoordinatorCaseDetailScreen._muted;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      child: Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: CoordinatorCaseDetailScreen._line),
+          side: const BorderSide(color: CoordinatorCaseDetailScreen._line),
         ),
-        child: Row(
-          children: [
-            Icon(icon, size: 21, color: CoordinatorCaseDetailScreen._teal),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: CoordinatorCaseDetailScreen._darkTeal,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(11),
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 50),
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+            child: Row(
+              children: [
+                Icon(icon, size: 21, color: color),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: enabled
+                              ? CoordinatorCaseDetailScreen._darkTeal
+                              : CoordinatorCaseDetailScreen._muted,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: CoordinatorCaseDetailScreen._secondary,
+                            fontSize: 10.5,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
+                Icon(Icons.chevron_right_rounded, size: 20, color: color),
+              ],
             ),
-            IconButton(
-              tooltip: onTap == null ? null : 'Open',
-              onPressed: onTap,
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-              icon: const Icon(Icons.chevron_right_rounded, size: 20),
-              color: CoordinatorCaseDetailScreen._teal,
-              disabledColor: CoordinatorCaseDetailScreen._teal,
-            ),
-          ],
+          ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 BoxDecoration _cardDecoration() => BoxDecoration(

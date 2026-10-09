@@ -10,12 +10,8 @@ import '../features/family_safety/screens/family_pending_screen.dart';
 import '../features/family_safety/screens/family_approved_screen.dart';
 import '../features/family_safety/screens/family_dashboard_screen.dart';
 import '../features/family_safety/screens/missed_session_notification_screen.dart';
-import '../features/family_safety/screens/coordinator_case_list_screen.dart';
-import '../features/family_safety/screens/coordinator_case_detail_screen.dart';
-import '../features/family_safety/screens/consent_context_review_screen.dart';
-import '../features/family_safety/screens/approved_contact_action_screen.dart';
-import '../features/family_safety/screens/audit_outcome_close_case_screen.dart';
-import '../features/family_safety/screens/case_closed_screen.dart';
+import '../features/coordinator/coordinator_access_guard.dart';
+import '../features/coordinator/coordinator_screens.dart';
 import 'routes.dart';
 import 'theme.dart';
 
@@ -37,17 +33,24 @@ class CareLinkApp extends StatelessWidget {
         AppRoutes.familyDashboard: (context) => const FamilyDashboardScreen(),
         AppRoutes.missedSession: (context) =>
             const MissedSessionNotificationScreen(),
+        // Coordinator-only routes: the screen is not built until the
+        // Coordinator/Admin check passes.
         AppRoutes.coordinatorCaseList: (context) =>
-            const CoordinatorCaseListScreen(),
+            const CoordinatorAccessGuard(child: CoordinatorCaseListScreen()),
         AppRoutes.coordinatorCaseDetail: (context) =>
-            const CoordinatorCaseDetailScreen(),
+            const CoordinatorAccessGuard(child: CoordinatorCaseDetailScreen()),
         AppRoutes.consentContextReview: (context) =>
-            const ConsentContextReviewScreen(),
+            const CoordinatorAccessGuard(child: ConsentContextReviewScreen()),
         AppRoutes.approvedContactAction: (context) =>
-            const ApprovedContactActionScreen(),
+            const CoordinatorAccessGuard(child: ApprovedContactActionScreen()),
         AppRoutes.auditOutcomeCloseCase: (context) =>
-            const AuditOutcomeCloseCaseScreen(),
-        AppRoutes.caseClosed: (context) => const CaseClosedScreen(),
+            const CoordinatorAccessGuard(child: AuditOutcomeCloseCaseScreen()),
+        AppRoutes.caseClosed: (context) =>
+            const CoordinatorAccessGuard(child: CaseClosedScreen()),
+        AppRoutes.coordinatorVerifications: (context) =>
+            const CoordinatorAccessGuard(
+              child: StudentVerificationReviewScreen(),
+            ),
         AppRoutes.companionHome: (context) =>
             const StudentCompanionHomeScreen(),
         AppRoutes.companionMatching: (context) =>

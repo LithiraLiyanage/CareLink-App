@@ -1,19 +1,29 @@
 import 'package:flutter/material.dart';
 
-import '../../../app/routes.dart';
+import '../../coordinator/coordinator_case_scope.dart';
+import '../../coordinator/coordinator_case_ui.dart';
+import '../../coordinator/models/elder_consent_context.dart';
+import '../../coordinator/models/safety_case.dart';
+import '../../coordinator/services/coordinator_case_repository.dart';
 
-/// Static coordinator view for contacting the elder's approved person
-/// after a missed check-in.
-class ApprovedContactActionScreen extends StatelessWidget {
-  const ApprovedContactActionScreen({super.key});
+typedef _ContactView = ({SafetyCase safetyCase, ElderConsentContext consent});
+
+/// Coordinator view for following up with the elder's approved person after
+/// a missed check-in, opened with the case id as the route argument.
+///
+/// Shows the approved contact and the reason for contact. CareLink does not
+/// place calls or send messages.
+class ApprovedContactActionScreen extends StatefulWidget {
+  const ApprovedContactActionScreen({super.key, this.caseId});
+
+  /// Case to show; when null the route argument is used.
+  final String? caseId;
 
   static const _teal = Color(0xFF00776F);
   static const _darkTeal = Color(0xFF073F42);
   static const _mint = Color(0xFFF5FBF9);
   static const _lightTeal = Color(0xFFE7F6F1);
-  static const _primaryText = Color(0xFF073F42);
   static const _secondary = Color(0xFF708486);
-  static const _muted = Color(0xFF9AABAC);
   static const _line = Color(0xFFD1EBE7);
   static const _success = Color(0xFF00A878);
   static const _lightSuccess = Color(0xFFDFF5ED);
@@ -24,9 +34,42 @@ class ApprovedContactActionScreen extends StatelessWidget {
   static const _infoText = Color(0xFF345B70);
 
   @override
+  State<ApprovedContactActionScreen> createState() =>
+      _ApprovedContactActionScreenState();
+}
+
+class _ApprovedContactActionScreenState
+    extends State<ApprovedContactActionScreen> {
+  late CoordinatorCaseRepository _repository;
+  String? _caseId;
+  Future<_ContactView?>? _view;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_view != null) return;
+    _repository = CoordinatorCaseScope.of(context);
+    _caseId = widget.caseId ?? caseIdFromRoute(context);
+    _view = _load();
+  }
+
+  Future<_ContactView?> _load() async {
+    final caseId = _caseId;
+    if (caseId == null) return null;
+    final safetyCase = await _repository.getCase(caseId);
+    final consent = await _repository.getConsentContext(caseId);
+    if (safetyCase == null || consent == null) return null;
+    return (safetyCase: safetyCase, consent: consent);
+  }
+
+  void _reload() => setState(() {
+        _view = _load();
+      });
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _mint,
+      backgroundColor: ApprovedContactActionScreen._mint,
       appBar: AppBar(
         toolbarHeight: 60,
         backgroundColor: Color(0xFF073F42),
@@ -66,49 +109,37 @@ class ApprovedContactActionScreen extends StatelessWidget {
           ),
           SafeArea(
             top: false,
-            child: Center(
+            child: Align(
+              alignment: Alignment.topCenter,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
-                child: const SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(18, 6, 18, 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Approved Contact',
-                        style: TextStyle(
-                          color: _darkTeal,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w700,
+                child: FutureBuilder<_ContactView?>(
+                  future: _view,
+                  builder: (context, snapshot) => SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Approved Contact',
+                          style: TextStyle(
+                            color: ApprovedContactActionScreen._darkTeal,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        'Contact the approved person for follow-up.',
-                        style: TextStyle(color: _secondary, fontSize: 12),
-                      ),
-                      SizedBox(height: 12),
-                      _ContactCard(),
-                      SizedBox(height: 16),
-                      _ReasonCard(),
-                      SizedBox(height: 16),
-                      _ActionRow(
-                        icon: Icons.phone_outlined,
-                        label: 'Call Contact',
-                      ),
-                      SizedBox(height: 7),
-                      _ActionRow(
-                        icon: Icons.chat_bubble_outline,
-                        label: 'Send Message',
-                      ),
-                      SizedBox(height: 7),
-                      _ActionRow(
-                        icon: Icons.check_circle_outline,
-                        label: 'Mark Follow-up Complete',
-                      ),
-                      SizedBox(height: 16),
-                      _InfoNote(),
-                    ],
+                        const SizedBox(height: 3),
+                        const Text(
+                          'Contact the approved person for follow-up.',
+                          style: TextStyle(
+                            color: ApprovedContactActionScreen._secondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ..._content(snapshot),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -118,63 +149,105 @@ class ApprovedContactActionScreen extends StatelessWidget {
       ),
     );
   }
+
+  List<Widget> _content(AsyncSnapshot<_ContactView?> snapshot) {
+    if (snapshot.hasError) {
+      return [
+        CoordinatorCaseMessage(
+          icon: Icons.error_outline_rounded,
+          title: 'Could not load the approved contact.',
+          message: describeCaseError(snapshot.error!),
+          actionLabel: 'Try again',
+          onAction: _reload,
+        ),
+      ];
+    }
+    final view = snapshot.data;
+    if (view == null) {
+      if (snapshot.connectionState != ConnectionState.done) {
+        return const [CoordinatorCaseMessage.loading()];
+      }
+      return [
+        CoordinatorCaseMessage(
+          icon: Icons.search_off_rounded,
+          title: _caseId == null ? 'No case selected.' : 'Case not found.',
+          message: 'Open a case from the Safety Cases list.',
+        ),
+      ];
+    }
+
+    final contact = view.consent.approvedContact;
+    if (!view.consent.canContactApprovedPerson || contact == null) {
+      return const [
+        CoordinatorCaseMessage(
+          icon: Icons.lock_outline_rounded,
+          title: 'Contact unavailable.',
+          message:
+              'No approved consent and contact are recorded for this elder. '
+              'Review consent before contacting anyone.',
+        ),
+      ];
+    }
+
+    return [
+      _ContactCard(contact: contact),
+      const SizedBox(height: 16),
+      _ReasonCard(safetyCase: view.safetyCase),
+      const SizedBox(height: 16),
+      const _InfoNote(
+        'Only contact the person approved by the older adult. CareLink '
+        'records these actions but does not place calls or send messages.',
+      ),
+    ];
+  }
 }
 
 class _ContactCard extends StatelessWidget {
-  const _ContactCard();
+  const _ContactCard({required this.contact});
+
+  final ApprovedContact contact;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: () => Navigator.of(context).pushNamed(AppRoutes.auditOutcomeCloseCase),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-          decoration: _cardDecoration(),
-          child: const Row(
-            children: [
-              CircleAvatar(
-                radius: 23,
-                backgroundColor: ApprovedContactActionScreen._lightTeal,
-                child: Icon(Icons.person_rounded,
-                    size: 27, color: ApprovedContactActionScreen._teal),
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        decoration: _cardDecoration(),
+        child: Row(
+          children: [
+            const CircleAvatar(
+              radius: 23,
+              backgroundColor: ApprovedContactActionScreen._lightTeal,
+              child: Icon(Icons.person_rounded,
+                  size: 27, color: ApprovedContactActionScreen._teal),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    contact.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: ApprovedContactActionScreen._darkTeal,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    contact.relationship,
+                    style: const TextStyle(
+                      color: ApprovedContactActionScreen._secondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Jane Silva',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: ApprovedContactActionScreen._darkTeal,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Daughter',
-                      style: TextStyle(
-                        color: ApprovedContactActionScreen._secondary,
-                        fontSize: 11,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      '+94 77 123 4567',
-                      style: TextStyle(
-                        color: ApprovedContactActionScreen._muted,
-                        fontSize: 10.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(width: 8),
-              _ApprovedChip(),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            const _ApprovedChip(),
+          ],
         ),
       );
 }
@@ -209,7 +282,9 @@ class _ApprovedChip extends StatelessWidget {
 }
 
 class _ReasonCard extends StatelessWidget {
-  const _ReasonCard();
+  const _ReasonCard({required this.safetyCase});
+
+  final SafetyCase safetyCase;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -233,28 +308,30 @@ class _ReasonCard extends StatelessWidget {
                 color: ApprovedContactActionScreen._lightWarning,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Row(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.error_outline,
+                  const Icon(Icons.error_outline,
                       size: 20, color: ApprovedContactActionScreen._warning),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Missed Check-in',
-                          style: TextStyle(
+                          safetyCase.reason.label,
+                          style: const TextStyle(
                             color: ApprovedContactActionScreen._darkTeal,
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        SizedBox(height: 3),
+                        const SizedBox(height: 3),
                         Text(
-                          "Mrs. Silva's scheduled check-in\nwas not completed.",
-                          style: TextStyle(
+                          "${safetyCase.elderDisplayName}'s check-in scheduled "
+                          'for ${formatCaseDateTime(safetyCase.scheduledAt)} '
+                          'was not completed.',
+                          style: const TextStyle(
                             color: ApprovedContactActionScreen._secondary,
                             fontSize: 10.5,
                             height: 1.35,
@@ -271,47 +348,10 @@ class _ReasonCard extends StatelessWidget {
       );
 }
 
-class _ActionRow extends StatelessWidget {
-  const _ActionRow({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        constraints: const BoxConstraints(minHeight: 48),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: ApprovedContactActionScreen._line),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 21, color: ApprovedContactActionScreen._teal),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: ApprovedContactActionScreen._primaryText,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            const Icon(Icons.chevron_right,
-                size: 19, color: ApprovedContactActionScreen._secondary),
-          ],
-        ),
-      );
-}
-
 class _InfoNote extends StatelessWidget {
-  const _InfoNote();
+  const _InfoNote(this.text);
+
+  final String text;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -320,16 +360,16 @@ class _InfoNote extends StatelessWidget {
           color: ApprovedContactActionScreen._lightInfo,
           borderRadius: BorderRadius.circular(11),
         ),
-        child: const Row(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline,
+            const Icon(Icons.info_outline,
                 size: 18, color: ApprovedContactActionScreen._info),
-            SizedBox(width: 9),
+            const SizedBox(width: 9),
             Expanded(
               child: Text(
-                'Only contact the person approved by the\nolder adult.',
-                style: TextStyle(
+                text,
+                style: const TextStyle(
                   color: ApprovedContactActionScreen._infoText,
                   fontSize: 10.5,
                   height: 1.4,

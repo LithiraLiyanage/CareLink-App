@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
 import '../../elder/models/check_in.dart';
-import '../../elder/widgets/elder_assets.dart';
-import '../../elder/widgets/elder_ui.dart';
 import '../services/family_check_in_service.dart';
 import '../services/family_link_service.dart';
+
+/// True when Firestore refused the read because of security rules.
+bool _isPermissionDenied(Object? error) =>
+    error is FirebaseException && error.code == 'permission-denied';
 
 /// Family caregiver dashboard shown after a connection is approved.
 class FamilyDashboardScreen extends StatefulWidget {
@@ -126,21 +128,35 @@ class _FamilyDashboardScreenState extends State<FamilyDashboardScreen> {
                       StreamBuilder<List<FamilyLinkRequest>>(
                         stream: _approvals,
                         builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            debugPrint(
+                              'Family approvals stream error: ${snapshot.error}',
+                            );
+                          }
                           final approvals = snapshot.data;
                           final approval = approvals == null || approvals.isEmpty
                               ? null
                               : approvals.first;
+                          final loading =
+                              !snapshot.hasData && !snapshot.hasError;
+                          final linkError =
+                              snapshot.hasError ? snapshot.error : null;
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _MemberCard(
                                 approval: approval,
-                                loading: !snapshot.hasData && !snapshot.hasError,
+                                loading: loading,
+                                error: linkError,
                               ),
                               const SizedBox(height: 12),
-                              _CheckInRow(elderName: approval?.elderName),
-                              const SizedBox(height: 12),
-                              const _FamilyStatusCard(),
+                              // Also renders the Family Status card, which is
+                              // derived from the same check-in summary.
+                              _CheckInRow(
+                                elderName: approval?.elderName,
+                                loading: loading,
+                                linkError: linkError,
+                              ),
                               const SizedBox(height: 12),
                               const _ConsentCard(),
                               const SizedBox(height: 18),
@@ -155,7 +171,8 @@ class _FamilyDashboardScreenState extends State<FamilyDashboardScreen> {
                               const SizedBox(height: 8),
                               _UpdatesCard(
                                 elderName: approval?.elderName,
-                                loading: !snapshot.hasData && !snapshot.hasError,
+                                loading: loading,
+                                linkError: linkError,
                               ),
                             ],
                           );
@@ -175,20 +192,31 @@ class _FamilyDashboardScreenState extends State<FamilyDashboardScreen> {
 }
 
 class _MemberCard extends StatelessWidget {
-  const _MemberCard({required this.approval, this.loading = false});
+  const _MemberCard({
+    required this.approval,
+    this.loading = false,
+    this.error,
+  });
 
   final FamilyLinkRequest? approval;
   final bool loading;
+  final Object? error;
 
   @override
   Widget build(BuildContext context) {
     final elderName = approval?.elderName.trim() ?? '';
     final relationship = approval?.relationship.trim() ?? '';
+    final connected = approval != null && !loading && error == null;
     final String nameText;
     final String relationshipText;
     if (loading) {
       nameText = 'Loading...';
-      relationshipText = '';
+      relationshipText = 'Checking your family link';
+    } else if (error != null) {
+      nameText = 'Family link unavailable';
+      relationshipText = _isPermissionDenied(error)
+          ? "You don't have permission to view this link"
+          : "Couldn't load your family link";
     } else if (approval == null) {
       nameText = 'No family member linked';
       relationshipText = 'Send a link request to connect';
@@ -203,19 +231,13 @@ class _MemberCard extends StatelessWidget {
       decoration: _cardDecoration(),
       child: Row(
         children: [
-          if (approval != null && !loading)
-            const ElderAvatar(
-              asset: ElderAssets.kamalaAvatar,
-              size: 54,
-              border: false,
-            )
-          else
-            const CircleAvatar(
-              radius: 27,
-              backgroundColor: Color(0xFFE7F6F1),
-              child: Icon(Icons.person_rounded,
-                  size: 31, color: FamilyDashboardScreen._ink),
-            ),
+          // Link requests carry no photo, so don't show a stock one.
+          const CircleAvatar(
+            radius: 27,
+            backgroundColor: Color(0xFFE7F6F1),
+            child: Icon(Icons.person_rounded,
+                size: 31, color: FamilyDashboardScreen._ink),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -236,29 +258,43 @@ class _MemberCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-            decoration: BoxDecoration(
-              color: FamilyDashboardScreen._lightSuccess,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.circle, size: 7, color: FamilyDashboardScreen._success),
-                SizedBox(width: 5),
-                Text(
-                  'Connected',
-                  style: TextStyle(
-                    color: FamilyDashboardScreen._success,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+          if (!loading) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: connected
+                    ? FamilyDashboardScreen._lightSuccess
+                    : const Color(0xFFEEF2F2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.circle,
+                      size: 7,
+                      color: connected
+                          ? FamilyDashboardScreen._success
+                          : FamilyDashboardScreen._muted),
+                  const SizedBox(width: 5),
+                  Text(
+                    connected
+                        ? 'Connected'
+                        : error != null
+                            ? 'Unavailable'
+                            : 'Not linked',
+                    style: TextStyle(
+                      color: connected
+                          ? FamilyDashboardScreen._success
+                          : FamilyDashboardScreen._muted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -267,9 +303,19 @@ class _MemberCard extends StatelessWidget {
 
 /// Today's and the next check-in for the linked elder, live from Firestore.
 class _CheckInRow extends StatefulWidget {
-  const _CheckInRow({required this.elderName});
+  const _CheckInRow({
+    required this.elderName,
+    this.loading = false,
+    this.linkError,
+  });
 
   final String? elderName;
+
+  /// The accepted link request is still loading.
+  final bool loading;
+
+  /// The accepted link request couldn't be read.
+  final Object? linkError;
 
   @override
   State<_CheckInRow> createState() => _CheckInRowState();
@@ -299,27 +345,112 @@ class _CheckInRowState extends State<_CheckInRow> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.loading) {
+      return _buildRow(
+        today: null,
+        next: null,
+        message: 'Loading...',
+        familyStatus: 'Loading check-in status...',
+      );
+    }
+    if (widget.linkError != null) {
+      return _buildRow(
+        today: null,
+        next: null,
+        message: 'Unavailable',
+        detail: 'Family link not loaded',
+        familyStatus: "Check-in status can't be shown until your family "
+            'link loads.',
+      );
+    }
     if (_summary == null) {
-      return _buildRow(today: null, next: null, message: 'Not linked yet');
+      return _buildRow(
+        today: null,
+        next: null,
+        message: 'Not linked yet',
+        familyStatus: 'Link a family member to see their check-in status.',
+      );
     }
     return StreamBuilder<FamilyCheckInSummary>(
       stream: _summary,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return _buildRow(today: null, next: null, message: 'Unavailable');
+          debugPrint(
+            'Family check-in stream error: ${snapshot.error}',
+          );
+          final denied = _isPermissionDenied(snapshot.error);
+          return _buildRow(
+            today: null,
+            next: null,
+            message: 'Unavailable',
+            detail: denied ? 'No access to check-ins' : "Couldn't load",
+            familyStatus: denied
+                ? "Your account doesn't have permission to view this "
+                    "family member's check-ins yet."
+                : "Check-ins couldn't be loaded right now.",
+          );
         }
         if (!snapshot.hasData) {
-          return _buildRow(today: null, next: null, message: 'Loading...');
+          return _buildRow(
+            today: null,
+            next: null,
+            message: 'Loading...',
+            familyStatus: 'Loading check-in status...',
+          );
         }
-        return _buildRow(today: snapshot.data!.today, next: snapshot.data!.next);
+        final today = snapshot.data!.today;
+        final next = snapshot.data!.next;
+        return _buildRow(
+          today: today,
+          next: next,
+          familyStatus: _familyStatus(today, next),
+        );
       },
     );
+  }
+
+  /// A one-line summary of the real check-in data, for the Family Status card.
+  static String _familyStatus(CheckIn? today, CheckIn? next) {
+    switch (today?.status) {
+      case CheckInStatus.missed:
+        return "Today's check-in was missed.";
+      case CheckInStatus.completed:
+        return "Today's check-in has been completed.";
+      case CheckInStatus.inProgress:
+        return "Today's check-in is in progress.";
+      case CheckInStatus.scheduled:
+      case CheckInStatus.ready:
+        return "Today's check-in is coming up.";
+      case CheckInStatus.cancelled:
+      case null:
+        return next == null
+            ? 'No upcoming check-ins are scheduled.'
+            : 'The next check-in is scheduled.';
+    }
   }
 
   Widget _buildRow({
     required CheckIn? today,
     required CheckIn? next,
+    required String familyStatus,
     String? message,
+    String detail = '',
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildCards(today: today, next: next, message: message, detail: detail),
+        const SizedBox(height: 12),
+        _FamilyStatusCard(message: familyStatus),
+      ],
+    );
+  }
+
+  Widget _buildCards({
+    required CheckIn? today,
+    required CheckIn? next,
+    String? message,
+    String detail = '',
   }) {
     final todayStatus = message ?? _todayStatus(today);
     final todayDone = today?.status == CheckInStatus.completed;
@@ -338,7 +469,7 @@ class _CheckInRowState extends State<_CheckInRow> {
             title: "Today's Check-in",
             status: todayStatus,
             time: message != null
-                ? ''
+                ? detail
                 : today == null
                     ? 'Nothing scheduled'
                     : _formatTime(today.scheduledAt),
@@ -355,7 +486,7 @@ class _CheckInRowState extends State<_CheckInRow> {
             title: 'Next Check-in',
             status: message ?? (next == null ? 'None yet' : _dayLabel(next.scheduledAt)),
             time: message != null
-                ? ''
+                ? detail
                 : next == null
                     ? 'Nothing scheduled'
                     : _formatTime(next.scheduledAt),
@@ -484,7 +615,9 @@ class _CheckInCard extends StatelessWidget {
 }
 
 class _FamilyStatusCard extends StatelessWidget {
-  const _FamilyStatusCard();
+  const _FamilyStatusCard({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -495,16 +628,16 @@ class _FamilyStatusCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: const Color(0xFFF2E8D3)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.bar_chart_rounded,
+          const Icon(Icons.bar_chart_rounded,
               color: FamilyDashboardScreen._ink, size: 23),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Family Status',
                   style: TextStyle(
                     color: FamilyDashboardScreen._titleInk,
@@ -512,10 +645,10 @@ class _FamilyStatusCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 3),
+                const SizedBox(height: 3),
                 Text(
-                  'All scheduled check-ins are on track.',
-                  style: TextStyle(
+                  message,
+                  style: const TextStyle(
                     color: FamilyDashboardScreen._muted,
                     fontSize: 12,
                     height: 1.3,
@@ -627,10 +760,15 @@ class _CheckInUpdate {
 /// [FamilyCheckInService.watchSummary], so Firestore serves both from one
 /// watch target.
 class _UpdatesCard extends StatefulWidget {
-  const _UpdatesCard({required this.elderName, this.loading = false});
+  const _UpdatesCard({
+    required this.elderName,
+    this.loading = false,
+    this.linkError,
+  });
 
   final String? elderName;
   final bool loading;
+  final Object? linkError;
 
   @override
   State<_UpdatesCard> createState() => _UpdatesCardState();
@@ -772,12 +910,20 @@ class _UpdatesCardState extends State<_UpdatesCard> {
   @override
   Widget build(BuildContext context) {
     if (widget.loading) return _buildMessage('Loading updates...');
+    if (widget.linkError != null) {
+      return _buildMessage("Family link couldn't be loaded");
+    }
     if (_updates == null) return _buildMessage('No family member linked yet');
     return StreamBuilder<List<_CheckInUpdate>>(
       stream: _updates,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return _buildMessage('Updates are unavailable right now');
+          debugPrint(
+            'Family updates stream error: ${snapshot.error}',
+          );
+          return _buildMessage(_isPermissionDenied(snapshot.error)
+              ? 'No permission to view these updates'
+              : 'Updates are unavailable right now');
         }
         if (!snapshot.hasData) return _buildMessage('Loading updates...');
         final updates = snapshot.data!;

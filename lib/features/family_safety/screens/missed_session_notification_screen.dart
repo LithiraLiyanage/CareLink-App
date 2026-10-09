@@ -112,9 +112,11 @@ class MissedSessionNotificationScreen extends StatelessWidget {
                       _ActionButton(
                         label: 'View Details',
                         filled: true,
-                        onPressed: () => Navigator.pushNamed(
+                        // Family caregivers see check-in updates on their
+                        // own dashboard; coordinator cases are not theirs.
+                        onPressed: () => Navigator.pushReplacementNamed(
                           context,
-                          AppRoutes.coordinatorCaseList,
+                          AppRoutes.familyDashboard,
                         ),
                       ),
                       const SizedBox(height: 11),

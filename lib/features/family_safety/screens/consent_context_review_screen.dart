@@ -1,10 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
+import '../../coordinator/coordinator_case_scope.dart';
+import '../../coordinator/coordinator_case_ui.dart';
+import '../../coordinator/models/elder_consent_context.dart';
+import '../../coordinator/models/safety_case.dart';
+import '../../coordinator/services/coordinator_case_repository.dart';
 
-/// Static coordinator view of an older adult's consent and shared context.
-class ConsentContextReviewScreen extends StatelessWidget {
-  const ConsentContextReviewScreen({super.key});
+typedef _ConsentView = ({SafetyCase safetyCase, ElderConsentContext consent});
+
+/// Coordinator view of an older adult's consent and shared context, opened
+/// with the case id as the route argument.
+///
+/// Only what the repository records is shown; nothing is assumed when consent
+/// is not recorded.
+class ConsentContextReviewScreen extends StatefulWidget {
+  const ConsentContextReviewScreen({super.key, this.caseId});
+
+  /// Case to show; when null the route argument is used.
+  final String? caseId;
 
   static const _teal = Color(0xFF00776F);
   static const _darkTeal = Color(0xFF073F42);
@@ -18,11 +32,46 @@ class ConsentContextReviewScreen extends StatelessWidget {
   static const _lightSuccess = Color(0xFFDFF5ED);
   static const _restricted = Color(0xFFE53935);
   static const _lightRed = Color(0xFFFFF0F0);
+  static const _warning = Color(0xFFF59E0B);
+  static const _lightWarning = Color(0xFFFFF4DF);
+
+  @override
+  State<ConsentContextReviewScreen> createState() =>
+      _ConsentContextReviewScreenState();
+}
+
+class _ConsentContextReviewScreenState
+    extends State<ConsentContextReviewScreen> {
+  late CoordinatorCaseRepository _repository;
+  String? _caseId;
+  Future<_ConsentView?>? _view;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_view != null) return;
+    _repository = CoordinatorCaseScope.of(context);
+    _caseId = widget.caseId ?? caseIdFromRoute(context);
+    _view = _load();
+  }
+
+  Future<_ConsentView?> _load() async {
+    final caseId = _caseId;
+    if (caseId == null) return null;
+    final safetyCase = await _repository.getCase(caseId);
+    final consent = await _repository.getConsentContext(caseId);
+    if (safetyCase == null || consent == null) return null;
+    return (safetyCase: safetyCase, consent: consent);
+  }
+
+  void _reload() => setState(() {
+        _view = _load();
+      });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _mint,
+      backgroundColor: ConsentContextReviewScreen._mint,
       appBar: AppBar(
         toolbarHeight: 60,
         backgroundColor: Color(0xFF073F42),
@@ -61,39 +110,33 @@ class ConsentContextReviewScreen extends StatelessWidget {
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
-                child: const SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(18, 6, 18, 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Consent & Context',
-                        style: TextStyle(
-                          color: _darkTeal,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w700,
+                child: FutureBuilder<_ConsentView?>(
+                  future: _view,
+                  builder: (context, snapshot) => SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(18, 6, 18, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Consent & Context',
+                          style: TextStyle(
+                            color: ConsentContextReviewScreen._darkTeal,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        "Review the elder's consent preferences.",
-                        style: TextStyle(color: _secondary, fontSize: 12),
-                      ),
-                      SizedBox(height: 12),
-                      _ProfileCard(),
-                      SizedBox(height: 16),
-                      _SectionHeading('Consent Status'),
-                      SizedBox(height: 7),
-                      _ConsentStatusCard(),
-                      SizedBox(height: 16),
-                      _SectionHeading('Allowed Information'),
-                      SizedBox(height: 7),
-                      _AllowedInformationCard(),
-                      SizedBox(height: 16),
-                      _SectionHeading('Restricted Information'),
-                      SizedBox(height: 7),
-                      _RestrictedInformationCard(),
-                    ],
+                        const SizedBox(height: 3),
+                        const Text(
+                          "Review the elder's consent preferences.",
+                          style: TextStyle(
+                            color: ConsentContextReviewScreen._secondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ..._content(snapshot),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -102,6 +145,80 @@ class ConsentContextReviewScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  List<Widget> _content(AsyncSnapshot<_ConsentView?> snapshot) {
+    if (snapshot.hasError) {
+      return [
+        CoordinatorCaseMessage(
+          icon: Icons.error_outline_rounded,
+          title: 'Could not load consent.',
+          message: describeCaseError(snapshot.error!),
+          actionLabel: 'Try again',
+          onAction: _reload,
+        ),
+      ];
+    }
+    final view = snapshot.data;
+    if (view == null) {
+      if (snapshot.connectionState != ConnectionState.done) {
+        return const [CoordinatorCaseMessage.loading()];
+      }
+      return [
+        CoordinatorCaseMessage(
+          icon: Icons.search_off_rounded,
+          title: _caseId == null ? 'No case selected.' : 'Case not found.',
+          message: 'Open a case from the Safety Cases list.',
+        ),
+      ];
+    }
+
+    final consent = view.consent;
+    final isApproved = consent.familySharing == ConsentSharingStatus.approved;
+    final canContact =
+        consent.canContactApprovedPerson && !view.safetyCase.isClosed;
+    void openContact() => Navigator.of(context).pushNamed(
+      AppRoutes.approvedContactAction,
+      arguments: view.safetyCase.id,
+    );
+
+    return [
+      _ProfileCard(
+        safetyCase: view.safetyCase,
+        onTap: canContact ? openContact : null,
+      ),
+      if (consent.isMock) ...[
+        const SizedBox(height: 8),
+        const CoordinatorMockDataNote(
+          'Mock consent record for development. Not real consent.',
+        ),
+      ],
+      const SizedBox(height: 16),
+      const _SectionHeading('Consent Status'),
+      const SizedBox(height: 7),
+      _ConsentStatusCard(consent: consent),
+      const SizedBox(height: 16),
+      const _SectionHeading('Allowed Information'),
+      const SizedBox(height: 7),
+      _AllowedInformationCard(
+        items: isApproved ? consent.allowedInformation : const [],
+      ),
+      const SizedBox(height: 16),
+      const _SectionHeading('Restricted Information'),
+      const SizedBox(height: 7),
+      _RestrictedInformationCard(
+        items: consent.restrictedInformation,
+        everythingRestricted: !isApproved,
+      ),
+      const SizedBox(height: 16),
+      if (consent.canContactApprovedPerson)
+        _ContactButton(
+          label: 'Contact ${consent.approvedContact!.name}',
+          onPressed: canContact ? openContact : null,
+        )
+      else
+        _ConsentWarning(status: consent.familySharing),
+    ];
   }
 }
 
@@ -122,20 +239,25 @@ class _SectionHeading extends StatelessWidget {
 }
 
 class _ProfileCard extends StatelessWidget {
-  const _ProfileCard();
+  const _ProfileCard({required this.safetyCase, this.onTap});
+
+  final SafetyCase safetyCase;
+
+  /// Opens the approved-contact screen; null when contact is not permitted.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => Material(
     color: Colors.transparent,
     child: InkWell(
       borderRadius: BorderRadius.circular(14),
-      onTap: () => Navigator.of(context).pushNamed(AppRoutes.approvedContactAction),
+      onTap: onTap,
       child: Ink(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
         decoration: _cardDecoration(),
-        child: const Row(
+        child: Row(
           children: [
-            CircleAvatar(
+            const CircleAvatar(
               radius: 23,
               backgroundColor: ConsentContextReviewScreen._lightTeal,
               child: Icon(
@@ -144,31 +266,33 @@ class _ProfileCard extends StatelessWidget {
                 color: ConsentContextReviewScreen._teal,
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Mrs. Silva',
-                    style: TextStyle(
+                    safetyCase.elderDisplayName,
+                    style: const TextStyle(
                       color: ConsentContextReviewScreen._darkTeal,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Mother',
-                    style: TextStyle(
-                      color: ConsentContextReviewScreen._secondary,
-                      fontSize: 11,
+                  if (safetyCase.elderRelationship != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      safetyCase.elderRelationship!,
+                      style: const TextStyle(
+                        color: ConsentContextReviewScreen._secondary,
+                        fontSize: 11,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 2),
+                  ],
+                  const SizedBox(height: 2),
                   Text(
-                    'Elder ID: EL001',
-                    style: TextStyle(
+                    'Elder ID: ${safetyCase.elderReference}',
+                    style: const TextStyle(
                       color: ConsentContextReviewScreen._muted,
                       fontSize: 10,
                     ),
@@ -176,12 +300,14 @@ class _ProfileCard extends StatelessWidget {
                 ],
               ),
             ),
-            SizedBox(width: 8),
-            Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: ConsentContextReviewScreen._secondary,
-            ),
+            if (onTap != null) ...[
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: ConsentContextReviewScreen._secondary,
+              ),
+            ],
           ],
         ),
       ),
@@ -190,42 +316,55 @@ class _ProfileCard extends StatelessWidget {
 }
 
 class _ConsentStatusCard extends StatelessWidget {
-  const _ConsentStatusCard();
+  const _ConsentStatusCard({required this.consent});
+
+  final ElderConsentContext consent;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    decoration: _cardDecoration(),
-    child: const Column(
-      children: [
-        _StatusRow(
-          icon: Icons.groups_outlined,
-          label: 'Family sharing',
-          trailing: _ApprovedChip(),
-        ),
-        _StatusRow(
-          icon: Icons.person_outline,
-          label: 'Approved Contact',
-          trailing: _StatusValue(
-            'Jane Silva (Daughter)',
-            color: ConsentContextReviewScreen._primaryText,
-            weight: FontWeight.w600,
+  Widget build(BuildContext context) {
+    final contact = consent.approvedContact;
+    final validFrom = consent.validFrom;
+    final lastUpdated = consent.lastUpdatedAt;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: _cardDecoration(),
+      child: Column(
+        children: [
+          _StatusRow(
+            icon: Icons.groups_outlined,
+            label: 'Family sharing',
+            trailing: _SharingChip(consent.familySharing),
           ),
-        ),
-        _StatusRow(
-          icon: Icons.calendar_today_outlined,
-          label: 'Valid from',
-          trailing: _StatusValue('1 Jan 2026'),
-        ),
-        _StatusRow(
-          icon: Icons.update,
-          label: 'Last updated',
-          trailing: _StatusValue('15 Sep 2026'),
-          last: true,
-        ),
-      ],
-    ),
-  );
+          _StatusRow(
+            icon: Icons.person_outline,
+            label: 'Approved Contact',
+            trailing: contact == null
+                ? const _StatusValue('None recorded')
+                : _StatusValue(
+                    contact.displayLabel,
+                    color: ConsentContextReviewScreen._primaryText,
+                    weight: FontWeight.w600,
+                  ),
+          ),
+          _StatusRow(
+            icon: Icons.calendar_today_outlined,
+            label: 'Valid from',
+            trailing: _StatusValue(
+              validFrom == null ? 'Not recorded' : formatCaseDate(validFrom),
+            ),
+          ),
+          _StatusRow(
+            icon: Icons.update,
+            label: 'Last updated',
+            trailing: _StatusValue(
+              lastUpdated == null ? 'Not recorded' : formatCaseDate(lastUpdated),
+            ),
+            last: true,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _StatusRow extends StatelessWidget {
@@ -298,41 +437,58 @@ class _StatusValue extends StatelessWidget {
   );
 }
 
-class _ApprovedChip extends StatelessWidget {
-  const _ApprovedChip();
+class _SharingChip extends StatelessWidget {
+  const _SharingChip(this.status);
+
+  final ConsentSharingStatus status;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(
-      color: ConsentContextReviewScreen._lightSuccess,
-      borderRadius: BorderRadius.circular(18),
-    ),
-    child: const Text(
-      'Approved',
-      style: TextStyle(
-        color: ConsentContextReviewScreen._success,
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
+  Widget build(BuildContext context) {
+    final colors = consentStatusColors(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: BorderRadius.circular(18),
       ),
-    ),
-  );
+      child: Text(
+        status.label,
+        style: TextStyle(
+          color: colors.foreground,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
 }
 
 class _AllowedInformationCard extends StatelessWidget {
-  const _AllowedInformationCard();
+  const _AllowedInformationCard({required this.items});
+
+  final List<String> items;
 
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
     decoration: _cardDecoration(),
-    child: const Column(
-      children: [
-        _AllowedRow('Check-in status'),
-        _AllowedRow('Schedule information'),
-        _AllowedRow('General wellbeing status', last: true),
-      ],
-    ),
+    child: items.isEmpty
+        ? const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'No information sharing is recorded.',
+              style: TextStyle(
+                color: ConsentContextReviewScreen._secondary,
+                fontSize: 12,
+              ),
+            ),
+          )
+        : Column(
+            children: [
+              for (var i = 0; i < items.length; i++)
+                _AllowedRow(items[i], last: i == items.length - 1),
+            ],
+          ),
   );
 }
 
@@ -383,50 +539,155 @@ class _AllowedRow extends StatelessWidget {
 }
 
 class _RestrictedInformationCard extends StatelessWidget {
-  const _RestrictedInformationCard();
+  const _RestrictedInformationCard({
+    required this.items,
+    required this.everythingRestricted,
+  });
+
+  final List<String> items;
+
+  /// True when sharing is not approved, so nothing may be shared.
+  final bool everythingRestricted;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = [
+      if (everythingRestricted)
+        ('All case information', 'Not shared without recorded consent')
+      else if (items.isEmpty)
+        ('No restrictions recorded', 'Share only the allowed information'),
+      for (final item in items)
+        if (!everythingRestricted) (item, 'Not accessible'),
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: _cardDecoration(),
+      child: Column(
+        children: [
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: _RestrictedRow(title: row.$1, detail: row.$2),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RestrictedRow extends StatelessWidget {
+  const _RestrictedRow({required this.title, required this.detail});
+
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: ConsentContextReviewScreen._lightRed,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: const Icon(
+          Icons.do_not_disturb_alt,
+          size: 18,
+          color: ConsentContextReviewScreen._restricted,
+        ),
+      ),
+      const SizedBox(width: 11),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: ConsentContextReviewScreen._primaryText,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              detail,
+              style: const TextStyle(
+                color: ConsentContextReviewScreen._restricted,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+class _ContactButton extends StatelessWidget {
+  const _ContactButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 46,
+    child: OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.person_outline, size: 19),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: ConsentContextReviewScreen._teal,
+        side: const BorderSide(color: ConsentContextReviewScreen._line),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+  );
+}
+
+class _ConsentWarning extends StatelessWidget {
+  const _ConsentWarning({required this.status});
+
+  final ConsentSharingStatus status;
 
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    decoration: _cardDecoration(),
+    decoration: BoxDecoration(
+      color: ConsentContextReviewScreen._lightWarning,
+      borderRadius: BorderRadius.circular(11),
+    ),
     child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: ConsentContextReviewScreen._lightRed,
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: const Icon(
-            Icons.do_not_disturb_alt,
-            size: 18,
-            color: ConsentContextReviewScreen._restricted,
-          ),
+        const Icon(
+          Icons.info_outline,
+          size: 18,
+          color: ConsentContextReviewScreen._warning,
         ),
-        const SizedBox(width: 11),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Private conversation content',
-                style: TextStyle(
-                  color: ConsentContextReviewScreen._primaryText,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Not accessible',
-                style: TextStyle(
-                  color: ConsentContextReviewScreen._restricted,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            switch (status) {
+              ConsentSharingStatus.approved =>
+                'No approved contact is named. Do not contact family '
+                    'members on behalf of this elder.',
+              ConsentSharingStatus.notRecorded =>
+                'Consent is not recorded. Do not contact family members or '
+                    'share case information on behalf of this elder.',
+              ConsentSharingStatus.withdrawn =>
+                'Consent was withdrawn. Do not contact family members or '
+                    'share case information on behalf of this elder.',
+            },
+            style: const TextStyle(
+              color: ConsentContextReviewScreen._primaryText,
+              fontSize: 11,
+              height: 1.4,
+            ),
           ),
         ),
       ],
