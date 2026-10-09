@@ -9,10 +9,12 @@ class ActiveVideoCallKamalaScreen extends StatefulWidget {
   const ActiveVideoCallKamalaScreen({super.key});
 
   @override
-  State<ActiveVideoCallKamalaScreen> createState() => _ActiveVideoCallKamalaScreenState();
+  State<ActiveVideoCallKamalaScreen> createState() =>
+      _ActiveVideoCallKamalaScreenState();
 }
 
-class _ActiveVideoCallKamalaScreenState extends State<ActiveVideoCallKamalaScreen> {
+class _ActiveVideoCallKamalaScreenState
+    extends State<ActiveVideoCallKamalaScreen> {
   bool muted = false;
   bool speaker = true;
   bool camera = true;

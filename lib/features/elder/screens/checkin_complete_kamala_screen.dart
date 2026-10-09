@@ -65,10 +65,7 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
           decoration: BoxDecoration(
             color: ElderColors.mintSoft,
             shape: BoxShape.circle,
-            border: Border.all(
-              color: ElderColors.deepTeal,
-              width: 1.3,
-            ),
+            border: Border.all(color: ElderColors.deepTeal, width: 1.3),
           ),
           child: const Icon(
             Icons.check_rounded,
@@ -111,11 +108,7 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
       ),
       child: const Row(
         children: [
-          ElderAvatar(
-            asset: ElderAssets.kamalaAvatar,
-            size: 52,
-            border: false,
-          ),
+          ElderAvatar(asset: ElderAssets.kamalaAvatar, size: 52, border: false),
           SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -133,10 +126,7 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
                 SizedBox(height: 4),
                 Text(
                   'Video check-in • Today',
-                  style: TextStyle(
-                    color: ElderColors.textMuted,
-                    fontSize: 9,
-                  ),
+                  style: TextStyle(color: ElderColors.textMuted, fontSize: 9),
                 ),
               ],
             ),
@@ -153,10 +143,7 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
         ElderPrimaryButton(
           label: 'Back to home',
           height: 54,
-          onPressed: () => _replace(
-            context,
-            const ElderHomeScreen(),
-          ),
+          onPressed: () => _replace(context, const ElderHomeScreen()),
         ),
         const SizedBox(height: 10),
         SizedBox(
@@ -164,10 +151,7 @@ class CheckInCompleteKamalaScreen extends StatelessWidget {
           child: ElderOutlineButton(
             label: 'View Memory Lane',
             height: 48,
-            onPressed: () => _replace(
-              context,
-              const MemoryLaneScreen(),
-            ),
+            onPressed: () => _replace(context, const MemoryLaneScreen()),
           ),
         ),
       ],
@@ -225,10 +209,7 @@ class _SummaryBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 82,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 10,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: ElderColors.border),
@@ -303,10 +284,7 @@ class _ConsentCard extends StatelessWidget {
                 SizedBox(height: 3),
                 Text(
                   'Nothing is shared without your consent.',
-                  style: TextStyle(
-                    color: ElderColors.textMuted,
-                    fontSize: 9,
-                  ),
+                  style: TextStyle(color: ElderColors.textMuted, fontSize: 9),
                 ),
               ],
             ),
