@@ -915,84 +915,6 @@ service cloud.firestore {
     // =========================================================
 
     match /check_ins/{documentId} {
-      // Fast, pair-scoped path for the current Flutter check-in workflow.
-      // This avoids evaluating several expensive legacy update branches on
-      // a valid operation, while protecting pair IDs and immutable metadata.
-      allow update: if request.auth != null
-        && resource.data.keys().hasAll([
-          'elderId', 'companionId', 'connectionId', 'matchRequestId',
-          'scheduledAt', 'status'
-        ])
-        && (
-          (resource.data.companionId == request.auth.uid
-            && isVerifiedStudent(request.auth.uid))
-          || (resource.data.elderId == request.auth.uid
-            && isOlderAdult(request.auth.uid))
-        )
-        && resource.data.connectionId is string
-        && exists(/databases/$(database)/documents/connections/$(resource.data.connectionId))
-        && get(/databases/$(database)/documents/connections/$(resource.data.connectionId)).data.status == 'active'
-        && get(/databases/$(database)/documents/connections/$(resource.data.connectionId)).data.elderId == resource.data.elderId
-        && get(/databases/$(database)/documents/connections/$(resource.data.connectionId)).data.companionId == resource.data.companionId
-        && get(/databases/$(database)/documents/connections/$(resource.data.connectionId)).data.matchRequestId == resource.data.matchRequestId
-        && request.resource.data.updatedAt == request.time
-        && (
-          // Reschedule: status returns/stays scheduled, time MUST move forward.
-          (
-            resource.data.status in ['scheduled', 'ready']
-            && request.resource.data.status == 'scheduled'
-            && request.resource.data.scheduledAt is timestamp
-            && request.resource.data.scheduledAt > request.time
-            && request.resource.data.scheduledAt != resource.data.scheduledAt
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'scheduledAt', 'status', 'updatedAt'
-            ])
-          )
-          ||
-          // State progression: ready -> inProgress -> completed, and
-          // existing supported cancel/missed/direct-complete transitions.
-          (
-            (
-              (resource.data.status == 'scheduled' && request.resource.data.status
-                in ['ready', 'inProgress', 'completed', 'cancelled', 'missed'])
-              || (resource.data.status == 'ready' && request.resource.data.status
-                in ['inProgress', 'completed', 'cancelled', 'missed'])
-              || (resource.data.status == 'inProgress' && request.resource.data.status
-                in ['completed', 'cancelled'])
-            )
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'scheduledAt', 'status', 'updatedAt', 'reflection', 'startedAt', 'completedAt'
-            ])
-            // Current service does not change appointment time in a status update.
-            // An earlier regression test additionally moves time while entering
-            // 'ready'; permit that only for a new future time.
-            && (
-              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['scheduledAt'])
-              || (
-                resource.data.status == 'scheduled'
-                && request.resource.data.status == 'ready'
-                && request.resource.data.scheduledAt is timestamp
-                && request.resource.data.scheduledAt > request.time
-              )
-            )
-            && (
-              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['startedAt'])
-              || (request.resource.data.status == 'inProgress'
-                && request.resource.data.startedAt == request.time)
-            )
-            && (
-              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['completedAt'])
-              || (request.resource.data.status == 'completed'
-                && request.resource.data.completedAt == request.time)
-            )
-            && (
-              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['reflection'])
-              || request.resource.data.reflection == null
-              || request.resource.data.reflection is string
-            )
-          )
-        );
-
       allow get, list: if request.auth != null
         && (
           (
@@ -1080,17 +1002,7 @@ service cloud.firestore {
         && carelinkActivePair(resource.data)
         && carelinkValidCheckIn(resource.data)
         && carelinkValidCheckIn(request.resource.data)
-        // Rescheduling a READY check-in returns it to SCHEDULED only when
-        // the appointment moves to a different, future date/time.
-        && (
-          carelinkAllowedTransition(resource.data.status, request.resource.data.status)
-          || (
-            resource.data.status == 'ready'
-            && request.resource.data.status == 'scheduled'
-            && request.resource.data.scheduledAt != resource.data.scheduledAt
-            && request.resource.data.scheduledAt > request.time
-          )
-        )
+        && carelinkAllowedTransition(resource.data.status, request.resource.data.status)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'scheduledAt', 'status', 'reflection', 'updatedAt', 'startedAt', 'completedAt'
         ])
