@@ -171,6 +171,19 @@ service cloud.firestore {
         )
         && completedRoleIsLocked(request.resource.data)
         && (
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['verificationStatus'])
+          || (
+            request.resource.data.verificationStatus == 'pending'
+            && request.resource.data.role == 'Student Companion'
+            && verificationPendingAfter(userId)
+          )
+          || (
+            request.resource.data.verificationStatus == 'notRequired'
+            && request.resource.data.role != 'Student Companion'
+          )
+        )
+        && (
           !resource.data.keys().hasAny(['createdAt'])
           || request.resource.data.createdAt == resource.data.createdAt
         );
@@ -309,6 +322,7 @@ service cloud.firestore {
 
     match /consents/{userId} {
       allow read: if isOwner(userId);
+
       allow create, update: if isOwner(userId)
         && request.resource.data.userId == userId
         && request.resource.data.privacyAccepted == true

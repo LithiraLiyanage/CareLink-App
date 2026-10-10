@@ -6,6 +6,8 @@ import '../services/auth_service.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -48,16 +50,37 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _authService.loginUser(
+      final loggedInUser = await _authService.loginUser(
         email: _emailController.text,
         password: _passwordController.text,
       );
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Login successful')));
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not find the logged-in user.')),
+        );
+        return;
+      }
 
+      final userDocument = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(loggedInUser.uid)
+          .get();
+
+      if (!mounted) return;
+
+      if (!userDocument.exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User profile was not found.')),
+        );
+        return;
+      }
+
+      // The shared account-flow navigator handles onboarding, verification,
+      // and the correct destination for each user role.
       await AccountFlowNavigation.replaceWithNext(context, clearStack: true);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;

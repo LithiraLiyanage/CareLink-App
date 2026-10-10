@@ -54,7 +54,6 @@ class AuthService {
         'emailVerified': user.emailVerified,
         'setupStage': 'emailVerification',
         'profileCompleted': false,
-        'verificationStatus': 'notSubmitted',
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -169,6 +168,11 @@ class AuthService {
         // Firebase logout has already completed successfully.
       }
     }
+  }
+
+  Future<String?> getUserRole(String uid) async {
+    final snapshot = await _firestore.collection('users').doc(uid).get();
+    return snapshot.data()?['role'] as String?;
   }
 
   User? get currentUser => _auth.currentUser;
