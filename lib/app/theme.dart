@@ -38,7 +38,6 @@ class CareLinkTheme {
       // =========================
       // APP BAR
       // =========================
-
       appBarTheme: const AppBarTheme(
         backgroundColor: backgroundColor,
         foregroundColor: textPrimary,
@@ -49,7 +48,6 @@ class CareLinkTheme {
       // =========================
       // TEXT
       // =========================
-
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           fontSize: 32,
@@ -76,24 +74,14 @@ class CareLinkTheme {
           fontWeight: FontWeight.w600,
           color: textPrimary,
         ),
-        bodyLarge: TextStyle(
-          fontSize: 18,
-          color: textPrimary,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 16,
-          color: textSecondary,
-        ),
-        bodySmall: TextStyle(
-          fontSize: 14,
-          color: textSecondary,
-        ),
+        bodyLarge: TextStyle(fontSize: 18, color: textPrimary),
+        bodyMedium: TextStyle(fontSize: 16, color: textSecondary),
+        bodySmall: TextStyle(fontSize: 14, color: textSecondary),
       ),
 
       // =========================
       // PRIMARY BUTTON
       // =========================
-
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           minimumSize: const Size(double.infinity, 52),
@@ -103,24 +91,18 @@ class CareLinkTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
 
       // =========================
       // OUTLINED BUTTON
       // =========================
-
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(double.infinity, 52),
           foregroundColor: primaryColor,
-          side: const BorderSide(
-            color: primaryColor,
-          ),
+          side: const BorderSide(color: primaryColor),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -130,7 +112,6 @@ class CareLinkTheme {
       // =========================
       // INPUT FIELDS
       // =========================
-
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
@@ -140,45 +121,45 @@ class CareLinkTheme {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: Color(0xFFCAC4D0),
-          ),
+          borderSide: const BorderSide(color: Color(0xFFCAC4D0)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: Color(0xFFCAC4D0),
-          ),
+          borderSide: const BorderSide(color: Color(0xFFCAC4D0)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: primaryColor,
-            width: 2,
-          ),
+          borderSide: const BorderSide(color: primaryColor, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: errorColor,
-          ),
+          borderSide: const BorderSide(color: errorColor),
         ),
       ),
 
       // =========================
       // CARDS
       // =========================
-
       cardTheme: CardThemeData(
         elevation: 0,
         color: surfaceColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(
-            color: Color(0xFFE7E0EC),
-          ),
+          side: const BorderSide(color: Color(0xFFE7E0EC)),
         ),
       ),
+    );
+  }
+
+  static ThemeData get highContrastTheme {
+    return lightTheme.copyWith(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF007A76),
+        brightness: Brightness.light,
+        contrastLevel: 1,
+      ),
+      scaffoldBackgroundColor: Colors.white,
+      focusColor: Colors.black,
     );
   }
 }

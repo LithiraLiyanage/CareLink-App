@@ -75,6 +75,12 @@ class StudentVerificationService {
         .collection('student_verifications')
         .doc(user.uid);
     final existingVerification = await verificationReference.get();
+    if ([
+      'approved',
+      'verified',
+    ].contains(existingVerification.data()?['status'])) {
+      throw StateError('Your student verification has already been approved.');
+    }
     final previousDocumentPath =
         existingVerification.data()?['documentPath'] as String?;
 
@@ -84,17 +90,18 @@ class StudentVerificationService {
     );
     final storageReference = _storage.ref().child(
       'student_verifications/${user.uid}/'
-      '${DateTime.now().millisecondsSinceEpoch}_$safeFileName',
-    );
-
-    await storageReference.putData(
-      documentBytes,
-      SettableMetadata(
-        contentType: StudentVerificationValidator.contentTypeFor(documentName),
-      ),
+      '${_firestore.collection('student_verifications').doc().id}_$safeFileName',
     );
 
     try {
+      await storageReference.putData(
+        documentBytes,
+        SettableMetadata(
+          contentType: StudentVerificationValidator.contentTypeFor(
+            documentName,
+          ),
+        ),
+      );
       final downloadUrl = await storageReference.getDownloadURL();
       final batch = _firestore.batch();
 
@@ -108,11 +115,16 @@ class StudentVerificationService {
         'documentUrl': downloadUrl,
         'documentPath': storageReference.fullPath,
         'status': 'pending',
+        'reviewedAt': null,
+        'reviewedBy': null,
+        'rejectionReason': null,
         'submittedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       batch.update(userReference, {
         'verificationStatus': 'pending',
+        'profileCompleted': true,
+        'setupStage': 'complete',
         'updatedAt': FieldValue.serverTimestamp(),
       });
 

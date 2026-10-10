@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart';
 
 import '../services/student_verification_service.dart';
 import '../services/student_verification_validator.dart';
+import '../services/setup_back_navigation.dart';
 import 'verification_status_screen.dart';
 
 class StudentVerificationScreen extends StatefulWidget {
@@ -119,6 +120,16 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
         return;
       }
 
+      if (!StudentVerificationValidator.isAllowedDocument(file.name)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Choose a JPG, JPEG, PNG, or PDF document'),
+          ),
+        );
+        return;
+      }
+
       final fileSize = file.lengthSync() ?? await file.length();
       if (fileSize != null &&
           !StudentVerificationValidator.isWithinSizeLimit(fileSize)) {
@@ -156,6 +167,7 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting || _isPickingDocument) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -262,7 +274,13 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _BackButton(onPressed: () => Navigator.pop(context)),
+                    _BackButton(
+                      onPressed: () {
+                        if (!_isSubmitting && !_isPickingDocument) {
+                          SetupBackNavigation.back(context);
+                        }
+                      },
+                    ),
                     const SizedBox(height: 26),
                     Center(
                       child: Container(

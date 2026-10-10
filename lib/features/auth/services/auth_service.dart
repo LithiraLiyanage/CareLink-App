@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'accessibility_controller.dart';
+
 class GoogleAuthResult {
   final User user;
   final bool needsProfileSetup;
@@ -49,6 +51,8 @@ class AuthService {
           'highContrast': false,
           'reduceMotion': false,
         },
+        'emailVerified': user.emailVerified,
+        'setupStage': 'emailVerification',
         'profileCompleted': false,
         'verificationStatus': 'notSubmitted',
         'createdAt': FieldValue.serverTimestamp(),
@@ -84,6 +88,22 @@ class AuthService {
 
   Future<void> sendPasswordResetEmail({required String email}) {
     return _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
+  Future<void> sendEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('You must be signed in to verify your email.');
+    }
+    await user.reload();
+    final refreshedUser = _auth.currentUser;
+    if (refreshedUser == null) {
+      throw StateError('Your authentication session has expired.');
+    }
+    if (refreshedUser.emailVerified) return;
+
+    await _auth.setLanguageCode('en');
+    await refreshedUser.sendEmailVerification();
   }
 
   Future<GoogleAuthResult?> signInWithGoogle() async {
@@ -137,6 +157,7 @@ class AuthService {
   Future<void> logoutUser() async {
     await _auth.signOut();
     await _signOutGoogleProvider();
+    AccessibilityController.instance.reset();
   }
 
   Future<void> _signOutGoogleProvider() async {
@@ -175,6 +196,8 @@ class AuthService {
           'highContrast': false,
           'reduceMotion': false,
         },
+        'emailVerified': user.emailVerified,
+        'setupStage': 'role',
         'profileCompleted': false,
         'verificationStatus': 'notSubmitted',
         'createdAt': FieldValue.serverTimestamp(),
@@ -186,6 +209,7 @@ class AuthService {
     final data = snapshot.data() ?? <String, dynamic>{};
     final updates = <String, Object>{
       'email': email,
+      'emailVerified': user.emailVerified,
       'updatedAt': FieldValue.serverTimestamp(),
     };
     if ((data['fullName'] as String? ?? '').trim().isEmpty &&
