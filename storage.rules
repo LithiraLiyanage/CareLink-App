@@ -15,9 +15,16 @@ service firebase.storage {
         );
     }
 
+    function isStudentCompanion(userId) {
+      return firestore.get(
+        /databases/(default)/documents/users/$(userId)
+      ).data.role == 'Student Companion';
+    }
+
     match /student_verifications/{userId}/{fileName} {
       allow read, delete: if isOwner(userId);
-      allow create, update: if isOwner(userId)
+      allow create: if isOwner(userId)
+        && isStudentCompanion(userId)
         && isValidVerificationDocument();
     }
   }

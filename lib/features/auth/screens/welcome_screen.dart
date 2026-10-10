@@ -1,6 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
@@ -14,8 +16,28 @@ class WelcomeScreen extends StatelessWidget {
   static const Color darkText = Color(0xFF123C43);
   static const Color mutedText = Color(0xFF789196);
 
+  Future<void> _signOut(BuildContext context) async {
+    try {
+      await AuthService().logoutUser();
+      if (!context.mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+        (route) => false,
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not sign out. Please try again.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final isSignedIn = currentUser != null;
+
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -206,8 +228,13 @@ class WelcomeScreen extends StatelessWidget {
                         width: double.infinity,
                         height: 58,
                         child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
+                          onPressed: () async {
+                            if (isSignedIn) {
+                              await _signOut(context);
+                              return;
+                            }
+                            if (!context.mounted) return;
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const RegisterScreen(),
@@ -222,18 +249,23 @@ class WelcomeScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(30),
                             ),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                'Get Started',
-                                style: TextStyle(
+                                isSignedIn ? 'Sign Out' : 'Get Started',
+                                style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              SizedBox(width: 12),
-                              Icon(Icons.arrow_forward_rounded, size: 27),
+                              const SizedBox(width: 12),
+                              Icon(
+                                isSignedIn
+                                    ? Icons.logout_rounded
+                                    : Icons.arrow_forward_rounded,
+                                size: 27,
+                              ),
                             ],
                           ),
                         ),
@@ -244,37 +276,48 @@ class WelcomeScreen extends StatelessWidget {
                       // ------------------------------------------
                       // LOGIN TEXT
                       // ------------------------------------------
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            'Already have an account? ',
-                            style: TextStyle(
-                              color: mutedText,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                            ),
+                      if (isSignedIn)
+                        Text(
+                          'Signed in as ${currentUser.email ?? 'CareLink user'}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: mutedText,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
                           ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const LoginScreen(),
-                                ),
-                              );
-                            },
-                            child: const Text(
-                              'Log In',
+                        )
+                      else
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'Already have an account? ',
                               style: TextStyle(
-                                color: teal,
+                                color: mutedText,
                                 fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w400,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const LoginScreen(),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                'Log In',
+                                style: TextStyle(
+                                  color: teal,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
 
                       const Spacer(),
                     ],

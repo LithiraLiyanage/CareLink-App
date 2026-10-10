@@ -31,6 +31,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _sendResetLink() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }

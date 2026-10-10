@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/account_setup_service.dart';
+import '../services/setup_back_navigation.dart';
 import 'language_accessibility_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -28,6 +29,32 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _accountSetupService = AccountSetupService();
 
   bool _isSaving = false;
+  bool _isLoading = true;
+  bool _loadFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
+    try {
+      final data = await _accountSetupService.loadProfile();
+      if (!mounted) return;
+      _fullNameController.text = data['fullName'] as String? ?? '';
+      _phoneController.text = data['phone'] as String? ?? '';
+      _locationController.text = data['location'] as String? ?? '';
+    } catch (_) {
+      if (mounted) setState(() => _loadFailed = true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -38,7 +65,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Future<void> _continue() async {
-    if (!_formKey.currentState!.validate() || _isSaving) {
+    if (_isLoading ||
+        _loadFailed ||
+        _isSaving ||
+        !_formKey.currentState!.validate()) {
       return;
     }
 
@@ -153,7 +183,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       ),
                       child: IconButton(
                         onPressed: () {
-                          Navigator.pop(context);
+                          if (!_isSaving) SetupBackNavigation.back(context);
                         },
                         icon: const Icon(
                           Icons.arrow_back_rounded,
@@ -163,6 +193,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       ),
                     ),
 
+                    if (_isLoading) const LinearProgressIndicator(color: teal),
+                    if (_loadFailed)
+                      TextButton.icon(
+                        onPressed: _loadProfile,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Retry loading saved profile'),
+                      ),
                     const SizedBox(height: 30),
 
                     const Text(
@@ -277,6 +314,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
                     TextFormField(
                       controller: _fullNameController,
+                      enabled: !_isLoading && !_isSaving,
                       textInputAction: TextInputAction.next,
                       decoration: _fieldDecoration(
                         hintText: 'Enter your full name',
@@ -298,6 +336,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
                     TextFormField(
                       controller: _phoneController,
+                      enabled: !_isLoading && !_isSaving,
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
                       decoration: _fieldDecoration(
@@ -320,11 +359,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
                     TextFormField(
                       controller: _locationController,
+                      enabled: !_isLoading && !_isSaving,
                       textInputAction: TextInputAction.done,
                       decoration: _fieldDecoration(
                         hintText: 'Colombo, Sri Lanka',
                         icon: Icons.location_on_outlined,
                       ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your location';
+                        }
+                        return null;
+                      },
                     ),
 
                     const SizedBox(height: 34),
@@ -333,7 +379,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       width: double.infinity,
                       height: 60,
                       child: ElevatedButton(
-                        onPressed: _isSaving ? null : _continue,
+                        onPressed: _isSaving || _isLoading || _loadFailed
+                            ? null
+                            : _continue,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: teal,
                           foregroundColor: Colors.white,

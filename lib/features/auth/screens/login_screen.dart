@@ -1,8 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../services/account_flow_navigation.dart';
 import '../services/auth_service.dart';
-import 'choose_role_screen.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
@@ -58,8 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Login successful')));
 
-      // Next:
-      // navigate to role-based home/profile screen.
+      await AccountFlowNavigation.replaceWithNext(context, clearStack: true);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
@@ -109,14 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SnackBar(content: Text('Google sign-in successful')),
       );
 
-      if (result.needsProfileSetup) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const ChooseRoleScreen()),
-        );
-      } else {
-        Navigator.pop(context);
-      }
+      await AccountFlowNavigation.replaceWithNext(context, clearStack: true);
     } on FirebaseAuthException catch (error) {
       if (!mounted) return;
 
