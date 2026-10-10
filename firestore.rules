@@ -85,6 +85,20 @@ service cloud.firestore {
         && (
           !resource.data.keys().hasAny(['createdAt'])
           || request.resource.data.createdAt == resource.data.createdAt
+        )
+        && onboardingRoleLocked();
+    }
+
+    // Once onboarding is complete the role is fixed, and profileCompleted
+    // cannot be reset to reopen it. AccountSetupService only sets the role
+    // before saveConsents marks the profile complete, or re-saves the same
+    // value afterwards.
+    function onboardingRoleLocked() {
+      return resource.data.get('profileCompleted', false) != true
+        || (
+          request.resource.data.get('profileCompleted', false) == true
+          && request.resource.data.get('role', null)
+            == resource.data.get('role', null)
         );
     }
 
@@ -1084,8 +1098,22 @@ service cloud.firestore {
         && (!data.keys().hasAny(['mediaPath']) || data.mediaPath == null || data.mediaPath is string);
     }
 
+
     // =========================================================
-    // FAMILY LINKING
+    // FAMILY LINKING (name + ID number requests)
+    //
+    // 1. A Family Caregiver creates family_link_requests/{autoId} addressed
+    //    to the older adult's full name and ID number.
+    // 2. Any older adult whose CareLink first name matches sees the request,
+    //    with the ID number so they can confirm it is theirs.
+    // 3. Accepting binds the request to that elder's UID and creates
+    //    family_links/{linkId(elder, caregiver)} in the same batch.
+    // 4. A caregiver can read check-ins only while that link exists.
+    //    Deleting the link revokes access.
+    //
+    // Must stay in sync with FamilyLinkService.fullNameKey() and
+    // firstNameKey(). Requests sent before elderNameKey existed carry only
+    // elderFirstNameLower and still match.
     // =========================================================
 
     function isFamilyCaregiver(userId) {
@@ -1095,55 +1123,166 @@ service cloud.firestore {
         ).data.role == 'Family Caregiver';
     }
 
-    // Requests are addressed by the elder's first name; keep in sync with
-    // FamilyLinkService.firstNameKey.
-    function isAddressedElder(data) {
-      return isOlderAdult(request.auth.uid)
-        && data.elderFirstNameLower == get(
-          /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.fullName.trim().lower().split(' ')[0];
+    function familyLinkId(elderId, caregiverId) {
+      return requestPairId(elderId, caregiverId);
     }
 
-    match /family_link_requests/{requestId} {
-            // The family member who sent the request can read it.
-      allow get, list: if request.auth != null
-        && resource.data.requesterId == request.auth.uid;
-      // The older adult the request is addressed to can read it.
-      allow get, list: if request.auth != null
-        && isAddressedElder(resource.data);
+    function familyLinkPath(elderId, caregiverId) {
+      return /databases/$(database)/documents/family_links/$(familyLinkId(elderId, caregiverId));
+    }
 
-      allow create: if request.auth != null
-        && isFamilyCaregiver(request.auth.uid)
-        && request.resource.data.keys().hasOnly([
+    function familyRequestPath(requestId) {
+      return /databases/$(database)/documents/family_link_requests/$(requestId);
+    }
+
+    // Family Caregiver role + a family link to this elder. The role check is
+    // defence in depth; only the link grants access.
+    function isLinkedCaregiverOf(elderId) {
+      return request.auth != null
+        && elderId is string
+        && exists(familyLinkPath(elderId, request.auth.uid))
+        && get(familyLinkPath(elderId, request.auth.uid)).data.elderId
+          == elderId
+        && get(familyLinkPath(elderId, request.auth.uid)).data.caregiverId
+          == request.auth.uid
+        && isFamilyCaregiver(request.auth.uid);
+    }
+
+    // The older adult a request was bound to when they accepted it.
+    function isOwningElder(data) {
+      return request.auth != null
+        && data.elderId == request.auth.uid
+        && isOlderAdult(request.auth.uid);
+    }
+
+    function familyNameKey(name) {
+      return name.lower().trim().replace('\\s+', ' ');
+    }
+
+    function familyFirstNameKey(name) {
+      return familyNameKey(name).split(' ')[0];
+    }
+
+    function ownFullName() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid))
+        .data.fullName;
+    }
+
+    function isNameAddressedElder(data) {
+      return request.auth != null
+        && data.get('elderFirstNameLower', null) is string
+        && isOlderAdult(request.auth.uid)
+        && ownFullName() is string
+        && data.elderFirstNameLower == familyFirstNameKey(ownFullName());
+    }
+
+    function validNewNameRequest() {
+      let data = request.resource.data;
+      return isFamilyCaregiver(request.auth.uid)
+        && data.keys().hasAll([
           'requesterId',
           'requesterName',
           'elderName',
+          'elderNameKey',
           'elderFirstNameLower',
-          'relationship',
           'idNumber',
+          'relationship',
           'status',
           'createdAt',
           'respondedAt'
         ])
-        && request.resource.data.requesterId == request.auth.uid
-        && request.resource.data.requesterName is string
-        && request.resource.data.elderName is string
-        && request.resource.data.elderName.matches('.*\\S.*')
-        && request.resource.data.elderFirstNameLower
-          == request.resource.data.elderName.trim().lower().split(' ')[0]
-        && request.resource.data.relationship in ['Daughter', 'Son']
-        && request.resource.data.idNumber is string
-        && request.resource.data.idNumber.matches('.*\\S.*')
-        && request.resource.data.status == 'pending'
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.respondedAt == null;
-      allow update: if request.auth != null
-        && isAddressedElder(resource.data)
-        && resource.data.status == 'pending'
-        && request.resource.data.status in ['accepted', 'declined']
-        && request.resource.data.respondedAt == request.time
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'respondedAt']);
+        && data.keys().hasOnly([
+          'requesterId',
+          'requesterName',
+          'elderName',
+          'elderNameKey',
+          'elderFirstNameLower',
+          'idNumber',
+          'relationship',
+          'status',
+          'createdAt',
+          'respondedAt'
+        ])
+        && data.requesterId == request.auth.uid
+        && data.requesterName == ownFullName()
+        && data.elderName is string
+        && data.elderName.size() > 0
+        && data.elderName.size() <= 100
+        && data.elderNameKey == familyNameKey(data.elderName)
+        && data.elderFirstNameLower == familyFirstNameKey(data.elderName)
+        && data.idNumber is string
+        && data.idNumber.size() > 0
+        && data.idNumber.size() <= 20
+        && data.relationship in ['Daughter', 'Son']
+        && data.status == 'pending'
+        && data.createdAt == request.time
+        && data.respondedAt == null;
+    }
+
+    function newLinkMatchesRequest(requestId, linkPath) {
+      return existsAfter(linkPath)
+        && getAfter(linkPath).data.requestId == requestId
+        && getAfter(linkPath).data.elderId == request.auth.uid
+        && getAfter(linkPath).data.caregiverId == resource.data.requesterId;
+    }
+
+    // A family link between the signed-in elder and [caregiverId] existed
+    // before this request. Links are only created through the checks below.
+    function existingLinkWith(caregiverId) {
+      let linkPath = familyLinkPath(request.auth.uid, caregiverId);
+      return exists(linkPath)
+        && get(linkPath).data.elderId == request.auth.uid
+        && get(linkPath).data.caregiverId == caregiverId;
+    }
+
+    // Declining touches only status/respondedAt. Accepting also records the
+    // elder's UID and profile name and must create the matching link, unless
+    // the elder is already linked with this caregiver.
+    function validNameRequestAnswer(requestId) {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return resource.data.status == 'pending'
+        && data.respondedAt == request.time
+        && (
+          (
+            data.status == 'declined'
+            && changed.hasOnly(['status', 'respondedAt'])
+          )
+          || (
+            data.status == 'accepted'
+            && changed.hasOnly([
+              'status', 'respondedAt', 'elderId', 'elderDisplayName'
+            ])
+            && data.elderId == request.auth.uid
+            && data.elderDisplayName == ownFullName()
+            && (
+              newLinkMatchesRequest(
+                requestId,
+                familyLinkPath(request.auth.uid, resource.data.requesterId)
+              )
+              // A repeat request from a caregiver who is already linked.
+              || existingLinkWith(resource.data.requesterId)
+            )
+          )
+        );
+    }
+
+    match /family_link_requests/{requestId} {
+      // The family member who sent the request can read it.
+      allow get, list: if request.auth != null
+        && resource.data.requesterId == request.auth.uid;
+      // The older adult who accepted it.
+      allow get, list: if isOwningElder(resource.data);
+      // Any older adult whose first name matches.
+      allow get, list: if isNameAddressedElder(resource.data);
+
+      allow create: if request.auth != null
+        && validNewNameRequest();
+
+      // Answering: once, while still pending.
+      allow update: if isNameAddressedElder(resource.data)
+        && validNameRequestAnswer(requestId);
+
       // The requester marks an accepted request as seen once they open the
       // approval notification.
       allow update: if request.auth != null
@@ -1154,14 +1293,72 @@ service cloud.firestore {
           .hasOnly(['requesterSeenAt']);
     }
 
-        // Family caregivers can read check-ins (read-only) for the family
-    // dashboard.
-    match /check_ins/{documentId} {
-      allow get, list: if request.auth != null
-        && isFamilyCaregiver(request.auth.uid);
+    // Created only by the elder, only alongside the pending -> accepted
+    // transition of the request it names, with fields copied from it.
+    function validNewFamilyLink(linkDocId) {
+      let data = request.resource.data;
+      let requestBefore = get(familyRequestPath(data.requestId)).data;
+      let requestAfter = getAfter(familyRequestPath(data.requestId)).data;
+      return data.keys().hasAll([
+          'elderId',
+          'caregiverId',
+          'requestId',
+          'elderDisplayName',
+          'caregiverName',
+          'relationship',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'elderId',
+          'caregiverId',
+          'requestId',
+          'elderDisplayName',
+          'caregiverName',
+          'relationship',
+          'createdAt'
+        ])
+        && data.elderId == request.auth.uid
+        && data.caregiverId is string
+        && data.caregiverId != request.auth.uid
+        && linkDocId == familyLinkId(data.elderId, data.caregiverId)
+        && data.requestId is string
+        && data.createdAt == request.time
+        && exists(familyRequestPath(data.requestId))
+        && requestBefore.status == 'pending'
+        && requestAfter.status == 'accepted'
+        && requestAfter.elderId == request.auth.uid
+        && requestAfter.requesterId == data.caregiverId
+        && data.elderDisplayName == requestAfter.elderDisplayName
+        && data.caregiverName == requestAfter.requesterName
+        && data.relationship == requestAfter.relationship;
     }
 
+    match /family_links/{linkDocId} {
+      allow create: if request.auth != null
+        && isOlderAdult(request.auth.uid)
+        && validNewFamilyLink(linkDocId);
 
+      allow get, list: if request.auth != null
+        && (
+          resource.data.elderId == request.auth.uid
+          || resource.data.caregiverId == request.auth.uid
+        );
 
+      // Links are immutable; either side can unlink by deleting.
+      allow update: if false;
+      allow delete: if request.auth != null
+        && (
+          resource.data.elderId == request.auth.uid
+          || resource.data.caregiverId == request.auth.uid
+        );
+    }
+
+    // Read-only check-in access for a caregiver linked to this
+    // specific elder. Unfiltered queries are denied because the rules cannot
+    // prove a link for every document's elderId.
+    match /check_ins/{documentId} {
+      allow get, list: if request.auth != null
+        && isLinkedCaregiverOf(resource.data.elderId);
+    }
   }
 }

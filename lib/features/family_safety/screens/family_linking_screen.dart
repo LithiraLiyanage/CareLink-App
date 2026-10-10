@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import '../../../app/routes.dart';
 import '../services/family_link_service.dart';
 import 'family_notifications_screen.dart';
 
@@ -26,48 +26,82 @@ class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
   static const _coral = FamilyLinkingScreen._coral;
   static const _line = FamilyLinkingScreen._line;
 
-  final _elderNameController = TextEditingController();
+  final _nameController = TextEditingController();
   final _idNumberController = TextEditingController();
   String? _relationship;
   bool _sending = false;
 
+  _LinkStatus? _status;
+  bool _requestSent = false;
+
+  // Bumped to rebuild the relationship dropdown when the form is reset.
+  int _formGeneration = 0;
+
   @override
   void dispose() {
-    _elderNameController.dispose();
+    _nameController.dispose();
     _idNumberController.dispose();
     super.dispose();
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
-  }
-
   Future<void> _sendRequest() async {
-    final elderName = _elderNameController.text.trim();
+    final name = _nameController.text.trim();
     final idNumber = _idNumberController.text.trim();
     final relationship = _relationship;
-
-    if (elderName.isEmpty || relationship == null || idNumber.isEmpty) {
-      _showMessage('Please fill in all the fields.');
+    if (name.isEmpty || idNumber.isEmpty || relationship == null) {
+      setState(() {
+        _status = const _LinkStatus.error(
+          'Missing details',
+          'Please enter the older adult\'s full name and ID number, and '
+              'choose your relationship.',
+        );
+      });
       return;
     }
 
-    setState(() => _sending = true);
+    setState(() {
+      _sending = true;
+      _status = null;
+    });
     try {
       await FamilyLinkService.instance.sendRequest(
-        elderName: elderName,
+        elderName: name,
         relationship: relationship,
         idNumber: idNumber,
       );
       if (!mounted) return;
-      Navigator.of(context).pushNamed(AppRoutes.familyPending);
-    } catch (error) {
+      setState(() {
+        _requestSent = true;
+        _status = _LinkStatus.success(
+          'Request sent',
+          'Your request was sent to $name. They will see it on their '
+              'CareLink home screen. When they accept it, a badge will '
+              'appear on your profile icon at the top right.',
+        );
+      });
+    } on FamilyLinkException catch (error) {
       if (!mounted) return;
-      _showMessage('Could not send the request: $error');
+      setState(() => _status = _LinkStatus.fromException(error));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _status = const _LinkStatus.error(
+            'Something went wrong',
+            'We couldn\'t send your request. Please try again.',
+          ));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  void _startNewRequest() {
+    setState(() {
+      _requestSent = false;
+      _status = null;
+      _relationship = null;
+      _nameController.clear();
+      _idNumberController.clear();
+      _formGeneration++;
+    });
   }
 
   @override
@@ -169,34 +203,63 @@ class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _InputField(
-                              controller: _elderNameController,
-                              label: "Elder's Name",
-                              hint: "Enter elder's full name",
+                              controller: _nameController,
+                              label: 'Older Adult\'s Full Name',
+                              hint: 'e.g. Kamala Perera',
                               icon: Icons.person_outline_rounded,
-                              keyboardType: TextInputType.name,
                               textCapitalization: TextCapitalization.words,
-                            ),
-                            const SizedBox(height: 12),
-                            _DropdownField(
-                              label: 'Relationship',
-                              hint: 'Select relationship',
-                              icon: Icons.family_restroom_rounded,
-                              options: const ['Daughter', 'Son'],
-                              value: _relationship,
-                              onChanged: (value) =>
-                                  setState(() => _relationship = value),
+                              enabled: !_requestSent,
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(
+                                  FamilyLinkService.maxNameLength,
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 12),
                             _InputField(
                               controller: _idNumberController,
-                              label: 'ID Number',
-                              hint: 'Enter your ID number',
+                              label: 'Older Adult\'s ID Number',
+                              hint: 'National ID number',
                               icon: Icons.badge_outlined,
+                              textCapitalization:
+                                  TextCapitalization.characters,
                               textInputAction: TextInputAction.done,
+                              enabled: !_requestSent,
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(
+                                  FamilyLinkService.maxIdNumberLength,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            KeyedSubtree(
+                              key: ValueKey(_formGeneration),
+                              child: _DropdownField(
+                                label: 'Relationship',
+                                hint: 'Select relationship',
+                                icon: Icons.family_restroom_rounded,
+                                options: FamilyLinkService.relationships,
+                                value: _relationship,
+                                onChanged: _requestSent
+                                    ? null
+                                    : (value) =>
+                                        setState(() => _relationship = value),
+                              ),
                             ),
                           ],
                         ),
                       ),
+                      if (_status != null) ...[
+                        const SizedBox(height: 12),
+                        _StatusBanner(
+                          status: _status!,
+                          actionLabel: _requestSent
+                              ? 'Link another family member'
+                              : null,
+                          onAction:
+                              _requestSent ? _startNewRequest : null,
+                        ),
+                      ],
                       const SizedBox(height: 15),
                       Semantics(
                         button: true,
@@ -205,11 +268,15 @@ class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(14),
-                            onTap: _sending ? null : _sendRequest,
+                            onTap: _sending || _requestSent
+                                ? null
+                                : _sendRequest,
                             child: Container(
                               height: 50,
                               decoration: BoxDecoration(
-                                color: _coral,
+                                color: _requestSent
+                                    ? _coral.withValues(alpha: 0.5)
+                                    : _coral,
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: const [
                                   BoxShadow(
@@ -232,11 +299,20 @@ class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
                                       ),
                                     )
                                   else
-                                    const Icon(Icons.send_rounded,
-                                        size: 18, color: Colors.white),
+                                    Icon(
+                                      _requestSent
+                                          ? Icons.check_rounded
+                                          : Icons.send_rounded,
+                                      size: 18,
+                                      color: Colors.white,
+                                    ),
                                   const SizedBox(width: 9),
                                   Text(
-                                    _sending ? 'Sending...' : 'Send Request',
+                                    _sending
+                                        ? 'Sending...'
+                                        : _requestSent
+                                            ? 'Request Sent'
+                                            : 'Send Request',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 15,
@@ -345,24 +421,154 @@ class _ProfileApprovalButtonState extends State<_ProfileApprovalButton> {
   }
 }
 
+enum _StatusKind { success, error }
+
+class _LinkStatus {
+  const _LinkStatus.success(this.title, this.message)
+      : kind = _StatusKind.success;
+  const _LinkStatus.error(this.title, this.message)
+      : kind = _StatusKind.error;
+
+  factory _LinkStatus.fromException(FamilyLinkException error) {
+    switch (error.code) {
+      case FamilyLinkErrorCode.invalidRelationship:
+        return _LinkStatus.error('Missing details', error.message);
+      case FamilyLinkErrorCode.missingProfileName:
+        return _LinkStatus.error('Profile incomplete', error.message);
+      case FamilyLinkErrorCode.network:
+        return _LinkStatus.error('You\'re offline', error.message);
+      case FamilyLinkErrorCode.permissionDenied:
+      case FamilyLinkErrorCode.wrongRole:
+      case FamilyLinkErrorCode.notSignedIn:
+        return _LinkStatus.error('Permission denied', error.message);
+      default:
+        return _LinkStatus.error('Couldn\'t send request', error.message);
+    }
+  }
+
+  final _StatusKind kind;
+  final String title;
+  final String message;
+}
+
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({
+    required this.status,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final _LinkStatus status;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final (Color accent, Color fill, IconData icon) = switch (status.kind) {
+      _StatusKind.success => (
+          FamilyLinkingScreen._ink,
+          const Color(0xFFE7F6F1),
+          Icons.check_circle_rounded,
+        ),
+      _StatusKind.error => (
+          FamilyLinkingScreen._coral,
+          const Color(0xFFFFECEF),
+          Icons.error_rounded,
+        ),
+    };
+
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: accent.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: accent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    status.title,
+                    style: const TextStyle(
+                      color: FamilyLinkingScreen._titleInk,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    status.message,
+                    style: const TextStyle(
+                      color: FamilyLinkingScreen._muted,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                  if (actionLabel != null) ...[
+                    const SizedBox(height: 6),
+                    _bannerAction(accent, actionLabel!, onAction),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Widget _bannerAction(
+    Color accent,
+    String label,
+    VoidCallback? onPressed,
+  ) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: accent,
+        padding: EdgeInsets.zero,
+        minimumSize: const Size(0, 32),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class _InputField extends StatelessWidget {
   const _InputField({
     required this.controller,
     required this.label,
     required this.hint,
     required this.icon,
-    this.keyboardType = TextInputType.text,
     this.textCapitalization = TextCapitalization.none,
     this.textInputAction = TextInputAction.next,
+    this.inputFormatters,
+    this.enabled = true,
   });
 
   final TextEditingController controller;
   final String label;
   final String hint;
   final IconData icon;
-  final TextInputType keyboardType;
   final TextCapitalization textCapitalization;
   final TextInputAction textInputAction;
+  final List<TextInputFormatter>? inputFormatters;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -370,9 +576,12 @@ class _InputField extends StatelessWidget {
       label: label,
       child: TextField(
         controller: controller,
-        keyboardType: keyboardType,
         textCapitalization: textCapitalization,
         textInputAction: textInputAction,
+        inputFormatters: inputFormatters,
+        enabled: enabled,
+        autocorrect: false,
+        enableSuggestions: false,
         cursorColor: FamilyLinkingScreen._ink,
         style: _fieldTextStyle,
         decoration: _fieldDecoration(hint, icon),
@@ -396,7 +605,7 @@ class _DropdownField extends StatelessWidget {
   final IconData icon;
   final List<String> options;
   final String? value;
-  final ValueChanged<String?> onChanged;
+  final ValueChanged<String?>? onChanged;
 
   @override
   Widget build(BuildContext context) {

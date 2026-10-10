@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../elder/models/check_in.dart';
-import 'family_link_service.dart';
 
 /// Today's and the next check-in for the older adult a family member is
 /// linked to.
@@ -14,8 +13,8 @@ class FamilyCheckInSummary {
 
 /// Read-only view of the elder's check-ins for family caregivers.
 ///
-/// Check-ins are matched to the linked elder by first name, the same key
-/// family link requests use (see [FamilyLinkService.firstNameKey]).
+/// Check-ins are queried by the linked elder's UID; the rules deny
+/// caregiver queries that are not filtered to a linked elder.
 class FamilyCheckInService {
   FamilyCheckInService._();
 
@@ -23,23 +22,49 @@ class FamilyCheckInService {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Stream<FamilyCheckInSummary> watchSummary(String elderName) {
-    final elderKey = FamilyLinkService.firstNameKey(elderName);
-
+  Stream<FamilyCheckInSummary> watchSummary(String elderId) {
+    // Sorted here rather than with orderBy, which would need a composite
+    // index on (elderId, scheduledAt).
     return _firestore
         .collection('check_ins')
-        .orderBy('scheduledAt')
+        .where('elderId', isEqualTo: elderId)
         .snapshots()
         .map((snapshot) {
       final checkIns = snapshot.docs
           .map(_checkInFromDocument)
           .whereType<CheckIn>()
-          .where((checkIn) =>
-              FamilyLinkService.firstNameKey(checkIn.elderName) == elderKey)
           .where((checkIn) => checkIn.status != CheckInStatus.cancelled)
-          .toList();
+          .toList()
+        ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
       return _summarise(checkIns, DateTime.now());
     });
+  }
+
+  /// The elder's missed check-ins, newest first: those marked missed, and
+  /// those still waiting to start after their scheduled end time.
+  Stream<List<CheckIn>> watchMissed(String elderId) {
+    return _firestore
+        .collection('check_ins')
+        .where('elderId', isEqualTo: elderId)
+        .snapshots()
+        .map((snapshot) {
+      final now = DateTime.now();
+      return snapshot.docs
+          .map(_checkInFromDocument)
+          .whereType<CheckIn>()
+          .where((checkIn) => isMissed(checkIn, now))
+          .toList()
+        ..sort((a, b) => b.scheduledAt.compareTo(a.scheduledAt));
+    });
+  }
+
+  static bool isMissed(CheckIn checkIn, DateTime now) {
+    if (checkIn.status == CheckInStatus.missed) return true;
+    final notStarted = checkIn.status == CheckInStatus.scheduled ||
+        checkIn.status == CheckInStatus.ready;
+    final endsAt =
+        checkIn.scheduledAt.add(Duration(minutes: checkIn.durationMinutes));
+    return notStarted && endsAt.isBefore(now);
   }
 
   static FamilyCheckInSummary _summarise(

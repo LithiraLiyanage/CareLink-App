@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
@@ -35,15 +37,59 @@ class FamilyPendingScreen extends StatefulWidget {
 
 class _FamilyPendingScreenState extends State<FamilyPendingScreen> {
   static const _ink = FamilyPendingScreen._ink;
-  static const _titleInk = FamilyPendingScreen._titleInk;
-  static const _muted = FamilyPendingScreen._muted;
   static const _mint = FamilyPendingScreen._mint;
   static const _coral = FamilyPendingScreen._coral;
 
-  // The family member's own requests, newest first; the latest one is the
-  // request they just sent.
-  late final Stream<List<FamilyLinkRequest>> _requests =
-      FamilyLinkService.instance.watchPendingRequests();
+  // The family member's own pending requests, newest first.
+  StreamSubscription<List<FamilyLinkRequest>>? _subscription;
+  List<FamilyLinkRequest>? _requests;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscription = FamilyLinkService.instance.watchPendingRequests().listen(
+          (requests) => setState(() {
+            _requests = requests;
+            _failed = false;
+          }),
+          onError: (Object error) {
+            debugPrint('Pending family requests stream failed: $error');
+            setState(() => _failed = true);
+          },
+        );
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
+  /// Server timestamps are null until they land, so fall back to the local
+  /// time.
+  List<_PendingRequest> get _pendingRequests => [
+        for (final request in _requests ?? const <FamilyLinkRequest>[])
+          _PendingRequest(
+            title: request.elderName.trim().isEmpty
+                ? 'Older adult'
+                : request.elderName.trim(),
+            relationship: request.relationship,
+            sentAt: request.createdAt?.toLocal() ?? DateTime.now(),
+            idNumber: request.idNumber,
+          ),
+      ];
+
+  // Returns to the linking screen underneath when there is one; otherwise
+  // (e.g. opened directly by route) replaces this screen with it.
+  void _backToLinking() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      navigator.pushReplacementNamed(AppRoutes.familyLinking);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,9 +102,7 @@ class _FamilyPendingScreenState extends State<FamilyPendingScreen> {
         leadingWidth: 64,
         leading: IconButton(
           tooltip: 'Back to family linking',
-          onPressed: () => Navigator.of(context).pushReplacementNamed(
-            AppRoutes.familyLinking,
-          ),
+          onPressed: _backToLinking,
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 23),
         ),
         title: const Text(
@@ -106,68 +150,65 @@ class _FamilyPendingScreenState extends State<FamilyPendingScreen> {
                     children: [
                       const Center(child: _PendingIllustration()),
                       const SizedBox(height: 10),
-                      const Text(
-                        'Request Sent',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _titleInk,
-                          fontSize: 21,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      const Text(
-                        'Your family link request is\npending approval.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _muted,
-                          fontSize: 13,
-                          height: 1.45,
-                        ),
-                      ),
-                      const SizedBox(height: 19),
-                      StreamBuilder<List<FamilyLinkRequest>>(
-                        stream: _requests,
-                        builder: (context, snapshot) {
-                          if (snapshot.hasError) {
-                            return Text(
-                              'Could not load your request: ${snapshot.error}',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: _coral),
+                      Builder(
+                        builder: (context) {
+                          if (_failed) {
+                            return const Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _Heading(
+                                  title: 'Unable to Load Requests',
+                                  subtitle: 'Your requests couldn\'t be shown\n'
+                                      'at the moment.',
+                                ),
+                                Text(
+                                  'We couldn\'t load your requests right now. '
+                                  'Please check your connection and try again.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: _coral, fontSize: 13),
+                                ),
+                              ],
                             );
                           }
-                          if (!snapshot.hasData) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Center(
-                                child: CircularProgressIndicator(color: _ink),
-                              ),
+                          if (_requests == null) {
+                            return const Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _Heading.pending(),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                  child: Center(
+                                    child:
+                                        CircularProgressIndicator(color: _ink),
+                                  ),
+                                ),
+                              ],
                             );
                           }
-                          final requests = snapshot.data!;
+                          final requests = _pendingRequests;
                           if (requests.isEmpty) {
-                            return const Text(
-                              'You have no pending requests.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: _muted, fontSize: 13),
+                            return const Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _Heading(
+                                  title: 'No Pending Requests',
+                                  subtitle: 'Send a new request from Family\n'
+                                      'Linking whenever you\'re ready.',
+                                ),
+                                _EmptyRequests(),
+                              ],
                             );
                           }
-                          final request = requests.first;
-                          // createdAt is null until the server timestamp
-                          // lands, so fall back to the local time.
-                          final sentAt =
-                              request.createdAt?.toLocal() ?? DateTime.now();
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              _OlderAdultCard(
-                                requesterName: request.requesterName,
-                                relationship: request.relationship,
-                                sentAt: sentAt,
-                              ),
-                              const SizedBox(height: 22),
-                              _RequestTimeline(sentAt: sentAt),
+                              const _Heading.pending(),
+                              for (final request in requests) ...[
+                                _OlderAdultCard(request: request),
+                                const SizedBox(height: 12),
+                              ],
+                              const SizedBox(height: 10),
+                              _RequestTimeline(sentAt: requests.first.sentAt),
                             ],
                           );
                         },
@@ -175,13 +216,12 @@ class _FamilyPendingScreenState extends State<FamilyPendingScreen> {
                       const SizedBox(height: 24),
                       Semantics(
                         button: true,
-                        label: 'Cancel Request',
+                        label: 'Back to Family Linking',
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(14),
-                            onTap: () => Navigator.of(context)
-                                .pushReplacementNamed(AppRoutes.familyLinking),
+                            onTap: _backToLinking,
                             child: Container(
                               height: 48,
                               alignment: Alignment.center,
@@ -191,7 +231,7 @@ class _FamilyPendingScreenState extends State<FamilyPendingScreen> {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child: const Text(
-                                'Cancel Request',
+                                'Back to Family Linking',
                                 style: TextStyle(
                                   color: _coral,
                                   fontSize: 15,
@@ -241,16 +281,102 @@ class _PendingIllustration extends StatelessWidget {
   }
 }
 
-class _OlderAdultCard extends StatelessWidget {
-  const _OlderAdultCard({
-    required this.requesterName,
+/// Title and supporting text above the request content, matching the
+/// current stream state.
+class _Heading extends StatelessWidget {
+  const _Heading({required this.title, required this.subtitle});
+
+  const _Heading.pending()
+      : title = 'Request Sent',
+        subtitle = 'Your family link request is\npending approval.';
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 19),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: FamilyPendingScreen._titleInk,
+              fontSize: 21,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: FamilyPendingScreen._muted,
+              fontSize: 13,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyRequests extends StatelessWidget {
+  const _EmptyRequests();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        Text(
+          'You have no pending requests',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: FamilyPendingScreen._titleInk,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        SizedBox(height: 6),
+        Text(
+          'Approved requests can be viewed through the profile badge.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: FamilyPendingScreen._muted,
+            fontSize: 13,
+            height: 1.45,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A pending request in display form.
+class _PendingRequest {
+  const _PendingRequest({
+    required this.title,
     required this.relationship,
     required this.sentAt,
+    required this.idNumber,
   });
 
-  final String requesterName;
+  /// The older adult's name as the family member typed it.
+  final String title;
   final String relationship;
   final DateTime sentAt;
+  final String idNumber;
+}
+
+class _OlderAdultCard extends StatelessWidget {
+  const _OlderAdultCard({required this.request});
+
+  final _PendingRequest request;
 
   @override
   Widget build(BuildContext context) {
@@ -285,7 +411,9 @@ class _OlderAdultCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  requesterName,
+                  request.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: FamilyPendingScreen._titleInk,
                     fontSize: 15,
@@ -294,7 +422,11 @@ class _OlderAdultCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  relationship,
+                  [
+                    request.relationship,
+                    if (request.idNumber.trim().isNotEmpty)
+                      'ID ${request.idNumber.trim()}',
+                  ].join(' · '),
                   style: const TextStyle(
                     color: FamilyPendingScreen._muted,
                     fontSize: 12,
@@ -302,7 +434,7 @@ class _OlderAdultCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Requested on ${_formatDate(sentAt)}',
+                  'Requested on ${_formatDate(request.sentAt)}',
                   style: const TextStyle(
                     color: Color(0xFF9AABAC),
                     fontSize: 11,

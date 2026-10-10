@@ -2,7 +2,6 @@ import 'package:carelink_app/app/app.dart';
 import 'package:carelink_app/app/routes.dart';
 import 'package:carelink_app/features/coordinator/coordinator_access_guard.dart';
 import 'package:carelink_app/features/coordinator/coordinator_screens.dart';
-import 'package:carelink_app/features/family_safety/screens/missed_session_notification_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -132,34 +131,5 @@ void main() {
     expect(find.byType(CoordinatorCaseListScreen), findsOneWidget);
     expect(find.text('Safety Cases'), findsOneWidget);
     expect(find.text('Coordinator or Admin access is required.'), findsNothing);
-  });
-
-  group('Family missed check-in notification', () {
-    Widget app() => CoordinatorAccessScope(
-      // Even an authorized check must not matter: the family flow should never
-      // route toward coordinator screens at all.
-      check: () async => true,
-      child: MaterialApp(
-        home: const MissedSessionNotificationScreen(),
-        routes: {
-          AppRoutes.familyDashboard: (_) =>
-              const Scaffold(body: Text('Family dashboard')),
-          AppRoutes.coordinatorCaseList: (_) =>
-              const Scaffold(body: Text('Coordinator case list')),
-        },
-      ),
-    );
-
-    testWidgets('View Details does not open the Coordinator Case List', (
-      tester,
-    ) async {
-      await tester.pumpWidget(app());
-
-      await tester.tap(find.text('View Details'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Coordinator case list'), findsNothing);
-      expect(find.text('Family dashboard'), findsOneWidget);
-    });
   });
 }

@@ -6,6 +6,7 @@ import '../../../app/routes.dart';
 import '../../elder/models/check_in.dart';
 import '../services/family_check_in_service.dart';
 import '../services/family_link_service.dart';
+import '../widgets/family_more_menu.dart';
 
 /// True when Firestore refused the read because of security rules.
 bool _isPermissionDenied(Object? error) =>
@@ -153,12 +154,10 @@ class _FamilyDashboardScreenState extends State<FamilyDashboardScreen> {
                               // Also renders the Family Status card, which is
                               // derived from the same check-in summary.
                               _CheckInRow(
-                                elderName: approval?.elderName,
+                                elderId: approval?.elderId,
                                 loading: loading,
                                 linkError: linkError,
                               ),
-                              const SizedBox(height: 12),
-                              const _ConsentCard(),
                               const SizedBox(height: 18),
                               const Text(
                                 'Recent Updates',
@@ -170,7 +169,7 @@ class _FamilyDashboardScreenState extends State<FamilyDashboardScreen> {
                               ),
                               const SizedBox(height: 8),
                               _UpdatesCard(
-                                elderName: approval?.elderName,
+                                elderId: approval?.elderId,
                                 loading: loading,
                                 linkError: linkError,
                               ),
@@ -304,12 +303,13 @@ class _MemberCard extends StatelessWidget {
 /// Today's and the next check-in for the linked elder, live from Firestore.
 class _CheckInRow extends StatefulWidget {
   const _CheckInRow({
-    required this.elderName,
+    required this.elderId,
     this.loading = false,
     this.linkError,
   });
 
-  final String? elderName;
+  /// The linked elder's UID; null until a request is accepted.
+  final String? elderId;
 
   /// The accepted link request is still loading.
   final bool loading;
@@ -333,14 +333,14 @@ class _CheckInRowState extends State<_CheckInRow> {
   @override
   void didUpdateWidget(_CheckInRow oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.elderName != widget.elderName) _subscribe();
+    if (oldWidget.elderId != widget.elderId) _subscribe();
   }
 
   void _subscribe() {
-    final name = widget.elderName?.trim() ?? '';
-    _summary = name.isEmpty
+    final elderId = widget.elderId ?? '';
+    _summary = elderId.isEmpty
         ? null
-        : FamilyCheckInService.instance.watchSummary(name);
+        : FamilyCheckInService.instance.watchSummary(elderId);
   }
 
   @override
@@ -663,81 +663,6 @@ class _FamilyStatusCard extends StatelessWidget {
   }
 }
 
-class _ConsentCard extends StatelessWidget {
-  const _ConsentCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-      decoration: _cardDecoration(),
-      child: Row(
-        children: [
-          const Icon(Icons.shield_outlined,
-              color: FamilyDashboardScreen._ink, size: 24),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Consent',
-                  style: TextStyle(
-                    color: FamilyDashboardScreen._titleInk,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Information sharing',
-                  style: TextStyle(
-                      color: FamilyDashboardScreen._muted, fontSize: 11),
-                ),
-                const SizedBox(height: 5),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  // The linked elder's consent can't be read yet, so don't
-                  // claim sharing is enabled.
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2F2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Unavailable',
-                    style: TextStyle(
-                      color: FamilyDashboardScreen._muted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'View Details',
-                style: TextStyle(
-                  color: FamilyDashboardScreen._ink,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded,
-                  color: FamilyDashboardScreen._ink, size: 19),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// One recorded change to a check-in, timestamped by the field written when
 /// that change happened.
 class _CheckInUpdate {
@@ -756,17 +681,16 @@ class _CheckInUpdate {
 
 /// The linked elder's latest check-in activity, live from Firestore.
 ///
-/// Uses the same `check_ins` query and first-name match as
-/// [FamilyCheckInService.watchSummary], so Firestore serves both from one
-/// watch target.
+/// Uses the same `check_ins` query as [FamilyCheckInService.watchSummary],
+/// so Firestore serves both from one watch target.
 class _UpdatesCard extends StatefulWidget {
   const _UpdatesCard({
-    required this.elderName,
+    required this.elderId,
     this.loading = false,
     this.linkError,
   });
 
-  final String? elderName;
+  final String? elderId;
   final bool loading;
   final Object? linkError;
 
@@ -788,28 +712,23 @@ class _UpdatesCardState extends State<_UpdatesCard> {
   @override
   void didUpdateWidget(_UpdatesCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.elderName != widget.elderName) _subscribe();
+    if (oldWidget.elderId != widget.elderId) _subscribe();
   }
 
   void _subscribe() {
-    final name = widget.elderName?.trim() ?? '';
-    if (name.isEmpty) {
+    final elderId = widget.elderId ?? '';
+    if (elderId.isEmpty) {
       _updates = null;
       return;
     }
-    final elderKey = FamilyLinkService.firstNameKey(name);
     _updates = FirebaseFirestore.instance
         .collection('check_ins')
-        .orderBy('scheduledAt')
+        .where('elderId', isEqualTo: elderId)
         .snapshots()
         .map((snapshot) {
       final now = DateTime.now();
       final updates = snapshot.docs
           .map((doc) => doc.data())
-          .where((data) =>
-              FamilyLinkService.firstNameKey(
-                  data['elderName'] as String? ?? '') ==
-              elderKey)
           .map((data) => _updateFrom(data, now))
           .whereType<_CheckInUpdate>()
           .toList()
@@ -1048,9 +967,10 @@ class _DashboardNavigationBar extends StatelessWidget {
               label: 'Notifications',
               onTap: () => Navigator.of(context).pushNamed(AppRoutes.missedSession),
             ),
-            const _NavigationItem(
-              icon: Icons.shield_outlined,
-              label: 'Consent',
+            _NavigationItem(
+              icon: Icons.more_horiz_rounded,
+              label: 'More',
+              onTap: () => showFamilyMoreMenu(context),
             ),
           ],
         ),
