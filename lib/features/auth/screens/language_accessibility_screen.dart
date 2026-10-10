@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/account_setup_service.dart';
+import '../services/setup_back_navigation.dart';
 import 'privacy_consent_screen.dart';
 
 class LanguageAccessibilityScreen extends StatefulWidget {
@@ -28,9 +29,39 @@ class _LanguageAccessibilityScreenState
   bool _highContrast = false;
   bool _reduceMotion = false;
   bool _isSaving = false;
+  bool _isLoading = true;
+  bool _loadFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
+    try {
+      final data = await _accountSetupService.loadProfile();
+      if (!mounted) return;
+      final settings = data['accessibilitySettings'];
+      setState(() {
+        _selectedLanguage = data['language'] as String? ?? 'English';
+        _largerText = settings is Map && settings['largerText'] == true;
+        _highContrast = settings is Map && settings['highContrast'] == true;
+        _reduceMotion = settings is Map && settings['reduceMotion'] == true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadFailed = true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   Future<void> _continue() async {
-    if (_isSaving) return;
+    if (_isSaving || _isLoading || _loadFailed) return;
 
     setState(() {
       _isSaving = true;
@@ -92,7 +123,18 @@ class _LanguageAccessibilityScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _BackButton(onPressed: () => Navigator.pop(context)),
+                  _BackButton(
+                    onPressed: () {
+                      if (!_isSaving) SetupBackNavigation.back(context);
+                    },
+                  ),
+                  if (_isLoading) const LinearProgressIndicator(color: teal),
+                  if (_loadFailed)
+                    TextButton.icon(
+                      onPressed: _loadPreferences,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Retry loading saved preferences'),
+                    ),
                   const SizedBox(height: 30),
                   const Text(
                     'Language & Accessibility',
@@ -195,7 +237,9 @@ class _LanguageAccessibilityScreenState
                     width: double.infinity,
                     height: 60,
                     child: ElevatedButton(
-                      onPressed: _isSaving ? null : _continue,
+                      onPressed: _isSaving || _isLoading || _loadFailed
+                          ? null
+                          : _continue,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: teal,
                         foregroundColor: Colors.white,

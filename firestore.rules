@@ -31,11 +31,101 @@ service cloud.firestore {
 
     function hasClientWritableVerificationStatus(data) {
       return !data.keys().hasAny(['verificationStatus'])
-        || data.verificationStatus in [
-          'notSubmitted',
-          'pending',
-          'notRequired'
+        || data.verificationStatus == 'notSubmitted'
+        || (
+          data.keys().hasAny(['role'])
+          && data.role == 'Student Companion'
+          && data.verificationStatus == 'pending'
+        )
+        || (
+          data.keys().hasAny(['role'])
+          && data.role != 'Student Companion'
+          && data.verificationStatus == 'notRequired'
+        );
+    }
+
+    function hasSafeUpdatedVerificationStatus(data) {
+      return (
+          resource.data.get('verificationStatus', 'notSubmitted') in ['approved', 'verified']
+          && data.verificationStatus == resource.data.verificationStatus
+        )
+        || (
+          !(resource.data.get('verificationStatus', 'notSubmitted') in ['approved', 'verified'])
+          && hasClientWritableVerificationStatus(data)
+        );
+    }
+
+    function hasValidSetupStage(data) {
+      return !data.keys().hasAny(['setupStage'])
+        || data.setupStage in [
+          'emailVerification',
+          'role',
+          'profile',
+          'preferences',
+          'consent',
+          'studentVerification',
+          'complete'
         ];
+    }
+
+    function hasValidCompletion(userId, data) {
+      return !data.keys().hasAny(['profileCompleted'])
+        || (
+          data.profileCompleted is bool
+          && (
+            data.profileCompleted == false
+            || (
+              data.role in ['Older Adult', 'Student Companion', 'Family Caregiver']
+              &&
+              existsAfter(/databases/$(database)/documents/consents/$(userId))
+              && getAfter(
+                /databases/$(database)/documents/consents/$(userId)
+              ).data.privacyAccepted == true
+              && (
+                (
+                  data.role == 'Student Companion'
+                  && data.verificationStatus in ['pending', 'approved', 'verified']
+                  && existsAfter(
+                    /databases/$(database)/documents/student_verifications/$(userId)
+                  )
+                  && getAfter(
+                    /databases/$(database)/documents/student_verifications/$(userId)
+                  ).data.status == data.verificationStatus
+                )
+                || (
+                  data.role != 'Student Companion'
+                  && data.verificationStatus == 'notRequired'
+                )
+              )
+            )
+          )
+        );
+    }
+
+    function completedRoleIsLocked(data) {
+      return !resource.data.keys().hasAny(['profileCompleted'])
+        || resource.data.profileCompleted != true
+        || data.role == resource.data.role;
+    }
+
+    function isValidStudentSubmission(userId, data) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role
+          == 'Student Companion'
+        && data.userId == userId
+        && data.role == 'Student Companion'
+        && data.status == 'pending'
+        && data.university is string
+        && data.university.size() > 0
+        && data.studentId is string
+        && data.studentId.size() > 0
+        && data.universityEmail is string
+        && data.documentUrl is string
+        && data.documentPath is string
+        && data.documentPath.matches(
+          'student_verifications/' + userId + '/.*'
+        )
+        && data.submittedAt is timestamp
+        && data.updatedAt is timestamp;
     }
 
     function currentVerificationIsPending(userId) {
@@ -68,7 +158,18 @@ service cloud.firestore {
     function validOwnerUserUpdate(userId) {
       return isOwner(userId)
         && hasValidRole(request.resource.data)
-        && hasClientWritableVerificationStatus(request.resource.data)
+        && hasSafeUpdatedVerificationStatus(request.resource.data)
+        && hasValidSetupStage(request.resource.data)
+        && (
+          hasValidCompletion(userId, request.resource.data)
+          || (
+            resource.data.get('profileCompleted', false) == true
+            && !resource.data.keys().hasAny(['setupStage'])
+            && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['role', 'verificationStatus', 'setupStage', 'profileCompleted'])
+          )
+        )
+        && completedRoleIsLocked(request.resource.data)
         && (
           !request.resource.data.diff(resource.data).affectedKeys()
             .hasAny(['verificationStatus'])
@@ -116,7 +217,12 @@ service cloud.firestore {
         'submittedAt',
         'reviewedAt',
         'reviewedBy',
-        'rejectionReason'
+        'rejectionReason',
+        'role',
+        'documentName',
+        'documentUrl',
+        'documentPath',
+        'updatedAt'
       ])
       && request.resource.data.keys().hasOnly([
         'userId',
@@ -127,7 +233,12 @@ service cloud.firestore {
         'submittedAt',
         'reviewedAt',
         'reviewedBy',
-        'rejectionReason'
+        'rejectionReason',
+        'role',
+        'documentName',
+        'documentUrl',
+        'documentPath',
+        'updatedAt'
       ])
       && request.resource.data.userId == userId
       && request.resource.data.university is string
@@ -150,7 +261,8 @@ service cloud.firestore {
       ).data.role == 'Student Companion'
       && getAfter(
         /databases/$(database)/documents/users/$(userId)
-      ).data.verificationStatus == 'pending';
+      ).data.verificationStatus == 'pending'
+      && isValidStudentSubmission(userId, request.resource.data);
     }
 
     function validReviewerVerificationUpdate(userId) {
@@ -196,7 +308,9 @@ service cloud.firestore {
 
       allow create: if isOwner(userId)
         && hasValidRole(request.resource.data)
-        && hasClientWritableVerificationStatus(request.resource.data);
+        && hasClientWritableVerificationStatus(request.resource.data)
+        && hasValidSetupStage(request.resource.data)
+        && hasValidCompletion(userId, request.resource.data);
 
       allow update: if validOwnerUserUpdate(userId)
         || validReviewerUserUpdate(userId);
@@ -210,8 +324,11 @@ service cloud.firestore {
       allow read: if isOwner(userId);
 
       allow create, update: if isOwner(userId)
-        && request.resource.data.userId == userId;
-
+        && request.resource.data.userId == userId
+        && request.resource.data.privacyAccepted == true
+        && request.resource.data.familyLinkConsent is bool
+        && request.resource.data.communicationConsent is bool
+        && request.resource.data.updatedAt is timestamp;
       allow delete: if isOwner(userId);
     }
 

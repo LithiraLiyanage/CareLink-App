@@ -1,5 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import '../services/account_flow_navigation.dart';
 import 'onboarding_stay_connected_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -12,6 +15,18 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          Firebase.apps.isNotEmpty &&
+          FirebaseAuth.instance.currentUser != null) {
+        _goToOnboarding();
+      }
+    });
+  }
+
   Future<void> _goToOnboarding() async {
     if (_isLoading) return;
 
@@ -19,19 +34,33 @@ class _SplashScreenState extends State<SplashScreen> {
       _isLoading = true;
     });
 
-    await Future.delayed(
-      const Duration(milliseconds: 1200),
-    );
+    await Future.delayed(const Duration(milliseconds: 1200));
 
     if (!mounted) return;
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            const OnboardingStayConnectedScreen(),
-      ),
-    );
+    if (FirebaseAuth.instance.currentUser == null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const OnboardingStayConnectedScreen(),
+        ),
+      );
+      return;
+    }
+
+    try {
+      await AccountFlowNavigation.replaceWithNext(context, clearStack: true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not load your account. Check your connection and tap to retry.',
+          ),
+        ),
+      );
+    }
   }
 
   @override
