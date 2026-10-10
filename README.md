@@ -3,10 +3,6 @@
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:063B3D,50:0A5A59,100:F65566&height=180&section=header&text=CareLink&fontSize=58&fontColor=FFFFFF&fontAlignY=38&animation=fadeIn&desc=CONNECT%20%E2%80%A2%20CARE%20%E2%80%A2%20COMFORT&descAlignY=62&descSize=16" width="100%" alt="CareLink animated header"/>
 
-<img src="assets/images/logo.png" alt="CareLink Logo" width="170"/>
-
-# 💚❤️📱 CareLink
-
 ### Meaningful Connections. Brighter Days.
 
 <img src="https://readme-typing-svg.demolab.com?font=Poppins&weight=600&size=20&duration=3200&pause=900&color=0A8079&center=true&vCenter=true&width=650&height=55&lines=Connecting+Generations+Through+Care;Trusted+Companionship+for+Older+Adults;Every+Check-in+Matters;Connect+%E2%80%A2+Care+%E2%80%A2+Comfort" alt="Animated CareLink tagline"/>
