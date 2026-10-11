@@ -124,10 +124,24 @@ service cloud.firestore {
         && data.studentId is string
         && data.studentId.size() > 0
         && data.universityEmail is string
-        && data.documentUrl is string
-        && data.documentPath is string
-        && data.documentPath.matches(
-          'student_verifications/' + userId + '/.*'
+        // Document proof is optional. All three proof fields must be null
+        // when absent, or complete and valid when attached.
+        && (
+          (
+            data.documentName == null
+            && data.documentUrl == null
+            && data.documentPath == null
+          )
+          || (
+            data.documentName is string
+            && data.documentName.size() > 0
+            && data.documentUrl is string
+            && data.documentUrl.size() > 0
+            && data.documentPath is string
+            && data.documentPath.matches(
+              'student_verifications/' + userId + '/[^/]+'
+            )
+          )
         )
         && data.submittedAt is timestamp
         && data.updatedAt is timestamp;
