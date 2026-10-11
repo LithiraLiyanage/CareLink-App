@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../models/check_in.dart';
 import '../services/firebase_elder_service.dart';
 import '../widgets/elder_assets.dart';
@@ -7,56 +6,65 @@ import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
 import 'my_schedule_screen.dart';
 import 'kamala_ready_screen.dart';
-
 class RescheduleCheckInScreen extends StatefulWidget {
   final String checkInId;
+  final CheckIn? initialCheckIn;
+  final bool navigationOnly;
 
-  // Optional for independent design previews; real flow must pass the Firestore ID.
-  const RescheduleCheckInScreen({super.key, this.checkInId = ''});
-
+  // Preview mode must never write to Firestore.
+  const RescheduleCheckInScreen({
+    super.key,
+    this.checkInId = '',
+    this.initialCheckIn,
+    this.navigationOnly = false,
+  });
   @override
   State<RescheduleCheckInScreen> createState() =>
       _RescheduleCheckInScreenState();
 }
-
 class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
   final FirebaseElderService _service = FirebaseElderService.instance;
-
   int selectedDate = 0;
   int selectedTime = 1;
   bool _saving = false;
   bool _loading = true;
   String? _errorMessage;
   CheckIn? _checkIn;
-
   static const times = ['5:30 PM', '6:30 PM', '7:00 PM', '7:30 PM'];
   static const _hours = [17, 18, 19, 19];
   static const _minutes = [30, 30, 0, 30];
   static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
   // Next five calendar days; no hardcoded year/month/day.
   List<DateTime> get _dates {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     return List.generate(5, (index) => today.add(Duration(days: index + 1)));
   }
-
   String _dateLabel(DateTime date) =>
       '${_weekdays[date.weekday - 1]} ${date.day}/${date.month}';
-
   String _timeLabel(DateTime date) {
     final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
     final minute = date.minute.toString().padLeft(2, '0');
     return '$hour:$minute ${date.hour >= 12 ? 'PM' : 'AM'}';
   }
-
   @override
   void initState() {
     super.initState();
     _loadCheckIn();
   }
-
   Future<void> _loadCheckIn() async {
+    if (widget.navigationOnly) {
+      final preview = widget.initialCheckIn;
+      if (preview == null) {
+        setState(() {
+          _loading = false;
+          _errorMessage = 'No preview check-in was provided.';
+        });
+      } else {
+        _applyCheckIn(preview);
+      }
+      return;
+    }
     if (widget.checkInId.isEmpty) {
       setState(() {
         _loading = false;
@@ -64,12 +72,10 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       });
       return;
     }
-
     setState(() {
       _loading = true;
       _errorMessage = null;
     });
-
     try {
       final item = await _service.getCheckInById(widget.checkInId);
       if (item == null) {
@@ -80,7 +86,17 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
         throw StateError('This check-in can no longer be rescheduled.');
       }
       if (!mounted) return;
+      _applyCheckIn(item);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Could not load check-in: $error';
+        _loading = false;
+      });
+    }
+  }
 
+  void _applyCheckIn(CheckIn item) {
       final matchingDay = _dates.indexWhere(
         (day) =>
             day.year == item.scheduledAt.year &&
@@ -93,20 +109,12 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
                 _hours[index] == item.scheduledAt.hour &&
                 _minutes[index] == item.scheduledAt.minute,
           );
-
       setState(() {
         _checkIn = item;
         selectedDate = matchingDay < 0 ? 0 : matchingDay;
         selectedTime = matchingTime < 0 ? 1 : matchingTime;
         _loading = false;
       });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Could not load check-in: $error';
-        _loading = false;
-      });
-    }
   }
 
   void _showError(String message) {
@@ -115,9 +123,12 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
   }
-
   Future<void> _saveNewTime() async {
     if (_saving || _checkIn == null) return;
+    if (widget.navigationOnly) {
+      _showError('Preview only. No check-in has been saved.');
+      return;
+    }
 
     final day = _dates[selectedDate];
     final selectedDateTime = DateTime(
@@ -131,7 +142,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       _showError('Please choose a future date and time.');
       return;
     }
-
     setState(() => _saving = true);
     try {
       await _service.rescheduleCheckIn(widget.checkInId, selectedDateTime);
@@ -148,9 +158,12 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       if (mounted) setState(() => _saving = false);
     }
   }
-
   Future<void> _cancelCheckIn() async {
     if (_saving || _checkIn == null) return;
+    if (widget.navigationOnly) {
+      Navigator.of(context).maybePop();
+      return;
+    }
     final ok = await elderConfirm(
       context,
       title: 'Cancel this check-in?',
@@ -159,7 +172,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       destructive: true,
     );
     if (!ok || !mounted) return;
-
     setState(() => _saving = true);
     try {
       await _service.cancelCheckIn(widget.checkInId);
@@ -173,7 +185,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       if (mounted) setState(() => _saving = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return ElderPhoneScaffold(
@@ -229,7 +240,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       ),
     );
   }
-
   Widget _header(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,7 +267,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       ],
     );
   }
-
   Widget _currentCheckInCard() {
     final checkIn = _checkIn!;
     return Container(
@@ -308,7 +317,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       ),
     );
   }
-
   Widget _dateSection() {
     final dates = _dates;
     return Column(
@@ -326,7 +334,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
         Row(
           children: List.generate(dates.length, (index) {
             final selected = index == selectedDate;
-
             return Expanded(
               child: Padding(
                 padding: EdgeInsets.only(
@@ -381,7 +388,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       ],
     );
   }
-
   Widget _timeSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,10 +419,8 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       ],
     );
   }
-
   Widget _timeButton(int index) {
     final selected = index == selectedTime;
-
     return SizedBox(
       height: 50,
       child: OutlinedButton(
@@ -438,7 +442,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       ),
     );
   }
-
   Widget _notificationCard() {
     return Container(
       width: double.infinity,
@@ -476,7 +479,6 @@ class _RescheduleCheckInScreenState extends State<RescheduleCheckInScreen> {
       ),
     );
   }
-
   Widget _actions() {
     return Column(
       children: [

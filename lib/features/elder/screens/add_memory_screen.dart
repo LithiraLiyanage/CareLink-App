@@ -1,18 +1,14 @@
 import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-
 import '../models/memory_item.dart';
 import '../services/firebase_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_ui.dart';
-
 // Enable only after Firebase Storage and its security rules are configured.
 const bool kMemoryPhotoUploadsEnabled = false;
-
 class AddMemoryScreen extends StatefulWidget {
   const AddMemoryScreen({
     super.key,
@@ -21,22 +17,18 @@ class AddMemoryScreen extends StatefulWidget {
     this.memoryId,
     this.existingMemory,
   });
-
   // Keep both branches' constructor arguments compatible with existing callers.
   final bool navigationOnly;
   final bool isEditing;
   final String? memoryId;
   final MemoryItem? existingMemory;
-
   @override
   State<AddMemoryScreen> createState() => _AddMemoryScreenState();
 }
-
 class _AddMemoryScreenState extends State<AddMemoryScreen> {
   final FirebaseElderService _service = FirebaseElderService.instance;
   late final TextEditingController titleController;
   late final TextEditingController captionController;
-
   static const Color _background = Color(0xFFF6FAF9);
   static const Color _darkTeal = Color(0xFF123F42);
   static const Color _primaryTeal = Color(0xFF086C66);
@@ -49,16 +41,13 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
     'Family',
     'Companion',
   ];
-
   bool _saving = false;
   bool _deleting = false;
   int visibility = 0;
   late DateTime _selectedDate;
   Uint8List? _selectedPhotoBytes;
   String? _selectedPhotoName;
-
   bool get _editing => widget.isEditing || widget.existingMemory != null;
-
   @override
   void initState() {
     super.initState();
@@ -68,21 +57,18 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
     final index = visibilityLabels.indexOf(widget.existingMemory?.visibility ?? 'Only me');
     visibility = index < 0 ? 0 : index;
   }
-
   @override
   void dispose() {
     titleController.dispose();
     captionController.dispose();
     super.dispose();
   }
-
   void _message(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message), behavior: SnackBarBehavior.floating));
   }
-
   Future<void> _choosePhoto() async {
     if (_saving || _deleting) return;
     if (!kMemoryPhotoUploadsEnabled) {
@@ -90,32 +76,30 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
       return;
     }
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-        withData: true,
-      );
-      if (result == null || result.files.isEmpty) return;
-      final file = result.files.single;
-      if (file.size > 8 * 1024 * 1024) {
+      final file = await FilePicker.pickFile(type: FileType.image);
+      if (file == null) return;
+
+      final fileSize = file.lengthSync() ?? await file.length();
+      if (fileSize != null && fileSize > 8 * 1024 * 1024) {
         _message('Please select a photo smaller than 8 MB.');
         return;
       }
-      if (file.bytes == null || file.bytes!.isEmpty) {
+
+      final imageBytes = await file.readAsBytes();
+      if (imageBytes.isEmpty) {
         _message('Could not read the selected photo.');
         return;
       }
-      if (mounted) {
-        setState(() {
-          _selectedPhotoBytes = file.bytes;
-          _selectedPhotoName = file.name;
-        });
-      }
+
+      if (!mounted) return;
+      setState(() {
+        _selectedPhotoBytes = imageBytes;
+        _selectedPhotoName = file.name;
+      });
     } catch (error) {
       _message('Could not select a photo: $error');
     }
   }
-
   String _contentType(String filename) {
     final name = filename.toLowerCase();
     if (name.endsWith('.png')) return 'image/png';
@@ -123,7 +107,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
     if (name.endsWith('.gif')) return 'image/gif';
     return 'image/jpeg';
   }
-
   Future<String> _uploadPhoto(String uid) async {
     final bytes = _selectedPhotoBytes;
     final filename = _selectedPhotoName;
@@ -139,7 +122,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
     await ref.putData(bytes, SettableMetadata(contentType: _contentType(filename)));
     return ref.getDownloadURL();
   }
-
   Future<void> _saveMemory() async {
     if (_saving || _deleting) return;
     if (widget.navigationOnly) {
@@ -188,7 +170,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
       if (mounted) setState(() => _saving = false);
     }
   }
-
   Future<void> _deleteMemory() async {
     if (_saving || _deleting) return;
     if (widget.navigationOnly) {
@@ -228,7 +209,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
       if (mounted) setState(() => _deleting = false);
     }
   }
-
   Future<void> _chooseDate() async {
     if (_saving || _deleting) return;
     final now = DateTime.now();
@@ -247,13 +227,11 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
     );
     if (date != null && mounted) setState(() => _selectedDate = date);
   }
-
   String _formatDate(DateTime date) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return '${date.day.toString().padLeft(2, '0')} ${months[date.month - 1]} ${date.year}';
   }
-
   @override
   Widget build(BuildContext context) {
     return ElderPhoneScaffold(
@@ -294,7 +272,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
       ),
     );
   }
-
   Widget _header() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -316,7 +293,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
         style: const TextStyle(color: _muted, fontSize: 11)),
     ],
   );
-
   Widget _photoPreview() {
     if (_selectedPhotoBytes != null) {
       return Image.memory(_selectedPhotoBytes!, height: 153, width: double.infinity,
@@ -332,7 +308,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
     return Image.asset(path != null && path.startsWith('assets/')
         ? path : ElderAssets.addMemoryPhoto, height: 153, fit: BoxFit.cover);
   }
-
   Widget _mediaSection() => Container(
     padding: const EdgeInsets.all(11),
     decoration: BoxDecoration(color: Colors.white,
@@ -370,7 +345,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
       )),
     ]),
   );
-
   Widget _titleField() => Column(crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _label('Memory title'),
@@ -382,7 +356,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
         decoration: _inputDecoration('Enter memory title', Icons.title_rounded),
       ),
     ]);
-
   Widget _captionField() => Column(crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _label('Memory story (optional)'),
@@ -396,7 +369,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
           Icons.edit_note_rounded),
       ),
     ]);
-
   InputDecoration _inputDecoration(String hint, IconData icon) => InputDecoration(
     hintText: hint,
     prefixIcon: Icon(icon, color: _primaryTeal),
@@ -410,7 +382,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
       borderSide: const BorderSide(color: _primaryTeal, width: 1.7),
       borderRadius: BorderRadius.circular(14)),
   );
-
   Widget _dateField() => Column(crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _label('Date'),
@@ -434,7 +405,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
         ),
       ),
     ]);
-
   Widget _visibilitySection() => Column(crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _label('Visibility'),
@@ -467,7 +437,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
       const Text('* Family sharing needs a separate consent-based feature.',
         style: TextStyle(color: _muted, fontSize: 9)),
     ]);
-
   Widget _privacyCard() {
     final descriptions = [
       'Only you can see this memory.',
@@ -493,7 +462,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
       ]),
     );
   }
-
   Widget _actions() => Container(
     padding: const EdgeInsets.fromLTRB(20, 10, 20, 15),
     color: _background,
@@ -524,7 +492,6 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
       ],
     ),
   );
-
   Widget _label(String value) => Text(value,
     style: const TextStyle(color: _muted, fontSize: 11,
       fontWeight: FontWeight.w700));

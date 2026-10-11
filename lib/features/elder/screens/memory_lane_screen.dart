@@ -1,38 +1,27 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import '../models/memory_item.dart';
 import '../services/firebase_elder_service.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_ui.dart';
-
 import 'add_memory_screen.dart';
 import 'elder_home_screen.dart';
 import 'my_schedule_screen.dart';
-
 class MemoryLaneScreen extends StatefulWidget {
   const MemoryLaneScreen({super.key, this.navigationOnly = false});
-
   final bool navigationOnly;
-
   @override
   State<MemoryLaneScreen> createState() => _MemoryLaneScreenState();
 }
-
 class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
   final FirebaseElderService _service = FirebaseElderService.instance;
-
   int filter = 0;
-
   bool _loading = true;
   String? _error;
-
   List<MemoryItem> _memories = [];
-
   // ==========================================
   // CARELINK FIGMA COLOR SYSTEM
   // ==========================================
-
   static const Color _darkTeal = Color(0xFF075B57);
   static const Color _deepTeal = Color(0xFF063F42);
   static const Color _primaryTeal = Color(0xFF087C77);
@@ -43,28 +32,22 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
   static const Color _muted = Color(0xFF657E7D);
   static const Color _border = Color(0xFFC6E6DF);
   static const Color _gold = Color(0xFFD5A64C);
-
   @override
   void initState() {
     super.initState();
-
     if (widget.navigationOnly) {
       _loading = false;
     } else {
       _loadMemories();
     }
   }
-
   // ==========================================
   // FIREBASE — EXISTING LOGIC
   // ==========================================
-
   Future<void> _loadMemories() async {
     try {
       final items = await _service.getMemories();
-
       if (!mounted) return;
-
       setState(() {
         _memories = items;
         _loading = false;
@@ -72,44 +55,35 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       });
     } catch (error) {
       if (!mounted) return;
-
       setState(() {
         _error = error.toString();
         _loading = false;
       });
     }
   }
-
   Future<void> _refreshMemories() async {
     if (widget.navigationOnly) return;
     await _loadMemories();
   }
-
   Future<void> _openAndRefresh(Widget screen) async {
     await Navigator.of(context)
         .push(MaterialPageRoute<void>(builder: (_) => screen));
-
     if (!mounted) return;
-
     if (!widget.navigationOnly) {
       await _loadMemories();
     }
   }
-
   void _open(Widget screen) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
   }
-
   void _showMessage(String message) {
     if (!mounted) return;
-
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
       );
   }
-
   void _openAddMemory({MemoryItem? existing}) {
     _openAndRefresh(AddMemoryScreen(
       navigationOnly: widget.navigationOnly,
@@ -118,19 +92,14 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       memoryId: existing?.id,
     ));
   }
-
   bool _canEditMemory(MemoryItem memory) =>
       !_usingSamples && memory.ownerId == FirebaseAuth.instance.currentUser?.uid;
-
   // ==========================================
   // SAMPLE DATA — FOR EMPTY MEMORY LANE ONLY
   // ==========================================
-
   bool get _usingSamples => _memories.isEmpty;
-
   List<MemoryItem> _sampleMemories() {
     final now = DateTime.now();
-
     return [
       MemoryItem(
         id: 'sample-photo',
@@ -162,56 +131,44 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       ),
     ];
   }
-
   List<MemoryItem> get _visibleMemories {
     final source = _usingSamples ? _sampleMemories() : _memories;
-
     if (filter == 0) return source;
-
     final type = switch (filter) {
       1 => MemoryType.photo,
       2 => MemoryType.voice,
       3 => MemoryType.song,
       _ => MemoryType.photo,
     };
-
     return source.where((memory) => memory.type == type).toList();
   }
-
   // ==========================================
   // MAIN SCREEN
   // ==========================================
-
   @override
   Widget build(BuildContext context) {
     return ElderPhoneScaffold(
       backgroundColor: _cream,
       statusBarColor: _darkTeal,
       darkStatusBar: false,
-
       bottomNavigationBar: ElderBottomNav(
         selectedIndex: 2,
         onHome: () => _open(const ElderHomeScreen()),
         onSchedule: () => _open(const MyScheduleScreen()),
         onMemory: () {},
       ),
-
       child: Column(
         children: [
           _header(),
-
           Expanded(child: _buildBody()),
-
           _bottomAction(),
         ],
       ),
     );
   }
-
   // ==========================================
   // DARK TEAL HEADER
   // ==========================================
-
   Widget _header() {
     return Container(
       width: double.infinity,
@@ -232,7 +189,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                 backgroundColor: Color(0x1800D9B2),
               ),
             ),
-
             const Positioned(
               bottom: -48,
               left: -35,
@@ -241,16 +197,13 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                 backgroundColor: Color(0x1600CEBA),
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 17),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _headerTopRow(),
-
                   const SizedBox(height: 16),
-
                   const Text(
                     'Memory Lane',
                     style: TextStyle(
@@ -261,9 +214,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                       letterSpacing: -0.5,
                     ),
                   ),
-
                   const SizedBox(height: 6),
-
                   const Text(
                     'Stories, photos and moments you love',
                     style: TextStyle(
@@ -272,9 +223,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                       height: 1.35,
                     ),
                   ),
-
                   const SizedBox(height: 19),
-
                   _filterTabs(),
                 ],
               ),
@@ -284,7 +233,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       ),
     );
   }
-
   Widget _headerTopRow() {
     return Row(
       children: [
@@ -307,9 +255,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
             ),
           ),
         ),
-
         const SizedBox(width: 11),
-
         const CircleAvatar(
           radius: 17,
           backgroundColor: Colors.white,
@@ -322,9 +268,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
             ),
           ),
         ),
-
         const SizedBox(width: 8),
-
         const Text(
           'CareLink',
           style: TextStyle(
@@ -333,9 +277,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
             fontWeight: FontWeight.w900,
           ),
         ),
-
         const Spacer(),
-
         const ElderAvatar(
           asset: ElderAssets.kamalaAvatar,
           size: 45,
@@ -344,18 +286,14 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       ],
     );
   }
-
   // ==========================================
   // WORKING CATEGORY FILTERS
   // ==========================================
-
   Widget _filterTabs() {
     const filters = ['All', 'Photos', 'Voice', 'Songs'];
-
     return Row(
       children: List.generate(filters.length, (index) {
         final selected = filter == index;
-
         return Expanded(
           child: Padding(
             padding: EdgeInsets.only(
@@ -398,24 +336,19 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       }),
     );
   }
-
   // ==========================================
   // SCROLLABLE MEMORY CARDS
   // ==========================================
-
   Widget _buildBody() {
     if (_loading) {
       return const Center(
         child: CircularProgressIndicator(color: _primaryTeal),
       );
     }
-
     if (_error != null) {
       return _errorState();
     }
-
     final memories = _visibleMemories;
-
     return RefreshIndicator(
       color: _primaryTeal,
       onRefresh: _refreshMemories,
@@ -424,7 +357,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
           if (_usingSamples) ...[_sampleNotice(), const SizedBox(height: 15)],
-
           if (memories.isEmpty)
             _emptyState()
           else
@@ -436,24 +368,19 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       ),
     );
   }
-
   Widget _memoryCard(MemoryItem memory) {
     switch (memory.type) {
       case MemoryType.photo:
         return _photoCard(memory);
-
       case MemoryType.voice:
         return _audioCard(memory, isVoice: true);
-
       case MemoryType.song:
         return _audioCard(memory, isVoice: false);
     }
   }
-
   // ==========================================
   // PHOTO MEMORY CARD
   // ==========================================
-
   Widget _photoCard(MemoryItem memory) {
     return InkWell(
       onTap: _canEditMemory(memory) ? () => _openAddMemory(existing: memory) : null,
@@ -481,7 +408,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
               fit: StackFit.expand,
               children: [
                 _memoryImage(memory),
-
                 const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -496,7 +422,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                     ),
                   ),
                 ),
-
                 Positioned(
                   left: 13,
                   top: 13,
@@ -517,9 +442,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                           color: Colors.white,
                           size: 14,
                         ),
-
                         const SizedBox(width: 6),
-
                         Text(
                           _usingSamples
                               ? 'FAMILY MEMORY · SAMPLE'
@@ -534,7 +457,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                     ),
                   ),
                 ),
-
                 Positioned(
                   right: 13,
                   bottom: 13,
@@ -555,7 +477,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
               ],
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 13, 14, 15),
             child: Row(
@@ -569,9 +490,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                     size: 21,
                   ),
                 ),
-
                 const SizedBox(width: 12),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -586,9 +505,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-
                       const SizedBox(height: 5),
-
                       Text(
                         _formatMemoryDate(memory.memoryDate),
                         style: const TextStyle(
@@ -597,11 +514,9 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-
                       if (memory.caption != null &&
                           memory.caption!.trim().isNotEmpty) ...[
                         const SizedBox(height: 4),
-
                         Text(
                           memory.caption!,
                           maxLines: 2,
@@ -614,20 +529,17 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                 ),
               ],
             ),
+          ),
           ],
         ),
       ),
-      ),
     );
   }
-
   Widget _memoryImage(MemoryItem memory) {
     final path = memory.mediaPath?.trim();
-
     if (path == null || path.isEmpty) {
       return _imageFallback();
     }
-
     if (path.startsWith('https://') || path.startsWith('http://')) {
       return Image.network(
         path,
@@ -637,7 +549,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
         },
       );
     }
-
     return Image.asset(
       path,
       fit: BoxFit.cover,
@@ -646,7 +557,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       },
     );
   }
-
   Widget _imageFallback() {
     return Container(
       decoration: const BoxDecoration(
@@ -662,11 +572,9 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       ),
     );
   }
-
   // ==========================================
   // VOICE / SONG MEMORY CARD
   // ==========================================
-
   Widget _audioCard(MemoryItem memory, {required bool isVoice}) {
     return Container(
       decoration: BoxDecoration(
@@ -701,9 +609,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                   size: 23,
                 ),
               ),
-
             const SizedBox(width: 11),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -718,9 +624,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-
                   const SizedBox(height: 6),
-
                   Text(
                     memory.caption?.trim().isNotEmpty == true
                         ? memory.caption!
@@ -731,18 +635,14 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: _muted, fontSize: 10.5),
                   ),
-
                   const SizedBox(height: 12),
-
                   // Decorative waveform only.
                   // No fake playback progress.
                   _waveform(color: isVoice ? _primaryTeal : _gold),
                 ],
               ),
             ),
-
             const SizedBox(width: 12),
-
             Material(
               color: isVoice ? _darkTeal : Colors.white,
               shape: const CircleBorder(),
@@ -766,7 +666,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       ),
     );
   }
-
   Widget _waveform({required Color color}) {
     const heights = <double>[
       7,
@@ -792,7 +691,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       18,
       13,
     ];
-
     return SizedBox(
       height: 24,
       child: Row(
@@ -810,18 +708,15 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                 ),
               ),
             ),
-
             if (i != heights.length - 1) const SizedBox(width: 3),
           ],
         ],
       ),
     );
   }
-
   // ==========================================
   // SAMPLE LABEL
   // ==========================================
-
   Widget _sampleNotice() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -833,9 +728,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       child: const Row(
         children: [
           Icon(Icons.info_outline_rounded, size: 17, color: _primaryTeal),
-
           SizedBox(width: 9),
-
           Expanded(
             child: Text(
               'Sample memories are shown here. '
@@ -847,11 +740,9 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       ),
     );
   }
-
   // ==========================================
   // EMPTY FILTER STATE
   // ==========================================
-
   Widget _emptyState() {
     final label = switch (filter) {
       1 => 'No photo memories yet',
@@ -859,7 +750,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       3 => 'No songs saved yet',
       _ => 'No memories yet',
     };
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 38),
       decoration: BoxDecoration(
@@ -878,9 +768,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
               size: 32,
             ),
           ),
-
           const SizedBox(height: 14),
-
           Text(
             label,
             textAlign: TextAlign.center,
@@ -890,9 +778,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
               fontSize: 15,
             ),
           ),
-
           const SizedBox(height: 8),
-
           const Text(
             'Every special moment deserves a place.',
             textAlign: TextAlign.center,
@@ -902,11 +788,9 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       ),
     );
   }
-
   // ==========================================
   // ERROR / RETRY
   // ==========================================
-
   Widget _errorState() {
     return Center(
       child: Padding(
@@ -915,9 +799,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.error_outline_rounded, size: 42, color: _coral),
-
             const SizedBox(height: 12),
-
             const Text(
               'Could not load memories',
               style: TextStyle(
@@ -926,24 +808,19 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                 fontWeight: FontWeight.w900,
               ),
             ),
-
             const SizedBox(height: 9),
-
             Text(
               _error ?? '',
               textAlign: TextAlign.center,
               style: const TextStyle(color: _muted, fontSize: 11),
             ),
-
             const SizedBox(height: 18),
-
             ElevatedButton(
               onPressed: () {
                 setState(() {
                   _loading = true;
                   _error = null;
                 });
-
                 _loadMemories();
               },
               style: ElevatedButton.styleFrom(
@@ -957,11 +834,9 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       ),
     );
   }
-
   // ==========================================
   // FIXED ADD MEMORY BUTTON
   // ==========================================
-
   Widget _bottomAction() {
     return Container(
       color: _cream,
@@ -989,11 +864,9 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       ),
     );
   }
-
   // ==========================================
   // DATE FORMAT
   // ==========================================
-
   String _formatMemoryDate(DateTime date) {
     const months = [
       'Jan',
@@ -1009,7 +882,6 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       'Nov',
       'Dec',
     ];
-
     return '${date.day} '
         '${months[date.month - 1]} '
         '${date.year}';
