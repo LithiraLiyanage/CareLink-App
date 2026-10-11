@@ -157,7 +157,6 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
       );
       return;
     }
-
     setState(() {
       _isSubmitting = true;
     });

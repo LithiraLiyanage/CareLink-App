@@ -22,6 +22,17 @@ service firebase.storage {
         );
     }
 
+    // Student verification documents: student_verifications/<uid>/<file>.
+    match /student_verifications/{userId}/{fileName} {
+      allow read, delete: if isOwner(userId);
+
+      allow create: if isStudentCompanion(userId)
+        && isValidVerificationDocument();
+
+      // Prevent changing the original proof after submission.
+      allow update: if false;
+    }
+
     // Memory Lane images: memories/<authenticated-uid>/<unique-file>.
     match /memories/{userId}/{fileName} {
       allow read: if isOwner(userId);
@@ -30,23 +41,12 @@ service firebase.storage {
         && request.resource.size > 0
         && request.resource.size <= 8 * 1024 * 1024
         && request.resource.contentType is string
-        && request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
+        && request.resource.contentType.matches('^image/(jpeg|png|webp|gif)$');
 
       // Uploads use unique file names; don't permit overwrites.
       allow update: if false;
 
       allow delete: if isOwner(userId);
-    }
-
-    // Student verification documents: student_verifications/<uid>/<file>.
-    match /student_verifications/{userId}/{fileName} {
-      allow read, delete: if isOwner(userId);
-
-      allow create: if isOwner(userId)
-        && isStudentCompanion(userId)
-        && isValidVerificationDocument();
-
-      allow update: if false;
     }
   }
 }

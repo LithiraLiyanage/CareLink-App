@@ -1,32 +1,160 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import '../../../app/routes.dart';
+import '../../auth/screens/welcome_screen.dart';
+import '../../auth/services/auth_service.dart';
+import '../services/family_link_service.dart';
+import 'family_notifications_screen.dart';
 
-class FamilyLinkingScreen extends StatelessWidget {
+class FamilyLinkingScreen extends StatefulWidget {
   const FamilyLinkingScreen({super.key});
 
-  static const _ink = Color(0xFF00695C);
-  static const _titleInk = Color(0xFF004D40);
-  static const _muted = Color(0xFF55706E);
-  static const _hint = Color(0xFF8AA09D);
-  static const _mint = Color(0xFFF2F9F7);
-  static const _coral = Color(0xFFF26F6A);
-  static const _line = Color(0xFFD5E5E2);
+  static const _ink = Color(0xFF00776F);
+  static const _titleInk = Color(0xFF073F42);
+  static const _muted = Color(0xFF708486);
+  static const _hint = Color(0xFF9AABAC);
+  static const _background = Color(0xFFF5FBF9);
+  static const _coral = Color(0xFFFF5369);
+  static const _line = Color(0xFFD1EBE7);
+
+  @override
+  State<FamilyLinkingScreen> createState() => _FamilyLinkingScreenState();
+}
+
+class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
+  static const _titleInk = FamilyLinkingScreen._titleInk;
+  static const _muted = FamilyLinkingScreen._muted;
+  static const _background = FamilyLinkingScreen._background;
+  static const _coral = FamilyLinkingScreen._coral;
+  static const _line = FamilyLinkingScreen._line;
+
+  final _nameController = TextEditingController();
+  final _idNumberController = TextEditingController();
+  String? _relationship;
+  bool _sending = false;
+
+  _LinkStatus? _status;
+  bool _requestSent = false;
+
+  // Bumped to rebuild the relationship dropdown when the form is reset.
+  int _formGeneration = 0;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _idNumberController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendRequest() async {
+    final name = _nameController.text.trim();
+    final idNumber = _idNumberController.text.trim();
+    final relationship = _relationship;
+    if (name.isEmpty || idNumber.isEmpty || relationship == null) {
+      setState(() {
+        _status = const _LinkStatus.error(
+          'Missing details',
+          'Please enter the older adult\'s full name and ID number, and '
+              'choose your relationship.',
+        );
+      });
+      return;
+    }
+
+    setState(() {
+      _sending = true;
+      _status = null;
+    });
+    try {
+      await FamilyLinkService.instance.sendRequest(
+        elderName: name,
+        relationship: relationship,
+        idNumber: idNumber,
+      );
+      if (!mounted) return;
+      setState(() {
+        _requestSent = true;
+        _status = _LinkStatus.success(
+          'Request sent',
+          'Your request was sent to $name. They will see it on their '
+              'CareLink home screen. When they accept it, a badge will '
+              'appear on your profile icon at the top right.',
+        );
+      });
+    } on FamilyLinkException catch (error) {
+      if (!mounted) return;
+      setState(() => _status = _LinkStatus.fromException(error));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _status = const _LinkStatus.error(
+            'Something went wrong',
+            'We couldn\'t send your request. Please try again.',
+          ));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  void _startNewRequest() {
+    setState(() {
+      _requestSent = false;
+      _status = null;
+      _relationship = null;
+      _nameController.clear();
+      _idNumberController.clear();
+      _formGeneration++;
+    });
+  }
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('You will need to sign in again to use CareLink.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await AuthService().logoutUser();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+        (route) => false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not log out. Please try again.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _mint,
+      backgroundColor: _background,
       appBar: AppBar(
         toolbarHeight: 60,
-        backgroundColor: _mint,
+        backgroundColor: _titleInk,
         surfaceTintColor: Colors.transparent,
         leadingWidth: 48,
         leading: Semantics(
           label: 'Back',
           button: true,
           child: const Center(
-            child: Icon(Icons.arrow_back_rounded, color: _ink, size: 23),
+            child: Icon(Icons.arrow_back_rounded, color: Colors.white, size: 23),
           ),
         ),
         titleSpacing: 0,
@@ -35,24 +163,28 @@ class FamilyLinkingScreen extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: _ink,
+            color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.2,
           ),
         ),
         centerTitle: true,
-        actions: const [
-          SizedBox(
+        actions: [
+          const SizedBox(
             width: 48,
-            child: Center(
-              child: CircleAvatar(
-                radius: 17,
-                backgroundColor: Color(0xFFE0F2EF),
-                child: Icon(Icons.person_rounded, color: _ink, size: 20),
-              ),
+            child: Center(child: _ProfileApprovalButton()),
+          ),
+          IconButton(
+            tooltip: 'Log out',
+            onPressed: _confirmLogout,
+            icon: const Icon(
+              Icons.logout_rounded,
+              color: Colors.white,
+              size: 23,
             ),
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Stack(
@@ -60,12 +192,12 @@ class FamilyLinkingScreen extends StatelessWidget {
           const Positioned(
             top: -48,
             left: -54,
-            child: _SoftCircle(size: 172, color: Color(0xFFDFF1ED)),
+            child: _SoftCircle(size: 172, color: Color(0xFFE7F6F1)),
           ),
           const Positioned(
             top: 50,
             left: 56,
-            child: _SoftCircle(size: 38, color: Color(0xFFDFF1ED)),
+            child: _SoftCircle(size: 38, color: Color(0xFFE7F6F1)),
           ),
           SafeArea(
             top: false,
@@ -108,39 +240,73 @@ class FamilyLinkingScreen extends StatelessWidget {
                           border: Border.all(color: _line),
                           boxShadow: const [
                             BoxShadow(
-                              color: Color(0x0A00695C),
+                              color: Color(0x14073F42),
                               blurRadius: 14,
                               offset: Offset(0, 5),
                             ),
                           ],
                         ),
-                        child: const Column(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _InputField(
-                              label: "Elder's Name",
-                              hint: "Enter elder's full name",
+                              controller: _nameController,
+                              label: 'Older Adult\'s Full Name',
+                              hint: 'e.g. Kamala Perera',
                               icon: Icons.person_outline_rounded,
-                              keyboardType: TextInputType.name,
                               textCapitalization: TextCapitalization.words,
+                              enabled: !_requestSent,
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(
+                                  FamilyLinkService.maxNameLength,
+                                ),
+                              ],
                             ),
-                            SizedBox(height: 12),
-                            _DropdownField(
-                              label: 'Relationship',
-                              hint: 'Select relationship',
-                              icon: Icons.family_restroom_rounded,
-                              options: ['Daughter', 'Son'],
-                            ),
-                            SizedBox(height: 12),
+                            const SizedBox(height: 12),
                             _InputField(
-                              label: 'ID Number',
-                              hint: 'Enter your ID number',
+                              controller: _idNumberController,
+                              label: 'Older Adult\'s ID Number',
+                              hint: 'National ID number',
                               icon: Icons.badge_outlined,
+                              textCapitalization:
+                                  TextCapitalization.characters,
                               textInputAction: TextInputAction.done,
+                              enabled: !_requestSent,
+                              inputFormatters: [
+                                LengthLimitingTextInputFormatter(
+                                  FamilyLinkService.maxIdNumberLength,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            KeyedSubtree(
+                              key: ValueKey(_formGeneration),
+                              child: _DropdownField(
+                                label: 'Relationship',
+                                hint: 'Select relationship',
+                                icon: Icons.family_restroom_rounded,
+                                options: FamilyLinkService.relationships,
+                                value: _relationship,
+                                onChanged: _requestSent
+                                    ? null
+                                    : (value) =>
+                                        setState(() => _relationship = value),
+                              ),
                             ),
                           ],
                         ),
                       ),
+                      if (_status != null) ...[
+                        const SizedBox(height: 12),
+                        _StatusBanner(
+                          status: _status!,
+                          actionLabel: _requestSent
+                              ? 'Link another family member'
+                              : null,
+                          onAction:
+                              _requestSent ? _startNewRequest : null,
+                        ),
+                      ],
                       const SizedBox(height: 15),
                       Semantics(
                         button: true,
@@ -149,30 +315,52 @@ class FamilyLinkingScreen extends StatelessWidget {
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(14),
-                            onTap: () =>
-                                Navigator.of(context).pushNamed(AppRoutes.familyPending),
+                            onTap: _sending || _requestSent
+                                ? null
+                                : _sendRequest,
                             child: Container(
                               height: 50,
                               decoration: BoxDecoration(
-                                color: _coral,
+                                color: _requestSent
+                                    ? _coral.withValues(alpha: 0.5)
+                                    : _coral,
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: const [
                                   BoxShadow(
-                                    color: Color(0x20E85D5A),
+                                    color: Color(0x33FF5369),
                                     blurRadius: 10,
                                     offset: Offset(0, 4),
                                   ),
                                 ],
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.send_rounded,
-                                      size: 18, color: Colors.white),
-                                  SizedBox(width: 9),
+                                  if (_sending)
+                                    const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  else
+                                    Icon(
+                                      _requestSent
+                                          ? Icons.check_rounded
+                                          : Icons.send_rounded,
+                                      size: 18,
+                                      color: Colors.white,
+                                    ),
+                                  const SizedBox(width: 9),
                                   Text(
-                                    'Send Request',
-                                    style: TextStyle(
+                                    _sending
+                                        ? 'Sending...'
+                                        : _requestSent
+                                            ? 'Request Sent'
+                                            : 'Send Request',
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
@@ -196,31 +384,251 @@ class FamilyLinkingScreen extends StatelessWidget {
   }
 }
 
+/// Profile avatar that shows a badge with the number of unread approval
+/// notifications; tapping it opens the notifications list.
+class _ProfileApprovalButton extends StatefulWidget {
+  const _ProfileApprovalButton();
+
+  @override
+  State<_ProfileApprovalButton> createState() => _ProfileApprovalButtonState();
+}
+
+class _ProfileApprovalButtonState extends State<_ProfileApprovalButton> {
+  late final Stream<List<FamilyLinkRequest>> _approvals =
+      FamilyLinkService.instance.watchApprovals();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<FamilyLinkRequest>>(
+      stream: _approvals,
+      builder: (context, snapshot) {
+        final approvals = snapshot.data ?? const <FamilyLinkRequest>[];
+        final count =
+            approvals.where((request) => !request.seenByRequester).length;
+
+        return Semantics(
+          button: true,
+          label: count == 0
+              ? 'Profile'
+              : 'Profile, $count request${count == 1 ? '' : 's'} approved',
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const FamilyNotificationsScreen(),
+              ),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const CircleAvatar(
+                  radius: 17,
+                  backgroundColor: Colors.white,
+                  child: Icon(
+                    Icons.person_rounded,
+                    color: FamilyLinkingScreen._titleInk,
+                    size: 20,
+                  ),
+                ),
+                if (count > 0)
+                  Positioned(
+                    right: -4,
+                    top: -4,
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 17,
+                        minHeight: 17,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: FamilyLinkingScreen._coral,
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(
+                          color: FamilyLinkingScreen._titleInk,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
+                        '$count',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+enum _StatusKind { success, error }
+
+class _LinkStatus {
+  const _LinkStatus.success(this.title, this.message)
+      : kind = _StatusKind.success;
+  const _LinkStatus.error(this.title, this.message)
+      : kind = _StatusKind.error;
+
+  factory _LinkStatus.fromException(FamilyLinkException error) {
+    switch (error.code) {
+      case FamilyLinkErrorCode.invalidRelationship:
+        return _LinkStatus.error('Missing details', error.message);
+      case FamilyLinkErrorCode.missingProfileName:
+        return _LinkStatus.error('Profile incomplete', error.message);
+      case FamilyLinkErrorCode.network:
+        return _LinkStatus.error('You\'re offline', error.message);
+      case FamilyLinkErrorCode.permissionDenied:
+      case FamilyLinkErrorCode.wrongRole:
+      case FamilyLinkErrorCode.notSignedIn:
+        return _LinkStatus.error('Permission denied', error.message);
+      default:
+        return _LinkStatus.error('Couldn\'t send request', error.message);
+    }
+  }
+
+  final _StatusKind kind;
+  final String title;
+  final String message;
+}
+
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({
+    required this.status,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final _LinkStatus status;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final (Color accent, Color fill, IconData icon) = switch (status.kind) {
+      _StatusKind.success => (
+          FamilyLinkingScreen._ink,
+          const Color(0xFFE7F6F1),
+          Icons.check_circle_rounded,
+        ),
+      _StatusKind.error => (
+          FamilyLinkingScreen._coral,
+          const Color(0xFFFFECEF),
+          Icons.error_rounded,
+        ),
+    };
+
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: accent.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: accent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    status.title,
+                    style: const TextStyle(
+                      color: FamilyLinkingScreen._titleInk,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    status.message,
+                    style: const TextStyle(
+                      color: FamilyLinkingScreen._muted,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                  if (actionLabel != null) ...[
+                    const SizedBox(height: 6),
+                    _bannerAction(accent, actionLabel!, onAction),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Widget _bannerAction(
+    Color accent,
+    String label,
+    VoidCallback? onPressed,
+  ) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: accent,
+        padding: EdgeInsets.zero,
+        minimumSize: const Size(0, 32),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class _InputField extends StatelessWidget {
   const _InputField({
+    required this.controller,
     required this.label,
     required this.hint,
     required this.icon,
-    this.keyboardType = TextInputType.text,
     this.textCapitalization = TextCapitalization.none,
     this.textInputAction = TextInputAction.next,
+    this.inputFormatters,
+    this.enabled = true,
   });
 
+  final TextEditingController controller;
   final String label;
   final String hint;
   final IconData icon;
-  final TextInputType keyboardType;
   final TextCapitalization textCapitalization;
   final TextInputAction textInputAction;
+  final List<TextInputFormatter>? inputFormatters;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return _LabeledField(
       label: label,
       child: TextField(
-        keyboardType: keyboardType,
+        controller: controller,
         textCapitalization: textCapitalization,
         textInputAction: textInputAction,
+        inputFormatters: inputFormatters,
+        enabled: enabled,
+        autocorrect: false,
+        enableSuggestions: false,
         cursorColor: FamilyLinkingScreen._ink,
         style: _fieldTextStyle,
         decoration: _fieldDecoration(hint, icon),
@@ -235,18 +643,23 @@ class _DropdownField extends StatelessWidget {
     required this.hint,
     required this.icon,
     required this.options,
+    required this.value,
+    required this.onChanged,
   });
 
   final String label;
   final String hint;
   final IconData icon;
   final List<String> options;
+  final String? value;
+  final ValueChanged<String?>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     return _LabeledField(
       label: label,
       child: DropdownButtonFormField<String>(
+        initialValue: value,
         hint: Text(hint, style: _fieldHintStyle),
         icon: const Icon(
           Icons.keyboard_arrow_down_rounded,
@@ -261,7 +674,7 @@ class _DropdownField extends StatelessWidget {
           for (final option in options)
             DropdownMenuItem(value: option, child: Text(option)),
         ],
-        onChanged: (_) {},
+        onChanged: onChanged,
       ),
     );
   }
@@ -339,7 +752,7 @@ class _FamilyIllustration extends StatelessWidget {
             width: 126,
             height: 80,
             decoration: BoxDecoration(
-              color: const Color(0xFFDFF1ED),
+              color: const Color(0xFFE7F6F1),
               borderRadius: BorderRadius.circular(42),
             ),
           ),
@@ -349,7 +762,7 @@ class _FamilyIllustration extends StatelessWidget {
             child: _PersonFigure(
               skin: const Color(0xFFE9B99B),
               hair: const Color(0xFF465B55),
-              shirt: const Color(0xFF5C8F88),
+              shirt: const Color(0xFF00776F),
               size: 61,
               elder: false,
             ),
@@ -360,7 +773,7 @@ class _FamilyIllustration extends StatelessWidget {
             child: _PersonFigure(
               skin: const Color(0xFFD9A986),
               hair: const Color(0xFF89938A),
-              shirt: const Color(0xFF557F78),
+              shirt: const Color(0xFF073F42),
               size: 75,
               elder: true,
             ),

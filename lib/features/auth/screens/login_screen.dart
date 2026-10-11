@@ -1,15 +1,19 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../coordinator/services/coordinator_session.dart';
 import '../services/account_flow_navigation.dart';
 import '../services/auth_service.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.coordinatorMode = false});
+
+  /// Staff login for Coordinators/Admins: no Google sign-in or registration,
+  /// and an account without the coordinator claim is signed out again.
+  final bool coordinatorMode;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -50,37 +54,30 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final loggedInUser = await _authService.loginUser(
+      await _authService.loginUser(
         email: _emailController.text,
         password: _passwordController.text,
       );
 
       if (!mounted) return;
 
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) {
+      if (widget.coordinatorMode && !await isCoordinatorSession()) {
+        await _authService.logoutUser();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not find the logged-in user.')),
+          const SnackBar(
+            content: Text(
+              'This account does not have coordinator access. '
+              'Use the regular login instead.',
+            ),
+          ),
         );
         return;
       }
-
-      final userDocument = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(loggedInUser.uid)
-          .get();
 
       if (!mounted) return;
-
-      if (!userDocument.exists) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User profile was not found.')),
-        );
-        return;
-      }
-
-      // The shared account-flow navigator handles onboarding, verification,
-      // and the correct destination for each user role.
+      // Use the shared navigator for role, onboarding and verification routing.
+      // In coordinator mode, the session has already been checked above.
       await AccountFlowNavigation.replaceWithNext(context, clearStack: true);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -207,9 +204,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 44),
 
-                    const Text(
-                      'Welcome Back',
-                      style: TextStyle(
+                    Text(
+                      widget.coordinatorMode ? 'Coordinator Login' : 'Welcome Back',
+                      style: const TextStyle(
                         color: darkText,
                         fontSize: 34,
                         fontWeight: FontWeight.w800,
@@ -220,9 +217,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 10),
 
-                    const Text(
-                      'Good to see you again!',
-                      style: TextStyle(
+                    Text(
+                      widget.coordinatorMode
+                          ? 'Use the staff account your administrator created.'
+                          : 'Good to see you again!',
+                      style: const TextStyle(
                         color: mutedText,
                         fontSize: 22,
                         fontWeight: FontWeight.w400,
@@ -405,6 +404,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
+                    if (!widget.coordinatorMode) ...[
                     const SizedBox(height: 34),
 
                     const Row(
@@ -499,6 +499,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                     ),
+                    ],
                   ],
                 ),
               ),

@@ -4,4 +4,7 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Debug only: lets the Coordinator preview reach the local Firebase
+         emulators over plain HTTP (see lib/coordinator_preview.dart). -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

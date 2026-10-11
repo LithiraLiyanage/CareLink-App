@@ -44,11 +44,15 @@ class AppRoutes {
   static const String familyHome = '/family-home';
   static const String safetyDashboard = '/safety-dashboard';
 
-  // Coordinator
+  // =========================
+  // COORDINATOR
+  // =========================
+
   static const String coordinatorCaseList = '/coordinator-case';
   static const String coordinatorCaseDetail = '/coordinator-case-details';
   static const String consentContextReview = '/consent-context';
   static const String approvedContactAction = '/approved-contact';
   static const String auditOutcomeCloseCase = '/case-outcome';
   static const String caseClosed = '/case-closed';
+  static const String coordinatorVerifications = '/coordinator-verifications';
 }

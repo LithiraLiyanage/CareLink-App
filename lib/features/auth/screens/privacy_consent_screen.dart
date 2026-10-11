@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../services/account_setup_service.dart';
 import '../services/account_flow_navigation.dart';
 import '../services/setup_back_navigation.dart';
-import 'welcome_screen.dart';
 
 class PrivacyConsentScreen extends StatefulWidget {
   final String selectedRole;
@@ -69,15 +68,11 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
           content: const Text('Your CareLink profile setup is complete.'),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const WelcomeScreen(),
-                  ),
-                  (route) => false,
-                );
-              },
+              // Opens the role's home screen, as after a later login.
+              onPressed: () => AccountFlowNavigation.replaceWithNext(
+                context,
+                clearStack: true,
+              ),
               child: const Text(
                 'Done',
                 style: TextStyle(color: teal, fontWeight: FontWeight.w700),

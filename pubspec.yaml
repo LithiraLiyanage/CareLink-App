@@ -25,7 +25,7 @@ dependencies:
   # Video and voice calls
   flutter_webrtc: ^1.6.2+hotfix.4
 
-  # Google authentication (Testing-2)
+  # Google authentication
   google_sign_in: ^7.2.0
 
 dev_dependencies:
