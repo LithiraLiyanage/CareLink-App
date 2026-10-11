@@ -31,6 +31,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _sendResetLink() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -48,7 +49,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Password reset link sent. Please check your email.'),
+          content: Text(
+            'If an Email/Password account exists for this address, a reset '
+            'link has been sent. Google-only accounts should sign in with '
+            'Google.',
+          ),
         ),
       );
     } on FirebaseAuthException catch (e) {
@@ -62,6 +67,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         message = 'No account found with this email';
       } else if (e.code == 'too-many-requests') {
         message = 'Too many attempts. Please try again later';
+      } else if (e.code == 'network-request-failed') {
+        message = 'Please check your internet connection and try again';
+      } else if (e.code == 'operation-not-allowed') {
+        message = 'Email/Password sign-in is not enabled for this app';
       }
 
       ScaffoldMessenger.of(context)

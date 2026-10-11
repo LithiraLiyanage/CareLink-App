@@ -2,14 +2,37 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Matches AddMemoryScreen: memories/<authenticated-uid>/<unique-file>.
-    // Does not grant any access to student verification documents.
-    match /memories/{userId}/{fileName} {
-      allow read: if request.auth != null
-        && request.auth.uid == userId;
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
 
-      allow create: if request.auth != null
-        && request.auth.uid == userId
+    function isValidVerificationDocument() {
+      return request.resource.size > 0
+        && request.resource.size <= 10 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('image/(jpeg|png)')
+          || request.resource.contentType == 'application/pdf'
+        );
+    }
+
+    function isStudentCompanion(userId) {
+      return firestore.get(
+        /databases/(default)/documents/users/$(userId)
+      ).data.role == 'Student Companion';
+    }
+
+    match /student_verifications/{userId}/{fileName} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && isStudentCompanion(userId)
+        && isValidVerificationDocument();
+    }
+
+    // Matches AddMemoryScreen: memories/<authenticated-uid>/<unique-file>.
+    match /memories/{userId}/{fileName} {
+      allow read: if isOwner(userId);
+
+      allow create: if isOwner(userId)
         && request.resource.size > 0
         && request.resource.size <= 8 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
@@ -17,8 +40,7 @@ service firebase.storage {
       // Each upload has a new unique name; prevent overwriting other files.
       allow update: if false;
 
-      allow delete: if request.auth != null
-        && request.auth.uid == userId;
+      allow delete: if isOwner(userId);
     }
   }
 }

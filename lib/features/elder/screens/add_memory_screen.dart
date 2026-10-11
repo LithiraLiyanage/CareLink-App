@@ -81,24 +81,17 @@ class _AddMemoryScreenState extends State<AddMemoryScreen> {
     }
 
     try {
-      // file_picker 8.x API: FilePickerResult -> PlatformFile.
-      // withData: true supplies image bytes on Flutter Web and mobile.
-      final FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-        withData: true,
-      );
+      final file = await FilePicker.pickFile(type: FileType.image);
+      if (file == null) return;
 
-      if (result == null || result.files.isEmpty) return;
-
-      final PlatformFile file = result.files.single;
-      if (file.size > 8 * 1024 * 1024) {
+      final fileSize = file.lengthSync() ?? await file.length();
+      if (fileSize != null && fileSize > 8 * 1024 * 1024) {
         _message('Please select a photo smaller than 8 MB.');
         return;
       }
 
-      final Uint8List? imageBytes = file.bytes;
-      if (imageBytes == null || imageBytes.isEmpty) {
+      final Uint8List imageBytes = await file.readAsBytes();
+      if (imageBytes.isEmpty) {
         _message('Could not read the photo. Please select it again.');
         return;
       }
