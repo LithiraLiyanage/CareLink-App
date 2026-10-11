@@ -1,14 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../app/routes.dart';
+import '../services/account_flow_navigation.dart';
 import '../services/auth_service.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../../elder/screens/elder_home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -32,6 +30,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
+
+  bool get _isBusy => _isLoading || _isGoogleLoading;
 
   @override
   void dispose() {
@@ -41,6 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    if (_isBusy) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -77,50 +79,9 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      var userRole = userDocument.data()?['role'] as String?;
-      userRole ??= await _authService.getUserRole(loggedInUser.uid);
-      if (!mounted) return;
-
-      if (userRole == 'Family Caregiver') {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.familyLinking,
-          (route) => false,
-        );
-        return;
-      }
-
-      if (userRole == 'Older Adult') {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const ElderHomeScreen()),
-          (route) => false,
-        );
-        return;
-      }
-
-      if (userRole == 'Student Companion') {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.companionHome,
-          (route) => false,
-        );
-        return;
-      }
-
-      if (userRole == 'Coordinator' || userRole == 'Admin') {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.coordinatorCaseList,
-          (route) => false,
-        );
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Login successful. Role: ${userRole ?? 'Unknown'}'),
-        ),
-      );
+      // The shared account-flow navigator handles onboarding, verification,
+      // and the correct destination for each user role.
+      await AccountFlowNavigation.replaceWithNext(context, clearStack: true);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
@@ -150,6 +111,56 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loginWithGoogle() async {
+    if (_isBusy) return;
+
+    setState(() {
+      _isGoogleLoading = true;
+    });
+
+    try {
+      final result = await _authService.signInWithGoogle();
+      if (!mounted || result == null) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Google sign-in successful')),
+      );
+
+      await AccountFlowNavigation.replaceWithNext(context, clearStack: true);
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+
+      var message = 'Google sign-in failed. Please try again.';
+      if (error.code == 'operation-not-allowed') {
+        message = 'Google sign-in is not enabled for this Firebase project.';
+      } else if (error.code == 'network-request-failed') {
+        message = 'Please check your internet connection and try again.';
+      } else if (error.code == 'popup-blocked') {
+        message = 'Please allow pop-ups and try Google sign-in again.';
+      } else if (error.code == 'popup-closed-by-user') {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Google sign-in could not be completed. Check the Firebase configuration.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGoogleLoading = false;
         });
       }
     }
@@ -366,7 +377,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: double.infinity,
                       height: 58,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _login,
+                        onPressed: _isBusy ? null : _login,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: teal,
                           foregroundColor: Colors.white,
@@ -428,10 +439,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     Center(
                       child: InkWell(
-                        onTap: () {
-                          // Next step:
-                          // Google Sign-In functionality
-                        },
+                        onTap: _isBusy ? null : _loginWithGoogle,
                         borderRadius: BorderRadius.circular(18),
                         child: Container(
                           width: 78,
@@ -441,14 +449,22 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(color: borderColor, width: 1.5),
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Image.asset(
-                              'assets/images/google_logo.png',
-                              fit: BoxFit.contain,
-                              filterQuality: FilterQuality.high,
-                            ),
-                          ),
+                          child: _isGoogleLoading
+                              ? const Padding(
+                                  padding: EdgeInsets.all(19),
+                                  child: CircularProgressIndicator(
+                                    color: teal,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                              : Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Image.asset(
+                                    'assets/images/google_logo.png',
+                                    fit: BoxFit.contain,
+                                    filterQuality: FilterQuality.high,
+                                  ),
+                                ),
                         ),
                       ),
                     ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/account_setup_service.dart';
+import '../services/setup_back_navigation.dart';
 import 'profile_setup_screen.dart';
 
 class ChooseRoleScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
   bool _isSaving = false;
 
   void _selectRole(String role) {
+    if (_isSaving) return;
     setState(() {
       _selectedRole = role;
     });
@@ -99,7 +101,7 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
                     ),
                     child: IconButton(
                       onPressed: () {
-                        Navigator.pop(context);
+                        if (!_isSaving) SetupBackNavigation.back(context);
                       },
                       icon: const Icon(
                         Icons.arrow_back_rounded,

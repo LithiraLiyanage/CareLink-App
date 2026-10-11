@@ -12,7 +12,20 @@
           "package_name": "com.example.carelink_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "895413760421-nt6ceo3u7tusdc3fdp71eu3rb2m6qji4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.carelink_app",
+            "certificate_hash": "35fdef111b7c8a4420f01e80e173134107b999d7"
+          }
+        },
+        {
+          "client_id": "895413760421-b4hrjg66699ntu681m4tdr9d5a24e3vg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCy6WFo3FI80PYoaEjJ78YjE1THrZHKTRQ"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "895413760421-b4hrjg66699ntu681m4tdr9d5a24e3vg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../services/account_setup_service.dart';
-import 'student_verification_screen.dart';
+import '../services/account_flow_navigation.dart';
+import '../services/setup_back_navigation.dart';
 import 'welcome_screen.dart';
 
 class PrivacyConsentScreen extends StatefulWidget {
@@ -26,10 +27,39 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
   bool _familySharing = false;
   bool _communication = true;
   bool _isSaving = false;
+  bool _isLoading = true;
+  bool _loadFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConsents();
+  }
+
+  Future<void> _loadConsents() async {
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
+    try {
+      final data = await _accountSetupService.loadConsents();
+      if (!mounted) return;
+      setState(() {
+        _privacyAccepted = data['privacyAccepted'] == true;
+        _familySharing = data['familyLinkConsent'] == true;
+        _communication = data['communicationConsent'] as bool? ?? true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadFailed = true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   void _completeSetup() {
     showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
@@ -60,6 +90,7 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
   }
 
   Future<void> _continue() async {
+    if (_isSaving || _isLoading || _loadFailed) return;
     if (!_privacyAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -85,13 +116,7 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
       if (!mounted) return;
 
       if (widget.selectedRole == 'Student Companion') {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) =>
-                StudentVerificationScreen(selectedRole: widget.selectedRole),
-          ),
-        );
+        await AccountFlowNavigation.pushNext(context);
         return;
       }
 
@@ -136,7 +161,18 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _BackButton(onPressed: () => Navigator.pop(context)),
+                  _BackButton(
+                    onPressed: () {
+                      if (!_isSaving) SetupBackNavigation.back(context);
+                    },
+                  ),
+                  if (_isLoading) const LinearProgressIndicator(color: teal),
+                  if (_loadFailed)
+                    TextButton.icon(
+                      onPressed: _loadConsents,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Retry loading saved consent'),
+                    ),
                   const SizedBox(height: 28),
                   Center(
                     child: Container(
@@ -234,7 +270,13 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
                     width: double.infinity,
                     height: 60,
                     child: ElevatedButton(
-                      onPressed: _isSaving ? null : _continue,
+                      onPressed:
+                          _isSaving ||
+                              _isLoading ||
+                              _loadFailed ||
+                              !_privacyAccepted
+                          ? null
+                          : _continue,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: teal,
                         foregroundColor: Colors.white,

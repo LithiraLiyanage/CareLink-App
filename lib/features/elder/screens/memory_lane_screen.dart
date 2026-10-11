@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/memory_item.dart';
@@ -109,9 +110,17 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
       );
   }
 
-  void _openAddMemory() {
-    _openAndRefresh(AddMemoryScreen(navigationOnly: widget.navigationOnly));
+  void _openAddMemory({MemoryItem? existing}) {
+    _openAndRefresh(AddMemoryScreen(
+      navigationOnly: widget.navigationOnly,
+      existingMemory: existing,
+      isEditing: existing != null,
+      memoryId: existing?.id,
+    ));
   }
+
+  bool _canEditMemory(MemoryItem memory) =>
+      !_usingSamples && memory.ownerId == FirebaseAuth.instance.currentUser?.uid;
 
   // ==========================================
   // SAMPLE DATA — FOR EMPTY MEMORY LANE ONLY
@@ -446,7 +455,10 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
   // ==========================================
 
   Widget _photoCard(MemoryItem memory) {
-    return Container(
+    return InkWell(
+      onTap: _canEditMemory(memory) ? () => _openAddMemory(existing: memory) : null,
+      borderRadius: BorderRadius.circular(21),
+      child: Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -602,8 +614,9 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
                 ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
       ),
     );
   }
@@ -957,7 +970,7 @@ class _MemoryLaneScreenState extends State<MemoryLaneScreen> {
         width: double.infinity,
         height: 54,
         child: ElevatedButton.icon(
-          onPressed: _openAddMemory,
+          onPressed: () => _openAddMemory(),
           style: ElevatedButton.styleFrom(
             backgroundColor: _coral,
             foregroundColor: Colors.white,

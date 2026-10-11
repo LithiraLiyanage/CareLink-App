@@ -1,8 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../services/account_flow_navigation.dart';
 import '../services/auth_service.dart';
-import 'choose_role_screen.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -31,7 +31,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _agreeTerms = true;
+  bool _agreeTerms = false;
   bool _isLoading = false;
 
   @override
@@ -44,6 +44,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _register() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     if (!_agreeTerms) {
@@ -75,20 +76,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
         fullName: _fullNameController.text.trim(),
       );
 
+      try {
+        await _authService.sendEmailVerification();
+      } catch (_) {
+        // The account is valid; the verification screen provides a retry.
+      }
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account created successfully')),
+        const SnackBar(
+          content: Text('Account created. Please verify your email.'),
+        ),
       );
 
-      await Future.delayed(const Duration(milliseconds: 700));
-
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const ChooseRoleScreen()),
-      );
+      await AccountFlowNavigation.replaceWithNext(context, clearStack: true);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
@@ -104,11 +106,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Something went wrong: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not create your account. Please try again.'),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -360,8 +365,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             width: 52,
                             height: 52,
                             decoration: BoxDecoration(
-                              color: teal,
+                              color: _agreeTerms ? teal : Colors.white,
                               borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: teal, width: 2),
                             ),
                             child: _agreeTerms
                                 ? const Icon(

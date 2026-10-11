@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/student_verification_service.dart';
 import '../services/student_verification_validator.dart';
+import '../services/setup_back_navigation.dart';
 import 'verification_status_screen.dart';
 
 class StudentVerificationScreen extends StatefulWidget {
@@ -102,6 +103,7 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -191,7 +193,13 @@ class _StudentVerificationScreenState extends State<StudentVerificationScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _BackButton(onPressed: () => Navigator.pop(context)),
+                    _BackButton(
+                      onPressed: () {
+                        if (!_isSubmitting) {
+                          SetupBackNavigation.back(context);
+                        }
+                      },
+                    ),
                     const SizedBox(height: 26),
                     Center(
                       child: Container(

@@ -1,0 +1,41 @@
+CareLink privacy fix — EMULATOR REVIEW ONLY
+
+WHAT THE TEST REVEALED:
+  A Family Caregiver role alone granted read access to *all* check_ins. Unlinked
+  caregivers were able to read a different Older Adult's private check-ins.
+
+WHAT CHANGED:
+  Replaced only the broad final family check_ins read rule. Existing matching,
+  family link request/approval, student, memory, and WebRTC blocks are unchanged.
+
+SECURE FAMILY ACCESS:
+  Only a caregiver with an Admin SDK-issued active UID-based link may read an
+  associated Older Adult's check_in by document ID. Required Firestore document:
+    family_links/{elderId}/caregivers/{caregiverId}
+  Required document data:
+    {elderId: '<elder UID>', caregiverId: '<family UID>', status: 'active'}
+  Firestore client writes to that collection are denied; trusted Admin SDK must
+  verify consent/elder identity and create/revoke links. Never create such links
+  merely based on first name or a client-writable Family role.
+
+IMPORTANT COMPATIBILITY LIMITATION:
+  Existing accepted family_link_requests are keyed by first name, NOT unique
+  elder UID. Accepting one does NOT create the trusted family_links record.
+  Therefore FAMILY LIVE CHECK-IN READS WILL BE DENIED unless and until a
+  trusted server workflow creates the link. Existing family linking request
+  and acceptance rules are preserved, and the inspected Family Dashboard UI
+  was static, but dynamic family live check-in reads need app/query work.
+  Firestore queries must be constrained by elderId; collection-wide list queries
+  may fail under these rules because rules are not data filters.
+
+NOT YET RESOLVED:
+  - Same-first-name collision in legacy family_link_requests approval system.
+  - Rule-evaluation-budget warnings from negative check-in tests.
+  - Live two-person camera/microphone/TURN connectivity.
+
+RUN LOCALLY ONLY:
+  node --test .\firebase-rules-tests\carelink.privacy-fixed.family-security.test.cjs
+  node --test .\firebase-rules-tests\carelink.privacy-fixed.rules.test.cjs
+  node --test .\firebase-rules-tests\carelink.privacy-fixed.live-calls.rules.test.cjs
+
+Not tested against emulator by the assistant. DO NOT publish directly.

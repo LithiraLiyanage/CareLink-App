@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 import '../widgets/elder_assets.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
-import 'checkin_complete_nethmi_screen.dart';
+import '../models/check_in.dart';
+import '../services/firebase_elder_service.dart';
+import 'checkin_complete_kamala_screen.dart';
 
 class ActiveVideoCallKamalaScreen extends StatefulWidget {
-  const ActiveVideoCallKamalaScreen({super.key});
+  const ActiveVideoCallKamalaScreen({super.key, this.checkInId = ''});
+
+  final String checkInId;
 
   @override
   State<ActiveVideoCallKamalaScreen> createState() =>
@@ -15,9 +19,89 @@ class ActiveVideoCallKamalaScreen extends StatefulWidget {
 
 class _ActiveVideoCallKamalaScreenState
     extends State<ActiveVideoCallKamalaScreen> {
+  final FirebaseElderService _service = FirebaseElderService.instance;
   bool muted = false;
   bool speaker = true;
   bool camera = true;
+  bool _ending = false;
+  bool _loadedRoute = false;
+  String _checkInId = '';
+  CheckIn? _checkIn;
+  String? _error;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_loadedRoute) return;
+    _loadedRoute = true;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    _checkInId = widget.checkInId.isNotEmpty
+        ? widget.checkInId
+        : (args is String ? args : '');
+    if (_checkInId.isNotEmpty) {
+      _loadCheckIn();
+    } else {
+      _error = 'Please start a check-in from My Schedule.';
+    }
+  }
+
+  Future<void> _loadCheckIn() async {
+    try {
+      final item = await _service.getCheckInById(_checkInId);
+      if (item == null) throw StateError('Check-in not found.');
+      if (item.status != CheckInStatus.inProgress) {
+        throw StateError('This check-in has not been started.');
+      }
+      if (mounted) setState(() => _checkIn = item);
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    }
+  }
+
+  void _message(String value) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(value)));
+  }
+
+  String _timeText(DateTime date) {
+    final h = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final m = date.minute.toString().padLeft(2, '0');
+    return '$h:$m ${date.hour >= 12 ? 'PM' : 'AM'}';
+  }
+
+  Future<void> _endCall() async {
+    if (_ending) return;
+    if (_error != null || _checkIn == null || _checkInId.isEmpty) {
+      _message(_error ?? 'Please wait for the check-in to load.');
+      return;
+    }
+    final ok = await elderConfirm(
+      context,
+      title: 'End video call?',
+      message: 'This will finish the current check-in.',
+      confirmLabel: 'End call',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _ending = true);
+    try {
+      await _service.updateCheckInStatus(_checkInId, CheckInStatus.completed);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          settings: RouteSettings(arguments: _checkInId),
+          builder: (_) => const CheckInCompleteKamalaScreen(),
+        ),
+      );
+    } catch (error) {
+      _message('Could not complete check-in: $error');
+    } finally {
+      if (mounted) setState(() => _ending = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,31 +123,17 @@ class _ActiveVideoCallKamalaScreenState
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const _IdentityRow(
-                    name: 'Kamala Perera',
+                  _IdentityRow(
+                    name: _checkIn?.elderName ?? 'Kamala Perera',
                     role: 'Elder',
                     avatar: ElderAssets.kamalaAvatar,
                   ),
                   _controlsSection(),
                   ElderPrimaryButton(
-                    label: 'End video call',
+                    label: _ending ? 'Finishing...' : 'End video call',
                     color: ElderColors.coral,
                     height: 54,
-                    onPressed: () async {
-                      final ok = await elderConfirm(
-                        context,
-                        title: 'End video call?',
-                        message: 'This will finish the current check-in.',
-                        confirmLabel: 'End call',
-                        destructive: true,
-                      );
-                      if (!ok || !context.mounted) return;
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (_) => const CheckInCompleteNethmiScreen(),
-                        ),
-                      );
-                    },
+                    onPressed: _endCall,
                   ),
                   const _PrivacyNote(),
                 ],
@@ -95,10 +165,7 @@ class _ActiveVideoCallKamalaScreenState
           Positioned(
             left: 14,
             top: 12,
-            child: ElderBackButton(
-              filled: true,
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
+            child: ElderBackButton(filled: true, onPressed: _endCall),
           ),
           Positioned(
             right: 16,
@@ -127,11 +194,13 @@ class _ActiveVideoCallKamalaScreenState
               ),
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 18,
             bottom: 22,
             child: Text(
-              'Today • 6:30 PM • Video check-in',
+              _checkIn == null
+                  ? 'Video check-in'
+                  : '${_timeText(_checkIn!.scheduledAt)} • Video check-in',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 10,
@@ -178,7 +247,13 @@ class _ActiveVideoCallKamalaScreenState
               camera,
               () => setState(() => camera = !camera),
             ),
-            _control(Icons.cameraswitch_outlined, 'Switch', false, () {}),
+            _control(
+              Icons.cameraswitch_outlined,
+              'Switch',
+              false,
+              () =>
+                  _message('Camera switching requires a live video provider.'),
+            ),
           ],
         ),
       ],

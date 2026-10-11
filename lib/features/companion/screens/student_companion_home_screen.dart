@@ -2,12 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../elder/calling/carelink_call_inbox.dart';
+
 import '../../../app/routes.dart';
 import '../../elder/models/check_in.dart';
-import '../../elder/screens/kamala_ready_screen.dart';
-import '../../elder/screens/active_video_call_screen.dart';
-import '../../elder/screens/my_schedule_screen.dart';
-import '../../elder/screens/student_checkin_complete_screen.dart';
 import '../../elder/services/firebase_elder_service.dart';
 import '../../elder/widgets/elder_colors.dart';
 import '../controllers/companion_controller.dart';
@@ -17,8 +15,12 @@ import '../models/companion_incoming_request.dart';
 import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/match_request.dart';
+import '../widgets/companion_profile_avatar.dart';
+import 'my_connection_screen.dart';
 import 'conversation_ideas_screen.dart';
 
+/// Student Companion's home dashboard. Real profile, requests and connections
+/// come from the existing team controller; check-ins come from ElderService.
 class StudentCompanionHomeScreen extends StatefulWidget {
   const StudentCompanionHomeScreen({
     super.key,
@@ -38,29 +40,40 @@ class StudentCompanionHomeScreen extends StatefulWidget {
 
 class _StudentCompanionHomeScreenState
     extends State<StudentCompanionHomeScreen> {
+  static const Color _teal = ElderColors.darkTeal;
+  static const Color _coral = ElderColors.coral;
+  static const Color _ink = ElderColors.textDark;
+  static const Color _muted = ElderColors.textMuted;
+  static const Color _canvas = Color(0xFFF6FAF9);
+  static const Color _line = Color(0xFFE2EEEB);
+  static const Color _rose = Color(0xFFFFF1EF);
+
   late final CompanionController _controller;
   late final bool _ownsController;
   late final Future<_StudentProfileData> _profile;
-  Stream<ElderScheduleData>? _scheduleStream;
-  String? _scheduleConnectionId;
-  final GlobalKey _todaySectionKey = GlobalKey();
+  late Future<_DashboardData?> _dashboard;
 
   FirebaseAuth get _auth => widget.auth ?? FirebaseAuth.instance;
   FirebaseFirestore get _firestore =>
       widget.firestore ?? FirebaseFirestore.instance;
 
+  final CareLinkCallInbox _liveCallInbox = CareLinkCallInbox();
+
   @override
   void initState() {
     super.initState();
+    _liveCallInbox.start(context);
     _ownsController = widget.controller == null;
     _controller = widget.controller ?? createCompanionController();
     _controller.watchIncomingRequests();
     _controller.watchCompanionConnection();
     _profile = _loadProfile();
+    _dashboard = _loadDashboard();
   }
 
   @override
   void dispose() {
+    _liveCallInbox.dispose();
     if (_ownsController) _controller.dispose();
     super.dispose();
   }
@@ -86,25 +99,70 @@ class _StudentCompanionHomeScreenState
         .doc(user.uid)
         .get();
     final profileData = profileSnapshot.data() ?? const <String, dynamic>{};
-    final verificationStatus =
-        userData['verificationStatus'] as String? ??
-        profileData['verificationStatus'] as String? ??
-        'unknown';
     return _StudentProfileData(
       fullName:
           (userData['fullName'] as String?) ??
           (profileData['fullName'] as String?) ??
           '',
-      verificationStatus: verificationStatus,
+      verificationStatus:
+          (userData['verificationStatus'] as String?) ??
+          (profileData['verificationStatus'] as String?) ??
+          'unknown',
       bio: profileData['bio'] as String? ?? '',
       languages: _stringList(profileData['languages']),
       interests: _stringList(profileData['interests']),
-      profileImageUrl: profileData['profileImageUrl'] as String?,
+      profileImageUrl:
+          (profileData['profileImageUrl'] as String?) ??
+          (userData['profileImageUrl'] as String?),
     );
   }
 
-  List<String> _stringList(Object? value) =>
-      value is List ? value.whereType<String>().toList(growable: false) : [];
+  List<String> _stringList(Object? value) => value is List
+      ? value.whereType<String>().toList(growable: false)
+      : <String>[];
+
+  /// A read-only overview. A failure here should never block the main home.
+  Future<_DashboardData?> _loadDashboard() async {
+    try {
+      final service = FirebaseElderService.instance;
+      final flow = await service.getCurrentFlowContext();
+      final sessions = await service.getCheckIns();
+      final now = DateTime.now();
+      final future = sessions
+          .where(
+            (c) =>
+                !c.scheduledAt.isBefore(now) &&
+                c.status != CheckInStatus.completed &&
+                c.status != CheckInStatus.cancelled &&
+                c.status != CheckInStatus.missed,
+          )
+          .toList();
+      future.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      return _DashboardData(
+        elderName: flow.elderName,
+        nextSession: future.isEmpty ? null : future.first,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _refreshDashboard() {
+    if (!mounted) return;
+    setState(() {
+      _dashboard = _loadDashboard();
+    });
+  }
+
+  Future<void> _openConnection() async {
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => const MyConnectionScreen()));
+    _refreshDashboard();
+  }
+
+  void _openRequests() =>
+      Navigator.of(context).pushNamed(AppRoutes.companionIncomingRequests);
 
   Future<void> _respond(
     CompanionIncomingRequest incoming,
@@ -116,41 +174,25 @@ class _StudentCompanionHomeScreenState
     );
     if (!mounted) return;
     final error = _controller.errorMessage;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            error ??
-                (status == MatchRequestStatus.accepted
-                    ? 'Request accepted. Your connection is active.'
-                    : 'Request declined.'),
-          ),
-        ),
-      );
+    if (error != null) {
+      _toast(error);
+      return;
+    }
+    if (status == MatchRequestStatus.accepted) {
+      await _openConnection();
+    } else {
+      _toast('Request declined.');
+    }
   }
 
-  void _openRequests() => Navigator.of(context)
-      .pushNamed(AppRoutes.companionIncomingRequests, arguments: _controller);
-
-  void _openSchedule() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        settings: const RouteSettings(name: '/student-my-schedule'),
-        builder: (_) => const MyScheduleScreen(navigationOnly: true),
-      ),
-    );
-  }
-
+  // Preserve the Testing branch's conversation-ideas feature.
   Future<void> _openConversationIdeas() async {
     final connection = _controller.studentConnection;
     final request = _controller.studentConnectionRequest;
     if (connection == null ||
         connection.status != ConnectionStatus.active ||
         request == null) {
-      _showUnavailable(
-        'Conversation ideas are available for an active connection.',
-      );
+      _toast('Conversation ideas require an active companion connection.');
       return;
     }
     try {
@@ -180,131 +222,293 @@ class _StudentCompanionHomeScreenState
         ),
       );
     } catch (error) {
-      if (!mounted) return;
-      _showUnavailable('Could not load conversation ideas: $error');
+      if (mounted) _toast('Could not load conversation ideas: $error');
     }
   }
 
-  Stream<ElderScheduleData> _scheduleFor(CompanionConnection connection) {
-    if (_scheduleConnectionId != connection.id || _scheduleStream == null) {
-      _scheduleConnectionId = connection.id;
-      _scheduleStream = _watchSchedule(connection);
-    }
-    return _scheduleStream!;
-  }
-
-  Stream<ElderScheduleData> _watchSchedule(
-    CompanionConnection connection,
-  ) async* {
-    yield* FirebaseElderService.instance.watchScheduleForConnection(
-      elderId: connection.elderId,
-      companionId: connection.companionId,
-      connectionId: connection.id,
-    );
-  }
-
-  void _openReadyScreen(CheckIn checkIn, CompanionConnection connection) {
-    void openCall(String callType) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ActiveVideoCallScreen(
-            elderId: checkIn.elderId,
-            elderName: checkIn.elderName,
-            elderImageUrl: checkIn.elderImageUrl,
-            companionId: checkIn.companionId,
-            connectionId: connection.id,
-            checkInId: checkIn.id,
-            scheduledAt: checkIn.scheduledAt,
-            durationMinutes: checkIn.durationMinutes,
-            callType: callType,
-            onEndCall: () async {
-              await FirebaseElderService.instance.updateCheckInStatus(
-                checkIn.id,
-                CheckInStatus.completed,
-              );
-              if (!mounted) return;
-              await Navigator.of(context).pushReplacement(
-                MaterialPageRoute<void>(
-                  builder: (_) => StudentCheckInCompleteScreen(
-                    elderId: checkIn.elderId,
-                    elderName: checkIn.elderName,
-                    elderImageUrl: checkIn.elderImageUrl,
-                    companionId: checkIn.companionId,
-                    connectionId: connection.id,
-                    checkInId: checkIn.id,
-                    scheduledAt: checkIn.scheduledAt,
-                    durationMinutes: checkIn.durationMinutes,
-                    callType: callType,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      );
-    }
-
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => KamalaReadyScreen(
-          elderId: checkIn.elderId,
-          elderName: checkIn.elderName,
-          elderImageUrl: checkIn.elderImageUrl,
-          scheduledAt: checkIn.scheduledAt,
-          durationMinutes: checkIn.durationMinutes,
-          mode: checkIn.mode,
-          companionId: checkIn.companionId,
-          connectionId: connection.id,
-          checkInId: checkIn.id,
-          onStartCall: () => openCall('Video'),
-          onVoiceCall: () => openCall('Voice'),
-          onMessageInstead: () =>
-              _showUnavailable('Messaging is not available in CareLink yet.'),
-        ),
-      ),
-    );
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElderColors.background,
+      backgroundColor: _canvas,
       bottomNavigationBar: _bottomNavigation(),
       body: SafeArea(
         bottom: false,
-        child: Column(
+        child: FutureBuilder<_StudentProfileData>(
+          future: _profile,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _errorState(
+                'Could not load your companion profile.\n'
+                '${snapshot.error}',
+              );
+            }
+            if (!snapshot.hasData) {
+              return const Center(
+                child: CircularProgressIndicator(color: _teal),
+              );
+            }
+            final profile = snapshot.data!;
+            return Column(
+              children: [
+                _hero(profile),
+                Expanded(
+                  child: RefreshIndicator(
+                    color: _teal,
+                    onRefresh: () async {
+                      _refreshDashboard();
+                      await _dashboard;
+                    },
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+                      children: [
+                        _sectionHeading(
+                          'YOUR CONNECTION',
+                          'View details',
+                          onTap: _openConnection,
+                        ),
+                        const SizedBox(height: 10),
+                        _connectionCard(),
+                        const SizedBox(height: 22),
+                        _sectionHeading(
+                          'NEXT CHECK-IN',
+                          'Open schedule',
+                          onTap: _openConnection,
+                        ),
+                        const SizedBox(height: 10),
+                        _nextCheckInCard(),
+                        const SizedBox(height: 22),
+                        _sectionHeading('QUICK ACTIONS', null),
+                        const SizedBox(height: 11),
+                        _quickActions(),
+                        const SizedBox(height: 22),
+                        _sectionHeading(
+                          'COMPANION REQUESTS',
+                          'View all',
+                          onTap: _openRequests,
+                        ),
+                        const SizedBox(height: 10),
+                        _incomingRequestsCard(),
+                        const SizedBox(height: 22),
+                        _sectionHeading(
+                          'YOUR PROFILE',
+                          'View profile',
+                          onTap: _showProfile,
+                        ),
+                        const SizedBox(height: 10),
+                        _profilePreview(profile),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _hero(_StudentProfileData profile) {
+    final displayName = profile.fullName.trim().isEmpty
+        ? 'Student Companion'
+        : profile.fullName.trim();
+    final firstName = displayName.split(RegExp(r'\s+')).first;
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good morning'
+        : hour < 17
+        ? 'Good afternoon'
+        : 'Good evening';
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          color: _teal,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF075955), Color(0xFF074743)],
+          ),
+        ),
+        child: Stack(
           children: [
-            FutureBuilder<_StudentProfileData>(
-              future: _profile,
-              builder: (context, snapshot) {
-                final profile = snapshot.data;
-                return _header(
-                  profile?.fullName ?? '',
-                  profile?.verificationStatus,
-                  profile?.profileImageUrl,
-                );
-              },
+            Positioned(
+              right: -42,
+              top: -54,
+              child: _decorCircle(155, const Color(0x12FFFFFF)),
             ),
-            Expanded(
-              child: FutureBuilder<_StudentProfileData>(
-                future: _profile,
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return _messageState(
-                      'Could not load your companion profile: '
-                      '${snapshot.error}',
-                      icon: Icons.error_outline_rounded,
-                    );
-                  }
-                  if (!snapshot.hasData) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: ElderColors.darkTeal,
+            Positioned(
+              right: 64,
+              bottom: -82,
+              child: _decorCircle(138, const Color(0x0CFFFFFF)),
+            ),
+            Positioned(
+              left: -55,
+              bottom: -85,
+              child: _decorCircle(118, const Color(0x17FF696C)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(19, 12, 19, 22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 31,
+                        height: 31,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Text(
+                          'C',
+                          style: TextStyle(
+                            color: _teal,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 17,
+                          ),
+                        ),
                       ),
-                    );
-                  }
-                  return _homeContent(snapshot.data!);
-                },
+                      const SizedBox(width: 8),
+                      const Text(
+                        'CareLink',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 17,
+                          letterSpacing: -.4,
+                        ),
+                      ),
+                      const Text(
+                        '•',
+                        style: TextStyle(
+                          color: _coral,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const Spacer(),
+                      ListenableBuilder(
+                        listenable: _controller,
+                        builder: (context, _) => Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            _heroIconButton(
+                              Icons.notifications_none_rounded,
+                              onTap: _openRequests,
+                              tooltip: 'Companion requests',
+                            ),
+                            if (_controller.incomingRequests.isNotEmpty)
+                              Positioned(
+                                right: 5,
+                                top: 4,
+                                child: Container(
+                                  width: 9,
+                                  height: 9,
+                                  decoration: const BoxDecoration(
+                                    color: _coral,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$greeting,',
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: Color(0xFFDBF1EC),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              firstName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 28,
+                                height: 1.05,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -.7,
+                              ),
+                            ),
+                            const SizedBox(height: 9),
+                            _verifiedPill(profile.verificationStatus),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 15),
+                      Container(
+                        width: 76,
+                        height: 76,
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2.3),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x38000000),
+                              blurRadius: 14,
+                              offset: Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: ClipOval(
+                            child: SizedBox.square(
+                              dimension: 64,
+                              child: CompanionProfileAvatar(
+                                name: displayName,
+                                imageUrl: profile.profileImageUrl,
+                                size: 64,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Row(
+                    children: [
+                      Icon(Icons.favorite_rounded, size: 14, color: _coral),
+                      SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          'Every connection makes a difference.',
+                          style: TextStyle(
+                            color: Color(0xFFD8EEE9),
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -313,167 +517,697 @@ class _StudentCompanionHomeScreenState
     );
   }
 
-  Widget _header(
-    String fullName,
-    String? verificationStatus,
-    String? profileImageUrl,
-  ) {
-    final displayName = fullName.trim().isEmpty
-        ? 'Student Companion'
-        : fullName;
-    final firstName = displayName.split(RegExp(r'\s+')).first;
-    final statusLabel = switch (verificationStatus) {
-      'verified' => 'Verified Student Companion',
-      'pending' => 'Verification under review',
-      'rejected' => 'Verification not approved',
-      _ => 'Verification status unavailable',
-    };
-
+  Widget _verifiedPill(String status) {
+    final verified = status == 'verified';
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 22),
-      decoration: const BoxDecoration(
-        color: ElderColors.darkTeal,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .13),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: .14)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.white,
-                child: Text(
-                  'C',
-                  style: TextStyle(
-                    color: ElderColors.darkTeal,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              SizedBox(width: 7),
-              Text(
-                'CareLink',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
+          Icon(
+            verified ? Icons.verified_rounded : Icons.info_outline_rounded,
+            color: verified ? const Color(0xFF9CF4D7) : Colors.white,
+            size: 13,
           ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Good morning, $firstName',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 21,
-                        height: 1.05,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      statusLabel,
-                      style: const TextStyle(
-                        color: Color(0xFFD7EBE8),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              _profileAvatar(displayName, profileImageUrl),
-            ],
+          const SizedBox(width: 6),
+          Text(
+            verified ? 'Verified Student Companion' : 'Status: $status',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _profileAvatar(String name, String? imageUrl) {
-    final trimmed = name.trim();
-    final initial = trimmed.isEmpty ? '?' : trimmed[0].toUpperCase();
-    return CircleAvatar(
-      radius: 32,
-      backgroundColor: ElderColors.mint,
-      backgroundImage: imageUrl == null || imageUrl.isEmpty
-          ? null
-          : NetworkImage(imageUrl),
-      onBackgroundImageError: imageUrl == null || imageUrl.isEmpty
-          ? null
-          : (_, _) {},
-      child: imageUrl == null || imageUrl.isEmpty
-          ? Text(
-              initial,
-              style: const TextStyle(
-                color: ElderColors.darkTeal,
-                fontSize: 23,
-                fontWeight: FontWeight.w900,
-              ),
-            )
-          : null,
-    );
-  }
+  Widget _heroIconButton(
+    IconData icon, {
+    required VoidCallback onTap,
+    required String tooltip,
+  }) => Tooltip(
+    message: tooltip,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: 37,
+        height: 37,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .14),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Icon(icon, color: Colors.white, size: 20),
+      ),
+    ),
+  );
 
-  Widget _homeContent(_StudentProfileData profile) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      children: [
-        _connectionCard(),
-        const SizedBox(height: 17),
-        _sectionTitle('Incoming Companion Requests'),
-        const SizedBox(height: 9),
-        _incomingRequestsCard(),
-        const SizedBox(height: 17),
-        _sectionTitle('Quick actions'),
-        const SizedBox(height: 9),
-        _quickActions(),
-        const SizedBox(height: 17),
-        _sectionTitle('Your companion profile'),
-        const SizedBox(height: 9),
-        _profileCard(profile),
-        const SizedBox(height: 17),
-        KeyedSubtree(
-          key: _todaySectionKey,
-          child: Column(
+  Widget _decorCircle(double size, Color color) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+  );
+
+  Widget _sectionHeading(String text, String? action, {VoidCallback? onTap}) =>
+      Row(
+        children: [
+          Text(
+            text,
+            style: const TextStyle(
+              color: _muted,
+              fontSize: 10.5,
+              letterSpacing: 1.25,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const Spacer(),
+          if (action != null)
+            InkWell(
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      action,
+                      style: const TextStyle(
+                        color: _teal,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: _teal,
+                      size: 10,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+
+  Widget _card({
+    required Widget child,
+    Color color = Colors.white,
+    EdgeInsetsGeometry? padding,
+    Color border = _line,
+  }) => Container(
+    width: double.infinity,
+    padding: padding ?? const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(19),
+      border: Border.all(color: border),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x0B153B38),
+          blurRadius: 18,
+          offset: Offset(0, 7),
+        ),
+      ],
+    ),
+    child: child,
+  );
+
+  Widget _connectionCard() => ListenableBuilder(
+    listenable: _controller,
+    builder: (context, _) {
+      final connection = _controller.studentConnection;
+      final loading =
+          _controller.isLoadingStudentConnection && connection == null;
+      final error = _controller.studentConnectionError;
+      return InkWell(
+        onTap: _openConnection,
+        borderRadius: BorderRadius.circular(19),
+        child: _card(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _sectionTitle('Today'),
-              const SizedBox(height: 9),
-              _todayCard(),
+              Container(
+                width: 47,
+                height: 47,
+                decoration: BoxDecoration(
+                  color: _rose,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(
+                  Icons.favorite_rounded,
+                  color: _coral,
+                  size: 25,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'My Connection',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: _ink,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    if (loading)
+                      const Text(
+                        'Checking your connection...',
+                        style: TextStyle(color: _muted, fontSize: 11.5),
+                      )
+                    else if (error != null)
+                      const Text(
+                        'Unable to load connection. Tap to retry.',
+                        style: TextStyle(color: _muted, fontSize: 11.5),
+                      )
+                    else
+                      Text(
+                        connection == null
+                            ? 'No active connection yet'
+                            : connection.status == ConnectionStatus.paused
+                            ? 'Connection paused'
+                            : 'Connection active',
+                        style: const TextStyle(color: _muted, fontSize: 12),
+                      ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: connection == null
+                                ? _muted
+                                : connection.status == ConnectionStatus.paused
+                                ? _coral
+                                : const Color(0xFF22A580),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            connection == null
+                                ? 'Find your match'
+                                : connection.status == ConnectionStatus.paused
+                                ? 'Manage connection'
+                                : 'View check-in details',
+                            style: const TextStyle(
+                              color: _teal,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 14),
+                child: Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: _teal,
+                  size: 16,
+                ),
+              ),
             ],
           ),
         ),
-      ],
-    );
+      );
+    },
+  );
+
+  Widget _nextCheckInCard() => FutureBuilder<_DashboardData?>(
+    future: _dashboard,
+    builder: (context, snapshot) {
+      final session = snapshot.data?.nextSession;
+      final elderName = snapshot.data?.elderName.trim() ?? '';
+      return InkWell(
+        onTap: _openConnection,
+        borderRadius: BorderRadius.circular(19),
+        child: _card(
+          color: const Color(0xFFE9F7F2),
+          border: const Color(0xFFD3ECE3),
+          child: Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_rounded,
+                  color: _teal,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      session == null
+                          ? 'Plan your next check-in'
+                          : _formatDate(session.scheduledAt),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w900,
+                        color: _ink,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      session == null
+                          ? (snapshot.connectionState == ConnectionState.waiting
+                                ? 'Loading your sessions...'
+                                : snapshot.data == null
+                                ? 'Open schedule to view your sessions'
+                                : 'No upcoming sessions scheduled')
+                          : '${elderName.isEmpty ? 'Older Adult' : elderName} · ${session.mode}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: _muted, fontSize: 11.5),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: _teal, size: 22),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  String _formatDate(DateTime date) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final meridian = date.hour >= 12 ? 'PM' : 'AM';
+    return '${days[date.weekday - 1]}, $hour:$minute $meridian';
   }
 
-  Widget _bottomNavigation() {
-    return SafeArea(
-      top: false,
+  Widget _quickActions() => Row(
+    children: [
+      Expanded(
+        child: _quickAction(
+          Icons.calendar_today_rounded,
+          'Schedule',
+          _openConnection,
+          const Color(0xFFE9F7F2),
+          _teal,
+        ),
+      ),
+      const SizedBox(width: 9),
+      Expanded(
+        child: _quickAction(
+          Icons.mark_email_unread_outlined,
+          'Requests',
+          _openRequests,
+          _rose,
+          _coral,
+        ),
+      ),
+      const SizedBox(width: 9),
+      Expanded(
+        child: _quickAction(
+          Icons.lightbulb_outline_rounded,
+          'Ideas',
+          _openConversationIdeas,
+          const Color(0xFFFFF1EF),
+          _coral,
+        ),
+      ),
+      const SizedBox(width: 9),
+      Expanded(
+        child: _quickAction(
+          Icons.person_outline_rounded,
+          'My Profile',
+          _showProfile,
+          const Color(0xFFF0F1FB),
+          const Color(0xFF6560AA),
+        ),
+      ),
+    ],
+  );
+
+  Widget _quickAction(
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+    Color bg,
+    Color foreground,
+  ) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(17),
+    child: Container(
+      height: 108,
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: _line),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 43,
+            height: 43,
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(icon, color: foreground, size: 22),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 11.5,
+              color: _ink,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _incomingRequestsCard() => ListenableBuilder(
+    listenable: _controller,
+    builder: (context, _) {
+      if (_controller.isLoadingIncomingRequests &&
+          _controller.incomingRequests.isEmpty) {
+        return _card(
+          child: const Center(child: CircularProgressIndicator(color: _teal)),
+        );
+      }
+      if (_controller.incomingRequestsError != null) {
+        return _card(
+          child: Text(
+            'Could not load your requests: '
+            '${_controller.incomingRequestsError}',
+            style: const TextStyle(color: _muted, fontSize: 12),
+          ),
+        );
+      }
+      final requests = _controller.incomingRequests;
+      if (requests.isEmpty) {
+        return _card(
+          child: const Row(
+            children: [
+              Icon(Icons.mark_email_read_outlined, color: _teal, size: 24),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'You\'re all caught up. No new requests.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _muted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.check_circle_rounded,
+                color: Color(0xFF35A68D),
+                size: 18,
+              ),
+            ],
+          ),
+        );
+      }
+      return Column(
+        children: [
+          _requestCard(requests.first),
+          if (requests.length > 1)
+            TextButton(
+              onPressed: _openRequests,
+              child: Text('View all ${requests.length} requests'),
+            ),
+        ],
+      );
+    },
+  );
+
+  Widget _requestCard(CompanionIncomingRequest incoming) => _card(
+    padding: const EdgeInsets.all(16),
+    border: const Color(0xFFFFDED8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.favorite_border_rounded, color: _coral, size: 21),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'New companion request',
+                style: TextStyle(
+                  color: _ink,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const Icon(Icons.circle, color: _coral, size: 8),
+          ],
+        ),
+        const SizedBox(height: 9),
+        Text(
+          incoming.elderDisplayName.isEmpty
+              ? 'Older Adult'
+              : incoming.elderDisplayName,
+          style: const TextStyle(
+            color: _teal,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        if (incoming.preferredLanguage.isNotEmpty)
+          _requestDetail('Language', incoming.preferredLanguage),
+        if (incoming.sharedInterests.isNotEmpty)
+          _requestDetail(
+            'Shared interests',
+            incoming.sharedInterests.join(', '),
+          ),
+        if (incoming.compatibleAvailability.isNotEmpty)
+          _requestDetail('Available', incoming.compatibleAvailability),
+        const SizedBox(height: 13),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _controller.isLoading
+                    ? null
+                    : () => _respond(incoming, MatchRequestStatus.declined),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _coral,
+                  side: const BorderSide(color: Color(0xFFF5B4AD)),
+                ),
+                child: const Text('Decline'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton(
+                onPressed: _controller.isLoading
+                    ? null
+                    : () => _respond(incoming, MatchRequestStatus.accepted),
+                style: FilledButton.styleFrom(backgroundColor: _teal),
+                child: const Text('Accept'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  Widget _requestDetail(String label, String value) => Padding(
+    padding: const EdgeInsets.only(top: 5),
+    child: Text(
+      '$label: $value',
+      style: const TextStyle(color: _muted, fontSize: 11.5),
+    ),
+  );
+
+  Widget _profilePreview(_StudentProfileData profile) => InkWell(
+    onTap: _showProfile,
+    borderRadius: BorderRadius.circular(19),
+    child: _card(
+      child: Row(
+        children: [
+          CompanionProfileAvatar(
+            name: profile.fullName,
+            imageUrl: profile.profileImageUrl,
+            size: 49,
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.fullName.isEmpty
+                      ? 'Student Companion'
+                      : profile.fullName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _ink,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  profile.verificationStatus == 'verified'
+                      ? 'Verified student · CareLink member'
+                      : 'Verification: ${profile.verificationStatus}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: _muted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_forward_ios_rounded, color: _coral, size: 14),
+        ],
+      ),
+    ),
+  );
+
+  Future<void> _showProfile() async {
+    try {
+      final profile = await _profile;
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: _canvas,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (sheetContext) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CompanionProfileAvatar(
+                      name: profile.fullName,
+                      imageUrl: profile.profileImageUrl,
+                      size: 64,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.fullName,
+                            maxLines: 2,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: _ink,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Verification: ${profile.verificationStatus}',
+                            style: const TextStyle(color: _muted, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (profile.bio.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  Text(
+                    profile.bio,
+                    style: const TextStyle(
+                      color: _ink,
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+                if (profile.languages.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Languages: ${profile.languages.join(', ')}',
+                    style: const TextStyle(color: _muted, fontSize: 12),
+                  ),
+                ],
+                if (profile.interests.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  Text(
+                    'Interests: ${profile.interests.join(', ')}',
+                    style: const TextStyle(color: _muted, fontSize: 12),
+                  ),
+                ],
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) _toast('Could not open profile: $e');
+    }
+  }
+
+  Widget _bottomNavigation() => SafeArea(
+    top: false,
+    child: Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: _line)),
+      ),
       child: ListenableBuilder(
         listenable: _controller,
         builder: (context, _) => BottomNavigationBar(
           currentIndex: 0,
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: ElderColors.darkTeal,
-          unselectedItemColor: ElderColors.textMuted,
+          elevation: 0,
+          selectedItemColor: _teal,
+          unselectedItemColor: _muted,
           backgroundColor: Colors.white,
+          selectedFontSize: 10.5,
+          unselectedFontSize: 10,
           onTap: (index) {
             switch (index) {
               case 1:
                 _openRequests();
               case 2:
-                _openSchedule();
+                _openConnection();
               case 3:
                 _showProfile();
             }
@@ -481,6 +1215,7 @@ class _StudentCompanionHomeScreenState
           items: [
             const BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home_rounded),
               label: 'Home',
             ),
             BottomNavigationBarItem(
@@ -488,7 +1223,7 @@ class _StudentCompanionHomeScreenState
               label: 'Requests',
             ),
             const BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_month_outlined),
+              icon: Icon(Icons.calendar_today_outlined),
               label: 'Schedule',
             ),
             const BottomNavigationBarItem(
@@ -498,24 +1233,24 @@ class _StudentCompanionHomeScreenState
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
 
   Widget _requestCountIcon() {
     final count = _controller.incomingRequests.length;
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        const Icon(Icons.inbox_outlined),
+        const Icon(Icons.mail_outline_rounded),
         if (count > 0)
           Positioned(
             right: -10,
-            top: -7,
+            top: -6,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: const BoxDecoration(
-                color: ElderColors.coral,
-                borderRadius: BorderRadius.all(Radius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: _coral,
+                borderRadius: BorderRadius.circular(9),
               ),
               child: Text(
                 '$count',
@@ -531,586 +1266,23 @@ class _StudentCompanionHomeScreenState
     );
   }
 
-  Widget _connectionCard() {
-    return ListenableBuilder(
-      listenable: _controller,
-      builder: (context, _) {
-        if (_controller.isLoadingStudentConnection &&
-            _controller.studentConnection == null) {
-          return _sectionCard(
-            child: const Row(
-              children: [
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: ElderColors.darkTeal,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Text('Checking your connection...'),
-              ],
-            ),
-          );
-        }
-        if (_controller.studentConnectionError != null) {
-          return _sectionCard(
-            child: Text(
-              'Could not load your connection: '
-              '${_controller.studentConnectionError}',
-              style: const TextStyle(color: Colors.red),
-            ),
-          );
-        }
-        final connection = _controller.studentConnection;
-        if (connection == null) {
-          return _sectionCard(
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.favorite_border_rounded,
-                  color: ElderColors.darkTeal,
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'No active connection yet. Accepted connections will '
-                    'appear here.',
-                    style: TextStyle(
-                      color: ElderColors.textDark,
-                      fontSize: 13,
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        final request = _controller.studentConnectionRequest;
-        final elderName = request?.elderDisplayName.trim().isNotEmpty == true
-            ? request!.elderDisplayName
-            : 'Older Adult';
-        return _sectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const CircleAvatar(
-                    backgroundColor: ElderColors.mintSoft,
-                    child: Icon(
-                      Icons.favorite_rounded,
-                      color: ElderColors.darkTeal,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          elderName,
-                          style: const TextStyle(
-                            color: ElderColors.textDark,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          connection.status == ConnectionStatus.paused
-                              ? 'Connection paused'
-                              : 'Connection active',
-                          style: const TextStyle(
-                            color: ElderColors.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              if (request?.sharedInterests.isNotEmpty == true) ...[
-                const SizedBox(height: 9),
-                _requestDetail(
-                  'Shared interests',
-                  request!.sharedInterests.join(', '),
-                ),
-              ],
-              if (request?.preferredLanguage.isNotEmpty == true)
-                _requestDetail(
-                  'Preferred language',
-                  request!.preferredLanguage,
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _incomingRequestsCard() {
-    return ListenableBuilder(
-      listenable: _controller,
-      builder: (context, _) {
-        if (_controller.isLoadingIncomingRequests &&
-            _controller.incomingRequests.isEmpty) {
-          return _sectionCard(
-            child: const Center(
-              child: Padding(
-                padding: EdgeInsets.all(8),
-                child: CircularProgressIndicator(color: ElderColors.darkTeal),
-              ),
-            ),
-          );
-        }
-        if (_controller.incomingRequestsError != null) {
-          return _sectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Could not load incoming requests: '
-                  '${_controller.incomingRequestsError}',
-                  style: const TextStyle(color: Colors.red),
-                ),
-                TextButton(
-                  onPressed: _openRequests,
-                  child: const Text('Open Incoming Requests'),
-                ),
-              ],
-            ),
-          );
-        }
-        final requests = _controller.incomingRequests;
-        if (requests.isEmpty) {
-          return _sectionCard(
-            child: const Row(
-              children: [
-                Icon(Icons.inbox_outlined, color: ElderColors.textMuted),
-                SizedBox(width: 10),
-                Text(
-                  'No new companion requests.',
-                  style: TextStyle(color: ElderColors.textDark),
-                ),
-              ],
-            ),
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _requestCard(requests.first),
-            if (requests.length > 1)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _openRequests,
-                  child: Text('View all requests (${requests.length})'),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _requestCard(CompanionIncomingRequest incoming) {
-    return _sectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(
-                Icons.mark_email_unread_outlined,
-                color: ElderColors.darkTeal,
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Incoming Companion Request',
-                  style: TextStyle(
-                    color: ElderColors.textDark,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 11),
-          Text(
-            incoming.elderDisplayName.isEmpty
-                ? 'Older Adult'
-                : incoming.elderDisplayName,
-            style: const TextStyle(
-              color: ElderColors.darkTeal,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          if (incoming.preferredLanguage.isNotEmpty)
-            _requestDetail('Preferred language', incoming.preferredLanguage),
-          if (incoming.sharedInterests.isNotEmpty)
-            _requestDetail(
-              'Shared interests',
-              incoming.sharedInterests.join(', '),
-            ),
-          if (incoming.compatibleAvailability.isNotEmpty)
-            _requestDetail('Availability', incoming.compatibleAvailability),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _controller.isLoading
-                      ? null
-                      : () => _respond(incoming, MatchRequestStatus.declined),
-                  child: const Text('Decline'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton(
-                  onPressed: _controller.isLoading
-                      ? null
-                      : () => _respond(incoming, MatchRequestStatus.accepted),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: ElderColors.darkTeal,
-                  ),
-                  child: const Text('Accept'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _requestDetail(String label, String value) => Padding(
-    padding: const EdgeInsets.only(top: 5),
-    child: Text(
-      '$label: $value',
-      style: const TextStyle(color: ElderColors.textMuted, fontSize: 12),
-    ),
-  );
-
-  Widget _quickActions() {
-    return SizedBox(
-      height: 84,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _actionTile(
-            Icons.inbox_outlined,
-            'Incoming\nRequests',
-            _openRequests,
-          ),
-          _actionTile(Icons.calendar_month_outlined, 'Schedule', _openSchedule),
-          _actionTile(
-            Icons.chat_bubble_outline_rounded,
-            'Conversation\nIdeas',
-            _openConversationIdeas,
-          ),
-          _actionTile(
-            Icons.person_outline_rounded,
-            'Profile',
-            () => _showProfile(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _actionTile(IconData icon, String label, VoidCallback onTap) {
-    return SizedBox(
-      width: 92,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(13),
-          child: Container(
-            decoration: BoxDecoration(
-              color: ElderColors.mintSoft,
-              border: Border.all(color: ElderColors.border),
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: ElderColors.textDark, size: 23),
-                const SizedBox(height: 5),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: ElderColors.textDark,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    height: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _profileCard(_StudentProfileData profile) {
-    return _sectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            profile.fullName.trim().isEmpty
-                ? 'Student Companion'
-                : profile.fullName,
-            style: const TextStyle(
-              color: ElderColors.textDark,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Verification: ${profile.verificationStatus}',
-            style: const TextStyle(color: ElderColors.textMuted, fontSize: 12),
-          ),
-          if (profile.bio.isNotEmpty) ...[
-            const SizedBox(height: 9),
-            Text(
-              profile.bio,
-              style: const TextStyle(
-                color: ElderColors.textDark,
-                fontSize: 12,
-                height: 1.35,
-              ),
-            ),
-          ],
-          if (profile.languages.isNotEmpty)
-            _requestDetail('Languages', profile.languages.join(', ')),
-          if (profile.interests.isNotEmpty)
-            _requestDetail('Interests', profile.interests.join(', ')),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showProfile() async {
-    final profile = await _profile;
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: _profileCard(profile),
-        ),
-      ),
-    );
-  }
-
-  Widget _todayCard() {
-    return ListenableBuilder(
-      listenable: _controller,
-      builder: (context, _) {
-        final connection = _controller.studentConnection;
-        if (connection == null) {
-          return _sectionCard(
-            child: const Text(
-              'No check-ins are scheduled yet.',
-              style: TextStyle(color: ElderColors.textDark, fontSize: 12),
-            ),
-          );
-        }
-        if (connection.status != ConnectionStatus.active) {
-          return _sectionCard(
-            child: const Text(
-              'Your companion connection is paused.',
-              style: TextStyle(color: ElderColors.textDark, fontSize: 12),
-            ),
-          );
-        }
-        return _sectionCard(
-          child: StreamBuilder<ElderScheduleData>(
-            stream: _scheduleFor(connection),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Text(
-                  'Could not load shared check-ins: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.red, fontSize: 12),
-                );
-              }
-              if (!snapshot.hasData) {
-                return const Center(
-                  child: CircularProgressIndicator(color: ElderColors.darkTeal),
-                );
-              }
-              final now = DateTime.now();
-              final checkIns =
-                  snapshot.data!.checkIns
-                      .where(
-                        (item) =>
-                            item.status == CheckInStatus.scheduled ||
-                            item.status == CheckInStatus.ready ||
-                            item.status == CheckInStatus.inProgress,
-                      )
-                      .where(
-                        (item) =>
-                            item.status == CheckInStatus.ready ||
-                            !item.scheduledAt.isBefore(now),
-                      )
-                      .toList()
-                    ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-              if (checkIns.isNotEmpty) {
-                final checkIn = checkIns.first;
-                final localizations = MaterialLocalizations.of(context);
-                final date = localizations.formatMediumDate(
-                  checkIn.scheduledAt,
-                );
-                final time = localizations.formatTimeOfDay(
-                  TimeOfDay.fromDateTime(checkIn.scheduledAt),
-                );
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Next check-in with ${checkIn.elderName}',
-                      style: const TextStyle(
-                        color: ElderColors.textDark,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '$date · $time · ${checkIn.durationMinutes} min · ${checkIn.mode}',
-                      style: const TextStyle(
-                        color: ElderColors.textMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 9),
-                    if (checkIn.status == CheckInStatus.scheduled ||
-                        checkIn.status == CheckInStatus.ready)
-                      FilledButton(
-                        onPressed: () => _openReadyScreen(checkIn, connection),
-                        child: const Text('View Check-in'),
-                      ),
-                  ],
-                );
-              }
-              final recurring =
-                  snapshot.data!.recurringSchedules
-                      .map(
-                        (schedule) => (
-                          schedule: schedule,
-                          next: schedule.nextOccurrence(now),
-                        ),
-                      )
-                      .where((item) => item.next != null)
-                      .toList()
-                    ..sort((a, b) => a.next!.compareTo(b.next!));
-              if (recurring.isEmpty) {
-                return const Text(
-                  'No upcoming check-ins are scheduled yet.',
-                  style: TextStyle(color: ElderColors.textDark, fontSize: 12),
-                );
-              }
-              final next = recurring.first;
-              final date = MaterialLocalizations.of(context)
-                  .formatMediumDate(next.next!);
-              final time = MaterialLocalizations.of(context)
-                  .formatTimeOfDay(TimeOfDay.fromDateTime(next.next!));
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Next check-in with ${next.schedule.elderName}',
-                    style: const TextStyle(
-                      color: ElderColors.textDark,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    '$date · $time · ${next.schedule.durationMinutes} min · ${next.schedule.mode}',
-                    style: const TextStyle(
-                      color: ElderColors.textMuted,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  const Text(
-                    'Recurring check-in',
-                    style: TextStyle(
-                      color: ElderColors.darkTeal,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _sectionTitle(String title) => Padding(
-    padding: const EdgeInsets.only(left: 4),
-    child: Text(
-      title,
-      style: const TextStyle(
-        color: ElderColors.textDark,
-        fontSize: 14,
-        fontWeight: FontWeight.w800,
-      ),
-    ),
-  );
-
-  Widget _sectionCard({required Widget child}) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(17),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: .06),
-          blurRadius: 14,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    ),
-    child: child,
-  );
-
-  Widget _messageState(String message, {required IconData icon}) => Center(
+  Widget _errorState(String message) => Center(
     child: Padding(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: ElderColors.darkTeal, size: 34),
-          const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center),
+          const Icon(Icons.error_outline_rounded, color: _coral, size: 34),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: _ink, fontSize: 13),
+          ),
         ],
       ),
     ),
   );
-
-  void _showUnavailable(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
 }
 
 class _StudentProfileData {
@@ -1122,11 +1294,16 @@ class _StudentProfileData {
     required this.interests,
     required this.profileImageUrl,
   });
-
   final String fullName;
   final String verificationStatus;
   final String bio;
   final List<String> languages;
   final List<String> interests;
   final String? profileImageUrl;
+}
+
+class _DashboardData {
+  const _DashboardData({required this.elderName, required this.nextSession});
+  final String elderName;
+  final CheckIn? nextSession;
 }

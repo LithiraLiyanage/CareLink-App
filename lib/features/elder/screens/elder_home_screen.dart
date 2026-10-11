@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../calling/carelink_call_inbox.dart';
 
 import '../../../app/routes.dart';
 import '../../companion/controllers/companion_controller.dart';
@@ -59,13 +60,13 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
 
   static const String _heroImage = 'assets/images/carelink_home_hero_demo.jpg';
 
-  // ==========================================
-  // FIREBASE - ORIGINAL LOGIC
-  // ==========================================
+  // Listens for incoming CareLink calls on the Elder dashboard.
+  final CareLinkCallInbox _liveCallInbox = CareLinkCallInbox();
 
   @override
   void initState() {
     super.initState();
+    _liveCallInbox.start(context);
 
     _loadElderName();
 
@@ -99,6 +100,7 @@ class _ElderHomeScreenState extends State<ElderHomeScreen> {
 
   @override
   void dispose() {
+    _liveCallInbox.dispose();
     unawaited(_connectionSubscription?.cancel());
     super.dispose();
   }
