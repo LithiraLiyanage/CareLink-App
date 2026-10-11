@@ -670,7 +670,7 @@ CareLink is built around that simple idea:
 ---
 
 
-### 📲 Group Members
+### 📲 Group
 
 **👨‍💻 LIYANAGE L.D**
 **👨‍💻 OBBRIS M.W.S**
