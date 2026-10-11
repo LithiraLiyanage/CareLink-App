@@ -9,6 +9,8 @@ import '../models/memory_item.dart';
 import '../models/recurring_schedule.dart';
 import 'elder_service.dart';
 
+import 'package:flutter/foundation.dart';
+
 class ElderFlowContext {
   const ElderFlowContext({
     required this.connectionId,
@@ -319,13 +321,24 @@ class FirebaseElderService implements ElderService {
 
     await _requireCurrentParticipant(snapshot);
 
+    debugPrint('[RESCHEDULE] Document: $checkInId');
+    debugPrint('[RESCHEDULE] Old status: ${snapshot.data()?['status']}');
+    debugPrint('[RESCHEDULE] Fields: ${snapshot.data()?.keys.toList()}');
+    debugPrint('[RESCHEDULE] Starting update');
+
     await ref.update({
       'scheduledAt': Timestamp.fromDate(newDateTime),
-      'status': CheckInStatus.ready.name,
+      'status': CheckInStatus.scheduled.name,
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
+    debugPrint('[RESCHEDULE] UPDATE SUCCESS');
+    debugPrint('[RESCHEDULE] Reading updated document');
+
     final updated = await ref.get();
+
+    debugPrint('[RESCHEDULE] READ SUCCESS');
+
     return _checkInFromDocument(updated);
   }
 

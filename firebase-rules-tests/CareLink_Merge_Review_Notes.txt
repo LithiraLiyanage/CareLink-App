@@ -1,0 +1,41 @@
+CARELINK RULES MERGE — REVIEW / EMULATOR ONLY
+
+Base: CareLink_Proposed_Full_Firestore_Rules.rules (1608 lines)
+Compared with: CareLink_Latest_Live_Rules.txt (1167 lines)
+
+WHAT IS PRESERVED:
+- All rules and functions from the user's FINAL proposed file, including
+  existing video_calls and new carelink_live_calls, the latest shared Memory Lane
+  reading fix, check-in/reschedule and recurring schedule functionality.
+- The entire FAMILY LINKING block from uploaded live Rules: isFamilyCaregiver,
+  isAddressedElder, family_link_requests rules, and the separate Family Caregiver
+  read-only check_ins rule. Existing family access semantics are unchanged.
+
+IMPORTANT SECURITY / COMPATIBILITY FINDINGS:
+1. The uploaded live rules permit EVERY authenticated Family Caregiver to read
+   ANY check_in; no accepted link or elder UID check is required. This is copied
+   for backwards compatibility, NOT endorsed as safe for production.
+2. family_link_requests use the elder's first name, not unique elder UID;
+   collisions or incorrect matches are possible. A UID-based linked record
+   and narrower Firestore queries would be needed to guarantee privacy.
+3. Live users rule allows clients to choose/change user role within an approved
+   set. Family role alone is therefore not a reliable access entitlement.
+4. Old negative tests emitted 'maximum of 1000 expressions' warnings: denial
+   may sometimes be due to rule evaluation budget, not desired explicit policy.
+5. The current emulator results (12+10 passed) were for the previous PROPOSED
+   file, NOT this new merged copy. Rerun tests against this exact merged copy.
+6. Firestore rules tests do not prove real camera/mic, connectivity/TURN,
+   frontend behavior, or Security Rules performance in production.
+
+HOW TO TEST ON WINDOWS (NOT PRODUCTION):
+1. Download CareLink_Merged_Review.rules, carelink.merged.rules.test.cjs,
+   and carelink.merged.live-calls.rules.test.cjs.
+2. Copy all three to C:\Users\lithi\CareLink-App\firebase-rules-tests\ .
+3. Keep local Firestore Emulator :8080 and Storage Emulator :9199 running.
+4. From C:\Users\lithi\CareLink-App run:
+   node --test .\firebase-rules-tests\carelink.merged.rules.test.cjs
+   node --test .\firebase-rules-tests\carelink.merged.live-calls.rules.test.cjs
+5. This merged copy is REVIEW ONLY. DO NOT publish or deploy until Family
+   privacy issue is addressed and family acceptance/read tests are added.
+
+No live Firebase rules or user's Git repository were modified by this file.

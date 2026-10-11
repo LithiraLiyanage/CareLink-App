@@ -319,6 +319,7 @@ class WelcomeScreen extends StatelessWidget {
                           ],
                         ),
 
+
                       if (!isSignedIn)
                         TextButton(
                           onPressed: () => Navigator.push(
@@ -338,6 +339,7 @@ class WelcomeScreen extends StatelessWidget {
                             ),
                           ),
                         ),
+
 
                       const Spacer(),
                     ],

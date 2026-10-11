@@ -1,0 +1,21 @@
+--- CareLink_Merged_Privacy_Fixed.rules
++++ CareLink_Reschedule_Fixed.rules
+@@ -1002,7 +1002,17 @@
+         && carelinkActivePair(resource.data)
+         && carelinkValidCheckIn(resource.data)
+         && carelinkValidCheckIn(request.resource.data)
+-        && carelinkAllowedTransition(resource.data.status, request.resource.data.status)
++        // Rescheduling a READY check-in returns it to SCHEDULED only when
++        // the appointment moves to a different, future date/time.
++        && (
++          carelinkAllowedTransition(resource.data.status, request.resource.data.status)
++          || (
++            resource.data.status == 'ready'
++            && request.resource.data.status == 'scheduled'
++            && request.resource.data.scheduledAt != resource.data.scheduledAt
++            && request.resource.data.scheduledAt > request.time
++          )
++        )
+         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+           'scheduledAt', 'status', 'reflection', 'updatedAt', 'startedAt', 'completedAt'
+         ])

@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, this.coordinatorMode = false});
 
@@ -73,11 +74,10 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         return;
       }
+
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Login successful')));
-
+      // Use the shared navigator for role, onboarding and verification routing.
+      // In coordinator mode, the session has already been checked above.
       await AccountFlowNavigation.replaceWithNext(context, clearStack: true);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;

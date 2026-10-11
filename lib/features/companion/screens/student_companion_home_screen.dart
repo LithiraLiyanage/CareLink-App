@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../elder/calling/carelink_call_inbox.dart';
+
 import '../../../app/routes.dart';
 import '../../elder/models/check_in.dart';
 import '../../elder/services/firebase_elder_service.dart';
@@ -55,9 +57,12 @@ class _StudentCompanionHomeScreenState
   FirebaseFirestore get _firestore =>
       widget.firestore ?? FirebaseFirestore.instance;
 
+  final CareLinkCallInbox _liveCallInbox = CareLinkCallInbox();
+
   @override
   void initState() {
     super.initState();
+    _liveCallInbox.start(context);
     _ownsController = widget.controller == null;
     _controller = widget.controller ?? createCompanionController();
     _controller.watchIncomingRequests();
@@ -68,6 +73,7 @@ class _StudentCompanionHomeScreenState
 
   @override
   void dispose() {
+    _liveCallInbox.dispose();
     if (_ownsController) _controller.dispose();
     super.dispose();
   }
@@ -142,7 +148,10 @@ class _StudentCompanionHomeScreenState
   }
 
   void _refreshDashboard() {
-    if (mounted) setState(() => _dashboard = _loadDashboard());
+    if (!mounted) return;
+    setState(() {
+      _dashboard = _loadDashboard();
+    });
   }
 
   Future<void> _openConnection() async {
@@ -468,10 +477,17 @@ class _StudentCompanionHomeScreenState
                             ),
                           ],
                         ),
-                        child: CompanionProfileAvatar(
-                          name: displayName,
-                          imageUrl: profile.profileImageUrl,
-                          size: 66,
+                        child: Center(
+                          child: ClipOval(
+                            child: SizedBox.square(
+                              dimension: 64,
+                              child: CompanionProfileAvatar(
+                                name: displayName,
+                                imageUrl: profile.profileImageUrl,
+                                size: 64,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],

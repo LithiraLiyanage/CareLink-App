@@ -32,8 +32,8 @@ class AccountFlowNavigation {
     bool clearStack = false,
     bool replaceCurrent = true,
   }) async {
-    // Coordinators/Admins have no user setup flow; send them straight to the
-    // case list. Checked first because a coordinator may have no users doc.
+    // Staff accounts may have no users document. Check their trusted
+    // coordinator/admin claim before loading the regular account setup flow.
     if (await isCoordinatorSession()) {
       if (!context.mounted) return;
       Navigator.pushNamedAndRemoveUntil(
@@ -79,7 +79,7 @@ class AccountFlowNavigation {
     };
   }
 
-  /// Home screen for a fully set-up account.
+  /// Route completed profiles to their respective role-specific homes.
   static Widget _homeFor(String? role) => switch (role) {
     'Older Adult' => const ElderHomeScreen(),
     'Family Caregiver' => const FamilyLinkingScreen(),

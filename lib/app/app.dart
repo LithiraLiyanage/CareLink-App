@@ -27,6 +27,7 @@ class CareLinkApp extends StatelessWidget {
         final baseTheme = preferences.highContrast
             ? CareLinkTheme.highContrastTheme
             : CareLinkTheme.lightTheme;
+
         return MaterialApp(
           title: 'CareLink',
           debugShowCheckedModeBanner: false,
@@ -59,26 +60,10 @@ class CareLinkApp extends StatelessWidget {
             if (preferences.highContrast) {
               content = ColorFiltered(
                 colorFilter: const ColorFilter.matrix(<double>[
-                  1.5,
-                  0,
-                  0,
-                  0,
-                  -100,
-                  0,
-                  1.5,
-                  0,
-                  0,
-                  -100,
-                  0,
-                  0,
-                  1.5,
-                  0,
-                  -100,
-                  0,
-                  0,
-                  0,
-                  1,
-                  0,
+                  1.5, 0, 0, 0, -100,
+                  0, 1.5, 0, 0, -100,
+                  0, 0, 1.5, 0, -100,
+                  0, 0, 0, 1, 0,
                 ]),
                 child: content,
               );
@@ -94,8 +79,7 @@ class CareLinkApp extends StatelessWidget {
             AppRoutes.familyDashboard: (context) => const FamilyDashboardScreen(),
             AppRoutes.missedSession: (context) =>
                 const MissedSessionNotificationScreen(),
-            // Coordinator-only routes: the screen is not built until the
-            // Coordinator/Admin check passes.
+            // Protect coordinator screens before constructing them.
             AppRoutes.coordinatorCaseList: (context) =>
                 const CoordinatorAccessGuard(child: CoordinatorCaseListScreen()),
             AppRoutes.coordinatorCaseDetail: (context) =>

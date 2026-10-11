@@ -5,7 +5,8 @@ import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
 import '../models/check_in.dart';
 import '../services/firebase_elder_service.dart';
-import 'active_video_call_kamala_screen.dart';
+import '../calling/carelink_live_call_screen.dart';
+import 'checkin_complete_kamala_screen.dart';
 
 class KamalaReadyScreen extends StatefulWidget {
   const KamalaReadyScreen({
@@ -113,29 +114,49 @@ class _KamalaReadyScreenState extends State<KamalaReadyScreen> {
   }
 
   Future<void> _startVideoCall() async {
-    // Older companion flow injects navigation and status management.
-    // The existing Elder flow still uses the real Firestore check-in ID.
+    // Widget-test callbacks remain intact. Production uses actual WebRTC.
     if (widget.onStartCall != null) {
       widget.onStartCall!();
       return;
     }
+    await _startRealCall('Video');
+  }
+
+  Future<void> _startRealCall(String mode) async {
     if (_starting || _loading) return;
-    if (_loadError != null || _checkIn == null) {
-      _message(_loadError ?? 'Please select a check-in first.');
+    if (_loadError != null || _checkIn == null || _checkInId.isEmpty) {
+      _message(_loadError ?? 'Select a real check-in from My Schedule.');
       return;
     }
     setState(() => _starting = true);
     try {
-      await _service.updateCheckInStatus(_checkInId, CheckInStatus.inProgress);
+      final flow = await _service.getCurrentFlowContext();
+      // Never mark a session completed or inProgress just because a button
+      // was pressed. Real status changes only after WebRTC connects.
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
+      await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
-          settings: RouteSettings(arguments: _checkInId),
-          builder: (_) => ActiveVideoCallKamalaScreen(checkInId: _checkInId),
+          builder: (_) => CareLinkLiveCallScreen(
+            checkIn: _checkIn!,
+            flow: flow,
+            mode: mode,
+          ),
         ),
       );
+      if (!mounted) return;
+      final afterCall = await _service.getCheckInById(_checkInId);
+      if (!mounted) return;
+      if (afterCall?.status == CheckInStatus.completed) {
+        Navigator.of(context).pushReplacement<void, void>(
+          MaterialPageRoute<void>(
+            builder: (_) => CheckInCompleteKamalaScreen(checkInId: _checkInId),
+          ),
+        );
+      } else {
+        await _loadCheckIn();
+      }
     } catch (error) {
-      _message('Could not start check-in: $error');
+      _message('Could not start $mode call: $error');
     } finally {
       if (mounted) setState(() => _starting = false);
     }
@@ -185,9 +206,7 @@ class _KamalaReadyScreenState extends State<KamalaReadyScreen> {
                             height: 48,
                             onPressed:
                                 widget.onVoiceCall ??
-                                () => _message(
-                                  'Voice-only calling is not connected yet.',
-                                ),
+                                () => _startRealCall('Voice'),
                           ),
                         ),
                         const SizedBox(width: 10),
