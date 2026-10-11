@@ -8,15 +8,19 @@ service cloud.firestore {
     }
 
     // These claims must be provisioned by a trusted Admin SDK.
+    // Staff accounts created in the Firebase console have no users document,
+    // so a missing one must not deny access (get() on it would error).
     function isVerificationReviewer() {
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
       return request.auth != null
         && (
           request.auth.token.get('coordinator', false) == true
           || request.auth.token.get('admin', false) == true
         )
-        && get(
-          /databases/$(database)/documents/users/$(request.auth.uid)
-        ).data.role != 'Student Companion';
+        && (
+          !exists(userPath)
+          || get(userPath).data.get('role', null) != 'Student Companion'
+        );
     }
 
     function hasValidRole(data) {
@@ -1118,7 +1122,17 @@ service cloud.firestore {
       allow update: if carelinkFlowParticipant(resource.data)
         && carelinkValidCheckIn(resource.data)
         && carelinkFlowActiveConnection(resource.data)
-        && carelinkValidCheckInTransition(resource.data.status, request.resource.data.status)
+        // Rescheduling a READY check-in returns it to SCHEDULED only when
+        // the appointment moves to a different, future date/time.
+        && (
+          carelinkValidCheckInTransition(resource.data.status, request.resource.data.status)
+          || (
+            resource.data.status == 'ready'
+            && request.resource.data.status == 'scheduled'
+            && request.resource.data.scheduledAt != resource.data.scheduledAt
+            && request.resource.data.scheduledAt > request.time
+          )
+        )
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'scheduledAt', 'status', 'reflection', 'updatedAt',
           'startedAt', 'completedAt'
@@ -1891,6 +1905,201 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/carelink_live_calls/$(roomId)).data.status
               in ['ringing', 'answered']
           && validLiveIce(request.resource.data);
+        allow update, delete: if false;
+      }
+    }
+
+
+    // =========================================================
+    // COORDINATOR SAFETY CASES
+    // Coordinators/Admins (custom claims, see isVerificationReviewer) read
+    // the records a case needs and manage cases opened from missed
+    // check-ins. Every case change is paired with an append-only audit event
+    // by the app; audit events can never be edited or deleted.
+    // =========================================================
+
+    match /check_ins/{documentId} {
+      allow get, list: if isVerificationReviewer();
+    }
+
+    match /consents/{userId} {
+      allow get: if isVerificationReviewer();
+    }
+
+    match /family_links/{linkDocId} {
+      allow get, list: if isVerificationReviewer();
+    }
+
+    function safetyCasePath(caseId) {
+      return /databases/$(database)/documents/safety_cases/$(caseId);
+    }
+
+    function safetyCaseCounterPath() {
+      return /databases/$(database)/documents/counters/safety_cases;
+    }
+
+    // The next case number: one more than the counter before this write, and
+    // the counter must be advanced to it in the same write.
+    function takesNextCaseNumber(caseNumber) {
+      return caseNumber is int
+        && (
+          (!exists(safetyCaseCounterPath()) && caseNumber == 1)
+          || (
+            exists(safetyCaseCounterPath())
+            && caseNumber == get(safetyCaseCounterPath()).data.next + 1
+          )
+        )
+        && getAfter(safetyCaseCounterPath()).data.next == caseNumber;
+    }
+
+    function validNewSafetyCase(caseId) {
+      let data = request.resource.data;
+      let checkInPath = /databases/$(database)/documents/check_ins/$(caseId);
+      return data.keys().hasAll([
+          'checkInId', 'elderId', 'elderName', 'caseNumber', 'status',
+          'scheduledAt', 'previousAttempts', 'openedAt', 'updatedAt',
+          'updatedBy'
+        ])
+        && data.keys().hasOnly([
+          'checkInId', 'elderId', 'elderName', 'caseNumber', 'status',
+          'scheduledAt', 'previousAttempts', 'openedAt', 'updatedAt',
+          'updatedBy'
+        ])
+        && data.checkInId == caseId
+        && exists(checkInPath)
+        && get(checkInPath).data.status in ['missed', 'scheduled', 'ready']
+        && get(checkInPath).data.scheduledAt < request.time
+        && data.elderId == get(checkInPath).data.elderId
+        && data.elderName == get(checkInPath).data.elderName
+        && data.scheduledAt == get(checkInPath).data.scheduledAt
+        && takesNextCaseNumber(data.caseNumber)
+        && data.status == 'pendingReview'
+        && data.previousAttempts == 0
+        && data.openedAt == request.time
+        && data.updatedAt == request.time
+        && data.updatedBy == request.auth.uid;
+    }
+
+    function validCaseOutcome(outcome) {
+      return outcome is map
+        && outcome.keys().hasAll([
+          'actionTaken', 'result', 'closureReason', 'notes', 'recordedAt'
+        ])
+        && outcome.keys().hasOnly([
+          'actionTaken', 'result', 'closureReason', 'notes', 'recordedAt'
+        ])
+        && outcome.actionTaken in [
+          'contactedApprovedPerson', 'retriedCheckIn', 'rescheduledCheckIn'
+        ]
+        && outcome.result in [
+          'elderContactedSuccessfully', 'safetyConfirmedByApprovedContact',
+          'checkInRescheduled', 'elderNotReached', 'approvedContactNotReached'
+        ]
+        && outcome.closureReason in [
+          'safetyConfirmed', 'followUpScheduled',
+          'handedOverOutsideCareLink', 'noFurtherActionAvailable'
+        ]
+        && outcome.notes is string
+        && outcome.notes.size() <= 2000
+        && outcome.recordedAt == request.time
+        // Safety cannot be cited as confirmed for an unresolved outcome, and
+        // an unresolved outcome must explain itself.
+        && (
+          outcome.result in [
+            'elderContactedSuccessfully', 'safetyConfirmedByApprovedContact',
+            'checkInRescheduled'
+          ]
+          || (
+            outcome.closureReason != 'safetyConfirmed'
+            && outcome.notes.size() > 0
+          )
+        );
+    }
+
+    function validSafetyCaseUpdate() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      return before.status != 'closed'
+        && changed.hasOnly([
+          'status', 'previousAttempts', 'updatedAt', 'updatedBy',
+          'closedAt', 'outcome'
+        ])
+        && after.status in [
+          'pendingReview', 'retryRequested', 'rescheduled',
+          'contactFollowUp', 'closed'
+        ]
+        && after.updatedAt == request.time
+        && after.updatedBy == request.auth.uid
+        && (
+          after.previousAttempts == before.previousAttempts
+          || after.previousAttempts == before.previousAttempts + 1
+        )
+        && (
+          (
+            after.status != 'closed'
+            && !changed.hasAny(['closedAt', 'outcome'])
+          )
+          || (
+            after.status == 'closed'
+            && after.closedAt == request.time
+            && validCaseOutcome(after.outcome)
+          )
+        );
+    }
+
+    match /counters/{counterId} {
+      allow get: if counterId == 'safety_cases' && isVerificationReviewer();
+      allow create: if counterId == 'safety_cases'
+        && isVerificationReviewer()
+        && request.resource.data.keys().hasOnly(['next'])
+        && request.resource.data.next == 1;
+      allow update: if counterId == 'safety_cases'
+        && isVerificationReviewer()
+        && request.resource.data.keys().hasOnly(['next'])
+        && request.resource.data.next == resource.data.next + 1;
+      allow delete: if false;
+    }
+
+    match /safety_cases/{caseId} {
+      allow get, list: if isVerificationReviewer();
+      allow create: if isVerificationReviewer() && validNewSafetyCase(caseId);
+      allow update: if isVerificationReviewer() && validSafetyCaseUpdate();
+      allow delete: if false;
+
+      match /audit_events/{eventId} {
+        allow get, list: if isVerificationReviewer();
+        allow create: if isVerificationReviewer()
+          && existsAfter(safetyCasePath(caseId))
+          && request.resource.data.keys().hasAll([
+            'type', 'actor', 'actorUid', 'occurredAt', 'result', 'note'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'type', 'actor', 'actorUid', 'occurredAt', 'result', 'note'
+          ])
+          && request.resource.data.type in [
+            'checkInMissed', 'caseReviewed', 'consentChecked',
+            'retryRequested', 'checkInRescheduled', 'approvedContactCalled',
+            'approvedContactMessaged', 'contactFollowUpCompleted', 'caseClosed'
+          ]
+          // System entries are only written while the case is being opened.
+          && (
+            (
+              request.resource.data.actor == 'coordinator'
+              && request.resource.data.type != 'checkInMissed'
+            )
+            || (
+              request.resource.data.actor == 'system'
+              && request.resource.data.type == 'checkInMissed'
+              && !exists(safetyCasePath(caseId))
+            )
+          )
+          && request.resource.data.actorUid == request.auth.uid
+          && request.resource.data.occurredAt == request.time
+          && request.resource.data.result is string
+          && request.resource.data.result.size() <= 500
+          && request.resource.data.note is string
+          && request.resource.data.note.size() <= 2000;
         allow update, delete: if false;
       }
     }

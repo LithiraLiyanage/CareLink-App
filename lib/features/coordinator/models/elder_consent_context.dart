@@ -13,7 +13,7 @@ enum ConsentSharingStatus {
 }
 
 /// Where a consent context came from, so mock data is never mistaken for real.
-enum ConsentContextSource { mock }
+enum ConsentContextSource { mock, firestore }
 
 /// A person the elder approved to be contacted during follow-up.
 class ApprovedContact {

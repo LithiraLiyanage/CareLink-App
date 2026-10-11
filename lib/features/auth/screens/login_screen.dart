@@ -1,13 +1,18 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../coordinator/services/coordinator_session.dart';
 import '../services/account_flow_navigation.dart';
 import '../services/auth_service.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.coordinatorMode = false});
+
+  /// Staff login for Coordinators/Admins: no Google sign-in or registration,
+  /// and an account without the coordinator claim is signed out again.
+  final bool coordinatorMode;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -53,6 +58,21 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
 
+      if (!mounted) return;
+
+      if (widget.coordinatorMode && !await isCoordinatorSession()) {
+        await _authService.logoutUser();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'This account does not have coordinator access. '
+              'Use the regular login instead.',
+            ),
+          ),
+        );
+        return;
+      }
       if (!mounted) return;
 
       ScaffoldMessenger.of(context)
@@ -184,9 +204,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 44),
 
-                    const Text(
-                      'Welcome Back',
-                      style: TextStyle(
+                    Text(
+                      widget.coordinatorMode ? 'Coordinator Login' : 'Welcome Back',
+                      style: const TextStyle(
                         color: darkText,
                         fontSize: 34,
                         fontWeight: FontWeight.w800,
@@ -197,9 +217,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 10),
 
-                    const Text(
-                      'Good to see you again!',
-                      style: TextStyle(
+                    Text(
+                      widget.coordinatorMode
+                          ? 'Use the staff account your administrator created.'
+                          : 'Good to see you again!',
+                      style: const TextStyle(
                         color: mutedText,
                         fontSize: 22,
                         fontWeight: FontWeight.w400,
@@ -382,6 +404,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
+                    if (!widget.coordinatorMode) ...[
                     const SizedBox(height: 34),
 
                     const Row(
@@ -476,6 +499,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                     ),
+                    ],
                   ],
                 ),
               ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
 import '../../companion/screens/student_companion_home_screen.dart';
+import '../../coordinator/services/coordinator_session.dart';
 import '../../elder/screens/elder_home_screen.dart';
 import '../../family_safety/screens/family_linking_screen.dart';
 import '../screens/choose_role_screen.dart';
@@ -30,6 +32,18 @@ class AccountFlowNavigation {
     bool clearStack = false,
     bool replaceCurrent = true,
   }) async {
+    // Coordinators/Admins have no user setup flow; send them straight to the
+    // case list. Checked first because a coordinator may have no users doc.
+    if (await isCoordinatorSession()) {
+      if (!context.mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.coordinatorCaseList,
+        (route) => false,
+      );
+      return;
+    }
+
     final decision = await AccountSetupService().loadAccountFlow();
     if (!context.mounted) return;
 

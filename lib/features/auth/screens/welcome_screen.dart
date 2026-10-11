@@ -319,6 +319,26 @@ class WelcomeScreen extends StatelessWidget {
                           ],
                         ),
 
+                      if (!isSignedIn)
+                        TextButton(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const LoginScreen(coordinatorMode: true),
+                            ),
+                          ),
+                          child: const Text(
+                            'Coordinator / Staff Login',
+                            style: TextStyle(
+                              color: mutedText,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+
                       const Spacer(),
                     ],
                   ),

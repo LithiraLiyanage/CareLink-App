@@ -1,5 +1,7 @@
 import 'package:carelink_app/app/routes.dart';
+import 'package:carelink_app/features/coordinator/coordinator_case_scope.dart';
 import 'package:carelink_app/features/coordinator/coordinator_screens.dart';
+import 'package:carelink_app/features/coordinator/services/mock_coordinator_case_repository.dart';
 import 'package:carelink_app/features/coordinator/services/student_verification_review_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,14 +26,19 @@ class _FakeReviewRepository implements StudentVerificationReviewRepository {
   }) async {}
 }
 
-Widget _app(StudentVerificationReviewRepository repository) => MaterialApp(
-  home: const CoordinatorCaseListScreen(),
-  routes: {
-    AppRoutes.coordinatorCaseDetail: (_) => const CoordinatorCaseDetailScreen(),
-    AppRoutes.coordinatorVerifications: (_) =>
-        StudentVerificationReviewScreen(repository: repository),
-  },
-);
+Widget _app(StudentVerificationReviewRepository repository) =>
+    CoordinatorCaseScope(
+      repository: MockCoordinatorCaseRepository(),
+      child: MaterialApp(
+        home: const CoordinatorCaseListScreen(),
+        routes: {
+          AppRoutes.coordinatorCaseDetail: (_) =>
+              const CoordinatorCaseDetailScreen(),
+          AppRoutes.coordinatorVerifications: (_) =>
+              StudentVerificationReviewScreen(repository: repository),
+        },
+      ),
+    );
 
 void main() {
   testWidgets('Coordinator opens verifications from the case list', (

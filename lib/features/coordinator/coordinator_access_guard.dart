@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/routes.dart';
 import 'services/student_verification_review_service.dart';
 
 /// Resolves whether the signed-in user may open Coordinator screens.
@@ -68,10 +69,26 @@ class _CoordinatorAccessGuardState extends State<CoordinatorAccessGuard> {
       return Scaffold(
         appBar: AppBar(title: const Text('Restricted')),
         body: Center(
-          child: Text(
-            snapshot.hasError
-                ? 'Could not verify coordinator access.'
-                : 'Coordinator or Admin access is required.',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                snapshot.hasError
+                    ? 'Could not verify coordinator access.'
+                    : 'Coordinator or Admin access is required.',
+              ),
+              const SizedBox(height: 16),
+              // The start route re-runs the account flow, so a signed-out
+              // user reaches login and a signed-in one reaches their home.
+              FilledButton(
+                onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  AppRoutes.roleSelection,
+                  (route) => false,
+                ),
+                child: const Text('Back to start'),
+              ),
+            ],
           ),
         ),
       );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/routes.dart';
+import '../../auth/services/auth_service.dart';
 import '../../coordinator/coordinator_case_scope.dart';
 import '../../coordinator/coordinator_case_ui.dart';
 import '../../coordinator/models/safety_case.dart';
@@ -39,6 +40,23 @@ class _CoordinatorCaseListScreenState extends State<CoordinatorCaseListScreen> {
   }
 
   void _reload() => setState(() => _cases = _repository!.watchCases());
+
+  Future<void> _signOut() async {
+    try {
+      await AuthService().logoutUser();
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.roleSelection,
+        (route) => false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not sign out. Please try again.')),
+      );
+    }
+  }
 
   void _openCase(SafetyCase safetyCase) => Navigator.pushNamed(
     context,
@@ -110,15 +128,29 @@ class _CoordinatorCaseListScreenState extends State<CoordinatorCaseListScreen> {
           letterSpacing: 0.2,
         )),
         centerTitle: true,
-        // Decorative, matching the case detail app bar; there is no
-        // Coordinator profile screen yet.
-        actions: const [
+        // Account menu; there is no Coordinator profile screen yet.
+        actions: [
           Padding(
-            padding: EdgeInsets.only(right: 18),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person_rounded, color: Color(0xFF073F42), size: 19),
+            padding: const EdgeInsets.only(right: 10),
+            child: PopupMenuButton<void>(
+              tooltip: 'Account',
+              icon: const CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.white,
+                child: Icon(Icons.person_rounded, color: Color(0xFF073F42), size: 19),
+              ),
+              itemBuilder: (context) => [
+                PopupMenuItem<void>(
+                  onTap: _signOut,
+                  child: const Row(
+                    children: [
+                      Icon(Icons.logout_rounded, size: 20),
+                      SizedBox(width: 10),
+                      Text('Sign out'),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
