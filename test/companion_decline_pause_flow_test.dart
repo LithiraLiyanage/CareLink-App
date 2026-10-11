@@ -31,7 +31,21 @@ Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
   await tester.tap(finder);
   await tester.pumpAndSettle();
-  expect(tester.takeException(), isNull);
+
+  final error = tester.takeException();
+  if (error != null) {
+    debugPrint('============ FLUTTER WIDGET ERROR ============');
+    debugPrint('Tapped finder: $finder');
+    debugPrint('Error: $error');
+    if (error is FlutterError) {
+      debugPrint(error.toStringDeep());
+      for (final diagnostic in error.diagnostics) {
+        debugPrint(diagnostic.toStringDeep());
+      }
+    }
+    debugPrint('================================================');
+  }
+  expect(error, isNull);
 }
 
 Future<void> _openPending(
@@ -57,9 +71,7 @@ Future<void> _openPending(
 
 void main() {
   for (final language in CompanionLanguage.values) {
-    testWidgets('decline returns to recommendations in $language', (
-      tester,
-    ) async {
+    testWidgets('decline returns to recommendations in $language', (tester) async {
       tester.view.physicalSize = const Size(393, 852);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);

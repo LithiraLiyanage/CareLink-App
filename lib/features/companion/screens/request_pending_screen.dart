@@ -39,6 +39,9 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
       controller?.supportsSimulatedResponses ?? false;
   bool _previewDeclined = false;
   bool _openedAcceptedConnection = false;
+  bool _acceptedConnectionLookupScheduled = false;
+  bool _loadingAcceptedConnection = false;
+  String? _acceptedConnectionError;
 
   static const Color _amber = Color(0xFFEC9E00);
   static const Color _amberInk = Color(0xFF9A6200);
@@ -58,13 +61,43 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
     super.dispose();
   }
 
+  /// The accepted request and the active connection are separate Firestore
+  /// documents. W05 must wait for both instead of leaving a disabled button.
+  bool _hasActiveAcceptedConnection(CompanionController flow) {
+    final request = flow.currentRequest;
+    final connection = flow.currentConnection;
+    return request != null &&
+        request.status == MatchRequestStatus.accepted &&
+        connection != null &&
+        connection.status == ConnectionStatus.active &&
+        connection.elderId == request.elderId &&
+        connection.companionId == request.companionId &&
+        connection.matchRequestId == request.id;
+  }
+
   void _openAcceptedConnectionWhenReady() {
     final flow = controller;
     if (_openedAcceptedConnection ||
-        flow?.currentRequest?.status != MatchRequestStatus.accepted ||
-        flow?.currentConnection?.status != ConnectionStatus.active) {
+        flow == null ||
+        flow.currentRequest?.status != MatchRequestStatus.accepted) {
       return;
     }
+
+    if (!_hasActiveAcceptedConnection(flow)) {
+      // The match request may be delivered by its listener before the
+      // connection query has emitted. Resolve the exact accepted connection.
+      if (!_loadingAcceptedConnection &&
+          !_acceptedConnectionLookupScheduled &&
+          _acceptedConnectionError == null) {
+        _acceptedConnectionLookupScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _acceptedConnectionLookupScheduled = false;
+          if (mounted) _resolveAcceptedConnection();
+        });
+      }
+      return;
+    }
+
     _openedAcceptedConnection = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -74,11 +107,59 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
           builder: (_) => ConnectionAcceptedScreen(
             profile: profile,
             selectedLanguage: selectedLanguage,
-            controller: controller,
+            controller: flow,
           ),
         ),
       );
     });
+  }
+
+  Future<void> _resolveAcceptedConnection() async {
+    final flow = controller;
+    final request = flow?.currentRequest;
+    if (flow == null ||
+        request == null ||
+        request.status != MatchRequestStatus.accepted ||
+        _loadingAcceptedConnection ||
+        _openedAcceptedConnection) {
+      return;
+    }
+
+    if (_hasActiveAcceptedConnection(flow)) {
+      _openAcceptedConnectionWhenReady();
+      return;
+    }
+
+    setState(() {
+      _loadingAcceptedConnection = true;
+      _acceptedConnectionError = null;
+    });
+
+    try {
+      // In Firebase mode this retrieves the existing connection from the
+      // accepted match request. It never creates a duplicate connection.
+      final connection = await flow.service.createConnectionFromAcceptedRequest(
+        request,
+      );
+      if (!mounted ||
+          flow.currentRequest?.id != request.id ||
+          flow.currentRequest?.status != MatchRequestStatus.accepted) {
+        return;
+      }
+      if (connection.status != ConnectionStatus.active ||
+          connection.elderId != request.elderId ||
+          connection.companionId != request.companionId ||
+          connection.matchRequestId != request.id) {
+        throw StateError('The accepted connection could not be verified.');
+      }
+      flow.currentConnection = connection;
+      _openAcceptedConnectionWhenReady();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _acceptedConnectionError = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingAcceptedConnection = false);
+    }
   }
 
   void _backToMatches(BuildContext context) {
@@ -186,25 +267,26 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
       return _buildDeclined(context, strings);
     }
     if (controller?.currentRequest?.status == MatchRequestStatus.accepted) {
+      final isReady =
+          controller != null && _hasActiveAcceptedConnection(controller!);
       return _buildResolvedState(
         context,
         title: strings.connectionAccepted,
         message: strings.youAndCompanionConnected(profile.firstName),
         icon: Icons.check_circle_outline,
-        action: strings.viewConnection,
-        onPressed:
-            controller?.currentConnection?.status == ConnectionStatus.active
-            ? () => Navigator.of(context).pushReplacement(
-                CompanionRoute<void>(
-                  context: context,
-                  builder: (_) => ConnectionAcceptedScreen(
-                    profile: profile,
-                    selectedLanguage: selectedLanguage,
-                    controller: controller,
-                  ),
-                ),
-              )
-            : null,
+        action: isReady
+            ? strings.viewConnection
+            : _loadingAcceptedConnection
+            ? 'Opening connection...'
+            : 'Retry connection',
+        explanation: _acceptedConnectionError == null
+            ? (isReady ? null : 'Checking your accepted connection...')
+            : 'Could not load the connection: $_acceptedConnectionError',
+        onPressed: _loadingAcceptedConnection
+            ? null
+            : isReady
+            ? _openAcceptedConnectionWhenReady
+            : _resolveAcceptedConnection,
       );
     }
     if (controller?.currentRequest?.status == MatchRequestStatus.cancelled) {
@@ -419,6 +501,7 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
     required IconData icon,
     required String action,
     required VoidCallback? onPressed,
+    String? explanation,
   }) {
     return CompanionScaffold(
       body: SafeArea(
@@ -439,6 +522,19 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(message, textAlign: TextAlign.center),
+                  if (explanation != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      explanation,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _acceptedConnectionError == null
+                            ? CompanionPalette.muted
+                            : const Color(0xFFB43F42),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,

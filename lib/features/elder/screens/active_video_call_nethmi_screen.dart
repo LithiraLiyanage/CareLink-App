@@ -9,10 +9,12 @@ class ActiveVideoCallNethmiScreen extends StatefulWidget {
   const ActiveVideoCallNethmiScreen({super.key});
 
   @override
-  State<ActiveVideoCallNethmiScreen> createState() => _ActiveVideoCallNethmiScreenState();
+  State<ActiveVideoCallNethmiScreen> createState() =>
+      _ActiveVideoCallNethmiScreenState();
 }
 
-class _ActiveVideoCallNethmiScreenState extends State<ActiveVideoCallNethmiScreen> {
+class _ActiveVideoCallNethmiScreenState
+    extends State<ActiveVideoCallNethmiScreen> {
   bool muted = false;
   bool speaker = true;
   bool camera = true;
