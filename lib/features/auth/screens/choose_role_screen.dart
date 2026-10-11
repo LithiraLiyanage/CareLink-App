@@ -54,7 +54,8 @@ class _ChooseRoleScreenState extends State<ChooseRoleScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(error.toString())));
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Could not save role: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

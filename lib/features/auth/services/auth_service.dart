@@ -54,6 +54,7 @@ class AuthService {
         'emailVerified': user.emailVerified,
         'setupStage': 'emailVerification',
         'profileCompleted': false,
+        'verificationStatus': 'notSubmitted',
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });

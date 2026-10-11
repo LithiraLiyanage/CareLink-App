@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../auth/screens/welcome_screen.dart';
+import '../../auth/services/auth_service.dart';
 import '../services/family_link_service.dart';
 import 'family_notifications_screen.dart';
 
@@ -104,6 +106,41 @@ class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
     });
   }
 
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('You will need to sign in again to use CareLink.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await AuthService().logoutUser();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+        (route) => false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not log out. Please try again.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,11 +170,21 @@ class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
           ),
         ),
         centerTitle: true,
-        actions: const [
-          SizedBox(
+        actions: [
+          const SizedBox(
             width: 48,
             child: Center(child: _ProfileApprovalButton()),
           ),
+          IconButton(
+            tooltip: 'Log out',
+            onPressed: _confirmLogout,
+            icon: const Icon(
+              Icons.logout_rounded,
+              color: Colors.white,
+              size: 23,
+            ),
+          ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Stack(
