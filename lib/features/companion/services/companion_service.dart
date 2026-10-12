@@ -6,6 +6,16 @@ import '../models/match_preferences.dart';
 import '../models/match_recommendation.dart';
 import '../models/match_request.dart';
 
+/// An accepted request whose pair no longer points at its connection, e.g.
+/// legacy data accepted before connections were created atomically. It will
+/// never resolve on its own; the elder has to send a fresh request.
+class OrphanedAcceptedRequestException implements Exception {
+  const OrphanedAcceptedRequestException();
+
+  @override
+  String toString() => 'This accepted request has no connection.';
+}
+
 /// Storage-independent contract for companion matching and connection state.
 abstract class CompanionService {
   /// The current elder identity, resolved by the implementation rather than UI.

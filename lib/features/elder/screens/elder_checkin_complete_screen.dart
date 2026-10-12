@@ -5,7 +5,7 @@ import '../widgets/elder_ui.dart';
 import 'checkin_reflection_screen.dart';
 import 'elder_home_screen.dart';
 import 'memory_lane_screen.dart';
-import 'my_schedule_screen.dart';
+import 'elder_my_schedule_screen.dart';
 
 // =====================================================
 // L08 - CHECK-IN COMPLETE
@@ -127,6 +127,14 @@ class _CheckInCompleteNethmiScreenState
       _feeling = result.feeling;
       _note = result.note;
     });
+
+    // Submitting the reflection ends the check-in flow on Elder Home.
+    // Preview mode stays here so navigation-only demos never leave.
+    if (widget.previewOnly) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Thank you for sharing your reflection.')),
+    );
+    _goHome();
   }
 
   // =====================================================

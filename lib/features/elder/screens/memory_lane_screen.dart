@@ -6,7 +6,7 @@ import '../widgets/elder_assets.dart';
 import '../widgets/elder_ui.dart';
 import 'add_memory_screen.dart';
 import 'elder_home_screen.dart';
-import 'my_schedule_screen.dart';
+import 'elder_my_schedule_screen.dart';
 class MemoryLaneScreen extends StatefulWidget {
   const MemoryLaneScreen({super.key, this.navigationOnly = false});
   final bool navigationOnly;

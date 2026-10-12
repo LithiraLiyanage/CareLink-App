@@ -121,9 +121,11 @@ class StudentVerificationReviewService
         .collection('student_verifications')
         .doc(userId);
     final user = _firestore.collection('users').doc(userId);
+    final profile = _firestore.collection('companion_profiles').doc(userId);
     await _firestore.runTransaction((transaction) async {
       final verificationSnapshot = await transaction.get(verification);
       final userSnapshot = await transaction.get(user);
+      final profileSnapshot = await transaction.get(profile);
       if (verificationSnapshot.data()?['status'] != 'pending' ||
           userSnapshot.data()?['role'] != 'Student Companion') {
         throw StateError('This student verification is no longer pending.');
@@ -142,6 +144,33 @@ class StudentVerificationReviewService
         'verificationStatus': status,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Approval publishes the companion profile that elders' recommendations
+      // read; a rejection withdraws an existing one. Fields the student set
+      // on an existing profile are left unchanged.
+      final approved = status == 'verified';
+      final existingProfile = profileSnapshot.data();
+      if (existingProfile != null) {
+        final name = (existingProfile['fullName'] as String? ?? '').trim();
+        transaction.update(profile, {
+          'verificationStatus': status,
+          'active': approved && name.isNotEmpty,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else if (approved) {
+        final userData = userSnapshot.data()!;
+        final name = (userData['fullName'] as String? ?? '').trim();
+        final language = (userData['language'] as String? ?? '').trim();
+        transaction.set(profile, {
+          'userId': userId,
+          'fullName': name,
+          'languages': [if (language.isNotEmpty) language],
+          'interests': <String>[],
+          'active': name.isNotEmpty,
+          'verificationStatus': status,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
     });
   }
 }

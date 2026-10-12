@@ -5,7 +5,7 @@ import '../models/check_in_scheduling.dart';
 import '../services/firebase_elder_service.dart';
 import '../widgets/elder_colors.dart';
 import '../widgets/elder_ui.dart';
-import 'my_schedule_screen.dart';
+import 'elder_my_schedule_screen.dart';
 
 class RescheduleCheckInScreen extends StatefulWidget {
   const RescheduleCheckInScreen({

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../elder/calling/carelink_call_inbox.dart';
 
 import '../../../app/routes.dart';
+import '../../auth/screens/welcome_screen.dart';
+import '../../auth/services/auth_service.dart';
 import '../../elder/models/check_in.dart';
 import '../../elder/services/firebase_elder_service.dart';
 import '../../elder/widgets/elder_colors.dart';
@@ -424,6 +426,12 @@ class _StudentCompanionHomeScreenState
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      _heroIconButton(
+                        Icons.logout_rounded,
+                        onTap: _confirmLogout,
+                        tooltip: 'Log out',
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -546,6 +554,41 @@ class _StudentCompanionHomeScreenState
         ],
       ),
     );
+  }
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('You will need to sign in again to use CareLink.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await AuthService().logoutUser();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+        (route) => false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not log out. Please try again.')),
+      );
+    }
   }
 
   Widget _heroIconButton(

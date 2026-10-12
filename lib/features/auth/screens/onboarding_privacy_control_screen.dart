@@ -88,80 +88,91 @@ class OnboardingPrivacyControlScreen extends StatelessWidget {
                   child: Container(
                     color: Colors.white,
                     padding: const EdgeInsets.fromLTRB(26, 132, 26, 30),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Your Privacy,\nYour Choice',
-                          style: TextStyle(
-                            color: darkText,
-                            fontSize: 32,
-                            fontWeight: FontWeight.w800,
-                            height: 1.05,
-                            letterSpacing: -0.8,
+                    child: LayoutBuilder(
+                      builder: (context, content) => SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: content.maxHeight,
                           ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        const Text(
-                          'You decide what to share\n'
-                          'with family members.',
-                          style: TextStyle(
-                            color: mutedText,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w400,
-                            height: 1.48,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-
-                        const Spacer(),
-
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const _PageDot(active: false),
-                            const SizedBox(width: 14),
-                            const _PageDot(active: false),
-                            const SizedBox(width: 14),
-                            const _PageDot(active: true),
-
-                            const Spacer(),
-
-                            Material(
-                              color: primaryTeal,
-                              shape: const CircleBorder(),
-                              elevation: 0,
-                              child: InkWell(
-                                customBorder: const CircleBorder(),
-                                onTap: () {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const WelcomeScreen(),
-                                    ),
-                                  );
-                                },
-                                child: const SizedBox(
-                                  width: 72,
-                                  height: 72,
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.arrow_forward_rounded,
-                                      color: Colors.white,
-                                      size: 38,
-                                    ),
+                          child: IntrinsicHeight(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Your Privacy,\nYour Choice',
+                                  style: TextStyle(
+                                    color: darkText,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.05,
+                                    letterSpacing: -0.8,
                                   ),
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
 
-                        const SizedBox(height: 44),
-                      ],
+                                const SizedBox(height: 20),
+
+                                const Text(
+                                  'You decide what to share\n'
+                                  'with family members.',
+                                  style: TextStyle(
+                                    color: mutedText,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.48,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+
+                                const Spacer(),
+
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const _PageDot(active: false),
+                                    const SizedBox(width: 14),
+                                    const _PageDot(active: false),
+                                    const SizedBox(width: 14),
+                                    const _PageDot(active: true),
+
+                                    const Spacer(),
+
+                                    Material(
+                                      color: primaryTeal,
+                                      shape: const CircleBorder(),
+                                      elevation: 0,
+                                      child: InkWell(
+                                        customBorder: const CircleBorder(),
+                                        onTap: () {
+                                          Navigator.pushReplacement(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  const WelcomeScreen(),
+                                            ),
+                                          );
+                                        },
+                                        child: const SizedBox(
+                                          width: 72,
+                                          height: 72,
+                                          child: Center(
+                                            child: Icon(
+                                              Icons.arrow_forward_rounded,
+                                              color: Colors.white,
+                                              size: 38,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 44),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),

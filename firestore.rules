@@ -496,13 +496,26 @@ service cloud.firestore {
         /databases/$(database)/documents/match_requests/$(pairData.currentRequestId)
       ).data;
 
+      // An accepted request with no connection is orphaned (legacy data from
+      // before acceptance created the connection atomically), so it can be
+      // replaced instead of blocking the pair forever.
       return previous.status in ['declined', 'cancelled']
         || (
           previous.status == 'accepted'
-          && pairData.currentConnectionId is string
-          && get(
-            /databases/$(database)/documents/connections/$(pairData.currentConnectionId)
-          ).data.status == 'ended'
+          && (
+            pairData.currentConnectionId == null
+            || (
+              pairData.currentConnectionId is string
+              && (
+                !exists(
+                  /databases/$(database)/documents/connections/$(pairData.currentConnectionId)
+                )
+                || get(
+                  /databases/$(database)/documents/connections/$(pairData.currentConnectionId)
+                ).data.status == 'ended'
+              )
+            )
+          )
         );
     }
 
@@ -585,8 +598,57 @@ service cloud.firestore {
     // COMPANION PROFILES
     // =========================================================
 
+    // A Coordinator's approval publishes the student's companion profile (and
+    // a rejection withdraws it) in the same transaction that reviews the
+    // student verification, so approved students are recommended to elders.
+    // getAfter() sees that review; get() would still see 'pending'.
+    function validReviewerCompanionProfile(studentUid) {
+      let data = request.resource.data;
+      let userAfter = getAfter(
+        /databases/$(database)/documents/users/$(studentUid)
+      ).data;
+      let verificationAfter = getAfter(
+        /databases/$(database)/documents/student_verifications/$(studentUid)
+      ).data;
+      return isVerificationReviewer()
+        && request.auth.uid != studentUid
+        && currentVerificationIsPending(studentUid)
+        && verifiedStatusAfter(studentUid, data.verificationStatus)
+        && userAfter.role == 'Student Companion'
+        && userAfter.verificationStatus == data.verificationStatus
+        && data.verificationStatus in ['verified', 'rejected']
+        && data.userId == studentUid
+        && data.fullName is string
+        && data.active is bool
+        && (
+          data.active == false
+          || (
+            data.verificationStatus == 'verified'
+            && data.fullName.matches('.*\\S.*')
+          )
+        )
+        && data.updatedAt == request.time
+        && (
+          (
+            resource == null
+            && data.keys().hasOnly([
+              'userId', 'fullName', 'languages', 'interests', 'active',
+              'verificationStatus', 'updatedAt'
+            ])
+            && (!data.keys().hasAny(['languages']) || data.languages is list)
+            && (!data.keys().hasAny(['interests']) || data.interests is list)
+          )
+          || (
+            resource != null
+            && data.diff(resource.data).affectedKeys()
+              .hasOnly(['verificationStatus', 'active', 'updatedAt'])
+          )
+        );
+    }
+
     match /companion_profiles/{studentUid} {
-      allow get: if isOwner(studentUid)
+      allow get: if isVerificationReviewer()
+        || isOwner(studentUid)
         || (
           request.auth != null
           && get(
@@ -609,6 +671,8 @@ service cloud.firestore {
           /databases/$(database)/documents/users/$(studentUid)
         ).data.role == 'Student Companion'
         && validCompanionProfile(studentUid);
+
+      allow create, update: if validReviewerCompanionProfile(studentUid);
     }
 
     // =========================================================

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../app/routes.dart';
 import '../../auth/screens/welcome_screen.dart';
 import '../../auth/services/auth_service.dart';
 import '../services/family_link_service.dart';
@@ -81,6 +82,11 @@ class _FamilyLinkingScreenState extends State<FamilyLinkingScreen> {
               'appear on your profile icon at the top right.',
         );
       });
+      // Show the new request on the pending screen. Its back button pops
+      // here, so start a fresh form for the next request on return.
+      await Navigator.of(context).pushNamed(AppRoutes.familyPending);
+      if (!mounted) return;
+      _startNewRequest();
     } on FamilyLinkException catch (error) {
       if (!mounted) return;
       setState(() => _status = _LinkStatus.fromException(error));

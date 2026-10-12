@@ -5,7 +5,7 @@ import '../models/recurring_schedule.dart';
 import '../services/firebase_elder_service.dart';
 import '../widgets/elder_ui.dart';
 
-import 'reschedule_checkin_screen.dart';
+import 'elder_reschedule_checkin_screen.dart';
 
 class NewRecurringCheckInScreen extends StatefulWidget {
   const NewRecurringCheckInScreen({

@@ -6,6 +6,7 @@ import '../models/companion_language.dart';
 import '../models/companion_profile.dart';
 import '../models/companion_strings.dart';
 import '../models/match_request.dart';
+import '../services/companion_service.dart';
 import '../widgets/companion_avatar.dart';
 import '../widgets/companion_entrance.dart';
 import '../widgets/companion_flow_header.dart';
@@ -42,6 +43,7 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
   bool _acceptedConnectionLookupScheduled = false;
   bool _loadingAcceptedConnection = false;
   String? _acceptedConnectionError;
+  bool _acceptedRequestOrphaned = false;
 
   static const Color _amber = Color(0xFFEC9E00);
   static const Color _amberInk = Color(0xFF9A6200);
@@ -133,14 +135,29 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
     setState(() {
       _loadingAcceptedConnection = true;
       _acceptedConnectionError = null;
+      _acceptedRequestOrphaned = false;
     });
 
     try {
       // In Firebase mode this retrieves the existing connection from the
       // accepted match request. It never creates a duplicate connection.
-      final connection = await flow.service.createConnectionFromAcceptedRequest(
-        request,
-      );
+      // Transient failures (slow network, a listener racing the write) get a
+      // few quiet retries before the elder sees anything.
+      CompanionConnection? connection;
+      for (var attempt = 1; ; attempt++) {
+        try {
+          connection = await flow.service.createConnectionFromAcceptedRequest(
+            request,
+          );
+          break;
+        } on OrphanedAcceptedRequestException {
+          rethrow;
+        } catch (error) {
+          if (attempt >= 3 || !mounted) rethrow;
+          debugPrint('Accepted connection lookup failed, retrying: $error');
+          await Future<void>.delayed(Duration(seconds: attempt));
+        }
+      }
       if (!mounted ||
           flow.currentRequest?.id != request.id ||
           flow.currentRequest?.status != MatchRequestStatus.accepted) {
@@ -154,12 +171,49 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
       }
       flow.currentConnection = connection;
       _openAcceptedConnectionWhenReady();
-    } catch (error) {
+    } on OrphanedAcceptedRequestException {
       if (!mounted) return;
-      setState(() => _acceptedConnectionError = error.toString());
+      setState(() {
+        _acceptedRequestOrphaned = true;
+        _acceptedConnectionError =
+            'This request needs to be sent again to finish connecting.';
+      });
+    } catch (error) {
+      // Keep the technical cause in the log; the elder gets plain language.
+      debugPrint('Could not load accepted connection: $error');
+      if (!mounted) return;
+      setState(
+        () => _acceptedConnectionError =
+            'We could not open your connection right now. '
+            'Please check your internet and try again.',
+      );
     } finally {
       if (mounted) setState(() => _loadingAcceptedConnection = false);
     }
+  }
+
+  /// Replaces an orphaned accepted request with a fresh pending one. The
+  /// service and firestore.rules both allow this only when no connection
+  /// exists, so it can never duplicate a real connection.
+  Future<void> _sendRequestAgain() async {
+    final flow = controller;
+    if (flow == null || flow.isLoading) return;
+    setState(() => _loadingAcceptedConnection = true);
+    await flow.sendRequest();
+    if (!mounted) return;
+    final resent =
+        flow.errorMessage == null &&
+        flow.currentRequest?.status == MatchRequestStatus.pending;
+    setState(() {
+      _loadingAcceptedConnection = false;
+      if (resent) {
+        _acceptedRequestOrphaned = false;
+        _acceptedConnectionError = null;
+      } else {
+        _acceptedConnectionError =
+            'We could not send the request again. Please try again.';
+      }
+    });
   }
 
   void _backToMatches(BuildContext context) {
@@ -266,6 +320,21 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
         controller?.currentRequest?.status == MatchRequestStatus.declined) {
       return _buildDeclined(context, strings);
     }
+    if (controller?.currentRequest?.status == MatchRequestStatus.accepted &&
+        _acceptedRequestOrphaned) {
+      return _buildResolvedState(
+        context,
+        title: 'Almost there',
+        message:
+            'Your request to ${profile.firstName} needs to be sent once more.',
+        icon: Icons.refresh_rounded,
+        action: _loadingAcceptedConnection
+            ? 'Sending...'
+            : 'Send request again',
+        explanation: _acceptedConnectionError,
+        onPressed: _loadingAcceptedConnection ? null : _sendRequestAgain,
+      );
+    }
     if (controller?.currentRequest?.status == MatchRequestStatus.accepted) {
       final isReady =
           controller != null && _hasActiveAcceptedConnection(controller!);
@@ -278,10 +347,10 @@ class _RequestPendingScreenState extends State<RequestPendingScreen> {
             ? strings.viewConnection
             : _loadingAcceptedConnection
             ? 'Opening connection...'
-            : 'Retry connection',
-        explanation: _acceptedConnectionError == null
-            ? (isReady ? null : 'Checking your accepted connection...')
-            : 'Could not load the connection: $_acceptedConnectionError',
+            : 'Try again',
+        explanation:
+            _acceptedConnectionError ??
+            (isReady ? null : 'Checking your accepted connection...'),
         onPressed: _loadingAcceptedConnection
             ? null
             : isReady

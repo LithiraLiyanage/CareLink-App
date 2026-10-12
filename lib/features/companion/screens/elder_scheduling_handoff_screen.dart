@@ -20,9 +20,9 @@ import '../widgets/companion_route.dart';
 
 import '../widgets/companion_scaffold.dart';
 
-import '../../elder/screens/my_schedule_screen.dart';
+import '../../elder/screens/elder_my_schedule_screen.dart';
 
-import '../../elder/screens/new_recurring_checkin_screen.dart';
+import '../../elder/screens/elder_new_recurring_checkin_screen.dart';
 
 import 'current_connection_screen.dart';
 

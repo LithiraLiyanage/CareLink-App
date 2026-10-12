@@ -231,7 +231,7 @@ class FirebaseCompanionService implements CompanionService {
     final profileRef = _profile(companionId);
     final pairRef = _requestPair(pair);
     final requestRef = _db.collection('match_requests').doc();
-    await _db.runTransaction((tx) async {
+    final existing = await _db.runTransaction<MatchRequest?>((tx) async {
       final user = await tx.get(userRef);
       final student = await tx.get(profileRef);
       final preferences = await tx.get(
@@ -253,14 +253,21 @@ class FirebaseCompanionService implements CompanionService {
           student.data()?['userId'] != companionId) {
         throw StateError('This student is not available for matching.');
       }
-      if (previous?.data()?['status'] == 'pending' ||
-          (previous?.data()?['status'] == 'accepted' &&
-              connection?.data()?['status'] != 'ended')) {
-        throw StateError('A request is already open for this companion.');
-      }
       if (connection != null &&
           ['active', 'paused'].contains(connection.data()?['status'])) {
         throw StateError('You are already connected to this companion.');
+      }
+      // Re-sending an open request resumes it instead of failing, so a
+      // second tap (or returning to the list) lands on the pending screen.
+      // An accepted request without a connection is orphaned legacy data and
+      // is replaced by a fresh request below (firestore.rules allows this).
+      final previousData = previous?.data();
+      if (previousData != null &&
+          (previousData['status'] == 'pending' ||
+              (previousData['status'] == 'accepted' &&
+                  connection?.exists == true &&
+                  connection?.data()?['status'] != 'ended'))) {
+        return _requestModel(previous!.id, previousData);
       }
       final preferenceData = preferences.data() ?? const <String, dynamic>{};
       final elderInterests = preferenceData['interests'] is List
@@ -321,7 +328,9 @@ class FirebaseCompanionService implements CompanionService {
         'currentConnectionId': connectionId,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+      return null;
     });
+    if (existing != null) return existing;
     final saved = await requestRef.get();
     return _requestModel(saved.id, saved.data()!);
   }
@@ -478,7 +487,7 @@ class FirebaseCompanionService implements CompanionService {
     ).get();
     final connectionId = pair.data()?['currentConnectionId'] as String?;
     if (connectionId == null) {
-      throw StateError('The accepted connection is not available yet.');
+      throw const OrphanedAcceptedRequestException();
     }
     final saved = await _connection(connectionId).get();
     final data = saved.data();
@@ -486,7 +495,7 @@ class FirebaseCompanionService implements CompanionService {
         data['matchRequestId'] != request.id ||
         data['elderId'] != request.elderId ||
         data['companionId'] != request.companionId) {
-      throw StateError('The accepted connection is not available yet.');
+      throw const OrphanedAcceptedRequestException();
     }
     return _connectionModel(saved.id, data);
   }

@@ -162,7 +162,9 @@ class CompanionController extends ChangeNotifier {
     notifyListeners();
     try {
       await operation();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      // Screens show a friendly message; keep the real cause in the log.
+      debugPrint('CompanionController action failed: $error\n$stackTrace');
       errorMessage = error.toString();
     } finally {
       isLoading = false;

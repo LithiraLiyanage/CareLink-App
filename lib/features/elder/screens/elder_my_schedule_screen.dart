@@ -12,8 +12,8 @@ import 'checkin_complete_nethmi_screen.dart';
 import 'elder_home_screen.dart';
 import 'memory_lane_screen.dart';
 import 'nethmi_ready_screen.dart';
-import 'new_recurring_checkin_screen.dart';
-import 'reschedule_checkin_screen.dart';
+import 'elder_new_recurring_checkin_screen.dart';
+import 'elder_reschedule_checkin_screen.dart';
 
 enum _ScheduleTab { today, upcoming, past }
 
@@ -238,7 +238,20 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
       return;
     }
 
-    _openAndRefresh(RescheduleCheckInScreen(checkInId: checkIn.id));
+    // Pass the connection so the reschedule screen can verify the check-in
+    // still belongs to the active Elder–Student connection.
+    final connection = _connection;
+    _openAndRefresh(
+      RescheduleCheckInScreen(
+        checkInId: checkIn.id,
+        connectionId: connection?.id,
+        elderId: connection?.elderId,
+        elderName: connection?.elderName,
+        companionId: connection?.companionId,
+        companionName: connection?.companionName,
+        companionImageUrl: connection?.companionImageUrl,
+      ),
+    );
   }
 
   // =====================================================
