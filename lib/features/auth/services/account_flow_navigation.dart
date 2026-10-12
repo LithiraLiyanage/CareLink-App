@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/routes.dart';
+import '../../companion/screens/student_companion_home_screen.dart';
+import '../../coordinator/services/coordinator_session.dart';
+import '../../elder/screens/elder_home_screen.dart';
+import '../../family_safety/screens/family_linking_screen.dart';
 import '../screens/choose_role_screen.dart';
 import '../screens/email_verification_screen.dart';
 import '../screens/language_accessibility_screen.dart';
@@ -27,6 +32,18 @@ class AccountFlowNavigation {
     bool clearStack = false,
     bool replaceCurrent = true,
   }) async {
+    // Staff accounts may have no users document. Check their trusted
+    // coordinator/admin claim before loading the regular account setup flow.
+    if (await isCoordinatorSession()) {
+      if (!context.mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.coordinatorCaseList,
+        (route) => false,
+      );
+      return;
+    }
+
     final decision = await AccountSetupService().loadAccountFlow();
     if (!context.mounted) return;
 
@@ -58,7 +75,15 @@ class AccountFlowNavigation {
         selectedRole: role!,
       ),
       AccountDestination.verificationStatus => const VerificationStatusScreen(),
-      AccountDestination.welcome => const WelcomeScreen(),
+      AccountDestination.welcome => _homeFor(role),
     };
   }
+
+  /// Route completed profiles to their respective role-specific homes.
+  static Widget _homeFor(String? role) => switch (role) {
+    'Older Adult' => const ElderHomeScreen(),
+    'Family Caregiver' => const FamilyLinkingScreen(),
+    'Student Companion' => const StudentCompanionHomeScreen(),
+    _ => const WelcomeScreen(),
+  };
 }

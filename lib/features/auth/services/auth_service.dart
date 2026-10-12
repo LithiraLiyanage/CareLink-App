@@ -171,6 +171,11 @@ class AuthService {
     }
   }
 
+  Future<String?> getUserRole(String uid) async {
+    final snapshot = await _firestore.collection('users').doc(uid).get();
+    return snapshot.data()?['role'] as String?;
+  }
+
   User? get currentUser => _auth.currentUser;
 
   Future<void> _initializeGoogleSignIn() {

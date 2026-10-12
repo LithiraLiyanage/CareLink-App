@@ -6,6 +6,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 
 import 'student_verification_validator.dart';
 
+/// Saves Student Companion verification requests in Firebase.
+/// This is a service, not a Flutter screen.
 class StudentVerificationService {
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
@@ -24,8 +26,8 @@ class StudentVerificationService {
     required String university,
     required String studentId,
     required String universityEmail,
-    required String documentName,
-    required Uint8List documentBytes,
+    String? documentName,
+    Uint8List? documentBytes,
   }) async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -42,25 +44,21 @@ class StudentVerificationService {
       throw ArgumentError('University and Student ID are required.');
     }
     if (!StudentVerificationValidator.isValidEmail(universityEmail)) {
-      throw ArgumentError.value(
-        universityEmail,
-        'universityEmail',
-        'A valid university email is required.',
-      );
+      throw ArgumentError('Enter a valid university email address.');
     }
-    if (!StudentVerificationValidator.isAllowedDocument(documentName)) {
-      throw ArgumentError.value(
-        documentName,
-        'documentName',
-        'Only JPG, JPEG, PNG, and PDF documents are supported.',
-      );
+    // Require a complete, valid pair only when optional proof is provided.
+    final hasName = documentName != null && documentName.trim().isNotEmpty;
+    final hasBytes = documentBytes != null && documentBytes.isNotEmpty;
+    if (hasName != hasBytes) {
+      throw ArgumentError('Attach both document name and contents, or neither.');
     }
-    if (!StudentVerificationValidator.isWithinSizeLimit(documentBytes.length)) {
-      throw ArgumentError.value(
-        documentBytes.length,
-        'documentBytes',
-        'The document must be between 1 byte and 10 MB.',
-      );
+    if (hasBytes) {
+      if (!StudentVerificationValidator.isAllowedDocument(documentName!)) {
+        throw ArgumentError('Only JPG, JPEG, PNG and PDF documents are supported.');
+      }
+      if (!StudentVerificationValidator.isWithinSizeLimit(documentBytes.length)) {
+        throw ArgumentError('The document must be between 1 byte and 10 MB.');
+      }
     }
 
     final userReference = _firestore.collection('users').doc(user.uid);
@@ -71,49 +69,46 @@ class StudentVerificationService {
       );
     }
 
-    final verificationReference = _firestore
-        .collection('student_verifications')
-        .doc(user.uid);
+    final verificationReference =
+        _firestore.collection('student_verifications').doc(user.uid);
     final existingVerification = await verificationReference.get();
-    if ([
-      'approved',
-      'verified',
-    ].contains(existingVerification.data()?['status'])) {
+    if (['approved', 'verified'].contains(existingVerification.data()?['status'])) {
       throw StateError('Your student verification has already been approved.');
     }
     final previousDocumentPath =
         existingVerification.data()?['documentPath'] as String?;
 
-    final safeFileName = documentName.replaceAll(
-      RegExp(r'[^A-Za-z0-9._-]'),
-      '_',
-    );
-    final storageReference = _storage.ref().child(
-      'student_verifications/${user.uid}/'
-      '${_firestore.collection('student_verifications').doc().id}_$safeFileName',
-    );
-
+    Reference? uploadedReference;
     try {
-      await storageReference.putData(
-        documentBytes,
-        SettableMetadata(
-          contentType: StudentVerificationValidator.contentTypeFor(
-            documentName,
+      String? newDocumentUrl;
+      String? newDocumentPath;
+      if (hasBytes) {
+        final safeFileName = documentName!.replaceAll(
+          RegExp(r'[^A-Za-z0-9._-]'), '_');
+        uploadedReference = _storage.ref().child(
+          'student_verifications/${user.uid}/'
+          '${_firestore.collection('student_verifications').doc().id}_$safeFileName',
+        );
+        await uploadedReference.putData(
+          documentBytes,
+          SettableMetadata(
+            contentType: StudentVerificationValidator.contentTypeFor(documentName),
           ),
-        ),
-      );
-      final downloadUrl = await storageReference.getDownloadURL();
-      final batch = _firestore.batch();
+        );
+        newDocumentUrl = await uploadedReference.getDownloadURL();
+        newDocumentPath = uploadedReference.fullPath;
+      }
 
+      final batch = _firestore.batch();
       batch.set(verificationReference, {
         'userId': user.uid,
         'role': selectedRole,
         'university': university.trim(),
         'studentId': studentId.trim(),
         'universityEmail': universityEmail.trim(),
-        'documentName': documentName,
-        'documentUrl': downloadUrl,
-        'documentPath': storageReference.fullPath,
+        'documentName': hasBytes ? documentName : null,
+        'documentUrl': newDocumentUrl,
+        'documentPath': newDocumentPath,
         'status': 'pending',
         'reviewedAt': null,
         'reviewedBy': null,
@@ -127,22 +122,25 @@ class StudentVerificationService {
         'setupStage': 'complete',
         'updatedAt': FieldValue.serverTimestamp(),
       });
-
       await batch.commit();
 
       if (previousDocumentPath != null &&
-          previousDocumentPath != storageReference.fullPath &&
-          previousDocumentPath.startsWith(
-            'student_verifications/${user.uid}/',
-          )) {
+          previousDocumentPath != newDocumentPath &&
+          previousDocumentPath.startsWith('student_verifications/${user.uid}/')) {
         try {
           await _storage.ref(previousDocumentPath).delete();
         } catch (_) {
-          // The new submission is valid even if old-file cleanup is denied.
+          // Best-effort cleanup; Firestore submission has already succeeded.
         }
       }
     } catch (_) {
-      await storageReference.delete().catchError((_) {});
+      if (uploadedReference != null) {
+        try {
+          await uploadedReference.delete();
+        } catch (_) {
+          // Preserve original upload/submission error.
+        }
+      }
       rethrow;
     }
   }

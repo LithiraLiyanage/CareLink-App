@@ -2,6 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../features/auth/screens/splash_screen.dart';
 import '../features/auth/services/accessibility_controller.dart';
+import '../features/companion/controllers/companion_controller.dart';
+import '../features/companion/screens/incoming_requests_screen.dart';
+import '../features/companion/screens/matching_preferences_screen.dart';
+import '../features/companion/screens/student_companion_home_screen.dart';
+import '../features/coordinator/coordinator_access_guard.dart';
+import '../features/coordinator/coordinator_screens.dart';
+import '../features/family_safety/screens/family_approved_screen.dart';
+import '../features/family_safety/screens/family_dashboard_screen.dart';
+import '../features/family_safety/screens/family_linking_screen.dart';
+import '../features/family_safety/screens/family_pending_screen.dart';
+import '../features/family_safety/screens/missed_session_notification_screen.dart';
+import 'routes.dart';
 import 'theme.dart';
 
 class CareLinkApp extends StatelessWidget {
@@ -15,6 +27,7 @@ class CareLinkApp extends StatelessWidget {
         final baseTheme = preferences.highContrast
             ? CareLinkTheme.highContrastTheme
             : CareLinkTheme.lightTheme;
+
         return MaterialApp(
           title: 'CareLink',
           debugShowCheckedModeBanner: false,
@@ -47,33 +60,53 @@ class CareLinkApp extends StatelessWidget {
             if (preferences.highContrast) {
               content = ColorFiltered(
                 colorFilter: const ColorFilter.matrix(<double>[
-                  1.5,
-                  0,
-                  0,
-                  0,
-                  -100,
-                  0,
-                  1.5,
-                  0,
-                  0,
-                  -100,
-                  0,
-                  0,
-                  1.5,
-                  0,
-                  -100,
-                  0,
-                  0,
-                  0,
-                  1,
-                  0,
+                  1.5, 0, 0, 0, -100,
+                  0, 1.5, 0, 0, -100,
+                  0, 0, 1.5, 0, -100,
+                  0, 0, 0, 1, 0,
                 ]),
                 child: content,
               );
             }
             return content;
           },
-          home: const SplashScreen(),
+          initialRoute: AppRoutes.roleSelection,
+          routes: {
+            AppRoutes.roleSelection: (context) => const SplashScreen(),
+            AppRoutes.familyLinking: (context) => const FamilyLinkingScreen(),
+            AppRoutes.familyPending: (context) => const FamilyPendingScreen(),
+            AppRoutes.familyApproved: (context) => const FamilyApprovedScreen(),
+            AppRoutes.familyDashboard: (context) => const FamilyDashboardScreen(),
+            AppRoutes.missedSession: (context) =>
+                const MissedSessionNotificationScreen(),
+            // Protect coordinator screens before constructing them.
+            AppRoutes.coordinatorCaseList: (context) =>
+                const CoordinatorAccessGuard(child: CoordinatorCaseListScreen()),
+            AppRoutes.coordinatorCaseDetail: (context) =>
+                const CoordinatorAccessGuard(child: CoordinatorCaseDetailScreen()),
+            AppRoutes.consentContextReview: (context) =>
+                const CoordinatorAccessGuard(child: ConsentContextReviewScreen()),
+            AppRoutes.approvedContactAction: (context) =>
+                const CoordinatorAccessGuard(child: ApprovedContactActionScreen()),
+            AppRoutes.auditOutcomeCloseCase: (context) =>
+                const CoordinatorAccessGuard(child: AuditOutcomeCloseCaseScreen()),
+            AppRoutes.caseClosed: (context) =>
+                const CoordinatorAccessGuard(child: CaseClosedScreen()),
+            AppRoutes.coordinatorVerifications: (context) =>
+                const CoordinatorAccessGuard(
+                  child: StudentVerificationReviewScreen(),
+                ),
+            AppRoutes.companionHome: (context) =>
+                const StudentCompanionHomeScreen(),
+            AppRoutes.companionMatching: (context) =>
+                const MatchingPreferencesScreen(),
+            AppRoutes.companionIncomingRequests: (context) {
+              final argument = ModalRoute.of(context)?.settings.arguments;
+              return IncomingRequestsScreen(
+                controller: argument is CompanionController ? argument : null,
+              );
+            },
+          },
         );
       },
     );
